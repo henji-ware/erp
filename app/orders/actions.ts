@@ -1,0 +1,164 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { ORDER_STATUSES } from "@/lib/format";
+
+const ACTIVE = ["CONFIRMED", "INVOICED"];
+
+export async function createOrder(formData: FormData) {
+  const customerId = Number(formData.get("customerId"));
+  if (!customerId) return;
+
+  const requested = String(formData.get("status") ?? "DRAFT");
+  const status = ORDER_STATUSES.includes(requested as (typeof ORDER_STATUSES)[number])
+    ? requested
+    : "DRAFT";
+
+  const productIds = formData.getAll("productId").map((v) => Number(v));
+  const quantities = formData.getAll("quantity").map((v) => parseInt(String(v), 10));
+
+  // Monta as linhas do pedido a partir dos produtos válidos.
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds.filter((n) => n > 0) } },
+  });
+  const priceMap = new Map(products.map((p) => [p.id, p.price]));
+
+  const items: { productId: number; quantity: number; unitPrice: number }[] = [];
+  let total = 0;
+  productIds.forEach((pid, i) => {
+    const qty = quantities[i];
+    if (pid > 0 && qty > 0 && priceMap.has(pid)) {
+      const unitPrice = priceMap.get(pid)!;
+      items.push({ productId: pid, quantity: qty, unitPrice });
+      total += unitPrice * qty;
+    }
+  });
+
+  if (items.length === 0) return;
+
+  const sellerId = Number(formData.get("sellerId")) || null;
+
+  const order = await prisma.order.create({
+    data: {
+      number: "PED-" + Date.now().toString(36).toUpperCase(),
+      customerId,
+      sellerId,
+      status: "DRAFT",
+      total,
+      items: { create: items },
+    },
+  });
+
+  // Se já nasce confirmado/faturado, aplica os efeitos no estoque e financeiro.
+  if (ACTIVE.includes(status)) {
+    await applyConfirm(order.id);
+    await prisma.order.update({ where: { id: order.id }, data: { status } });
+  }
+
+  revalidatePath("/orders");
+  revalidatePath("/products");
+  revalidatePath("/finance");
+  revalidatePath("/");
+}
+
+export async function updateOrderStatus(formData: FormData) {
+  const id = Number(formData.get("id"));
+  const next = String(formData.get("status") ?? "");
+  if (!id || !ORDER_STATUSES.includes(next as (typeof ORDER_STATUSES)[number])) return;
+
+  const order = await prisma.order.findUnique({ where: { id } });
+  if (!order) return;
+
+  const wasActive = ACTIVE.includes(order.status);
+  const willActive = ACTIVE.includes(next);
+
+  if (order.status === "DRAFT" && willActive) {
+    await applyConfirm(id); // baixa estoque + gera conta a receber
+  }
+  if (wasActive && next === "CANCELLED") {
+    await reverseConfirm(id); // devolve estoque + cancela conta a receber
+  }
+
+  await prisma.order.update({ where: { id }, data: { status: next } });
+
+  revalidatePath("/orders");
+  revalidatePath("/products");
+  revalidatePath("/finance");
+  revalidatePath("/");
+}
+
+export async function deleteOrder(formData: FormData) {
+  const id = Number(formData.get("id"));
+  if (!id) return;
+
+  const order = await prisma.order.findUnique({ where: { id } });
+  if (!order) return;
+
+  if (ACTIVE.includes(order.status)) await reverseConfirm(id);
+  await prisma.transaction.deleteMany({ where: { orderId: id } });
+  await prisma.order.delete({ where: { id } }); // itens em cascata
+
+  revalidatePath("/orders");
+  revalidatePath("/products");
+  revalidatePath("/finance");
+  revalidatePath("/");
+}
+
+// ---- efeitos de integração (não exportados) ----
+
+async function applyConfirm(orderId: number) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: { include: { product: true } }, transactions: true },
+  });
+  if (!order) return;
+
+  for (const it of order.items) {
+    // Serviços não controlam estoque.
+    if (it.product.kind === "SERVICE") continue;
+    await prisma.product.update({
+      where: { id: it.productId },
+      data: { stock: { decrement: it.quantity } },
+    });
+  }
+
+  if (order.transactions.length === 0) {
+    await prisma.transaction.create({
+      data: {
+        description: `Receita do pedido ${order.number}`,
+        type: "RECEIVABLE",
+        amount: order.total,
+        dueDate: addDays(new Date(), 30),
+        status: "PENDING",
+        orderId: order.id,
+        customerId: order.customerId,
+      },
+    });
+  }
+}
+
+async function reverseConfirm(orderId: number) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: { include: { product: true } } },
+  });
+  if (!order) return;
+
+  for (const it of order.items) {
+    if (it.product.kind === "SERVICE") continue;
+    await prisma.product.update({
+      where: { id: it.productId },
+      data: { stock: { increment: it.quantity } },
+    });
+  }
+  await prisma.transaction.deleteMany({
+    where: { orderId, status: "PENDING" },
+  });
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}

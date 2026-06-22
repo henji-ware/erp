@@ -1,0 +1,306 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================================
+   APARÊNCIA
+   - MODO (claro/escuro/sistema): define a BASE neutra (--n-*).
+   - TEMA: define a COR (--accent) e um leve TINGIMENTO (--tint).
+   Os neutros são a base do modo "tingida" com a cor do tema (via color-mix),
+   então o tom claro/escuro muda de acordo com o tema escolhido.
+   ========================================================================= */
+
+/* ---- MODO: base neutra CLARA (e padrão do "sistema") ---- */
+:root,
+[data-mode="light"],
+[data-mode="system"] {
+  color-scheme: light;
+  --n-50: #f8fafc;
+  --n-100: #f1f5f9;
+  --n-200: #e2e8f0;
+  --n-300: #cbd5e1;
+  --n-400: #94a3b8;
+  --n-500: #64748b;
+  --n-600: #475569;
+  --n-700: #334155;
+  --n-800: #1e293b;
+  --n-900: #0f172a;
+  --n-surface: #ffffff;
+}
+
+/* ---- MODO: base neutra ESCURA ---- */
+[data-mode="dark"] {
+  color-scheme: dark;
+  --n-50: #0f172a;
+  --n-100: #141d31;
+  --n-200: #212d44;
+  --n-300: #2d3c58;
+  --n-400: #6e7c96;
+  --n-500: #94a3b8;
+  --n-600: #b0bed2;
+  --n-700: #cdd6e4;
+  --n-800: #e2e8f0;
+  --n-900: #f4f7fa;
+  --n-surface: #182238;
+}
+
+/* ---- "Sistema": segue a preferência do SO ---- */
+@media (prefers-color-scheme: dark) {
+  [data-mode="system"] {
+    color-scheme: dark;
+    --n-50: #0f172a;
+    --n-100: #141d31;
+    --n-200: #212d44;
+    --n-300: #2d3c58;
+    --n-400: #6e7c96;
+    --n-500: #94a3b8;
+    --n-600: #b0bed2;
+    --n-700: #cdd6e4;
+    --n-800: #e2e8f0;
+    --n-900: #f4f7fa;
+    --n-surface: #182238;
+  }
+}
+
+/* ---- Deriva os neutros (tingidos) e os destaques ---- */
+:root,
+[data-theme] {
+  --tint: #475569;
+  --accent: #6366f1;
+  --accent-strong: #4f46e5;
+  --accent-fg: 255 255 255;
+
+  --c-slate-50: color-mix(in srgb, var(--n-50) 86%, var(--tint));
+  --c-slate-100: color-mix(in srgb, var(--n-100) 86%, var(--tint));
+  --c-slate-200: color-mix(in srgb, var(--n-200) 88%, var(--tint));
+  --c-slate-300: color-mix(in srgb, var(--n-300) 90%, var(--tint));
+  --c-slate-400: color-mix(in srgb, var(--n-400) 92%, var(--tint));
+  --c-slate-500: color-mix(in srgb, var(--n-500) 94%, var(--tint));
+  --c-slate-600: color-mix(in srgb, var(--n-600) 95%, var(--tint));
+  --c-slate-700: color-mix(in srgb, var(--n-700) 95%, var(--tint));
+  --c-slate-800: color-mix(in srgb, var(--n-800) 96%, var(--tint));
+  --c-slate-900: color-mix(in srgb, var(--n-900) 96%, var(--tint));
+  --c-surface: color-mix(in srgb, var(--n-surface) 88%, var(--tint));
+
+  --c-brand-500: var(--accent);
+  --c-brand-600: var(--accent);
+  --c-brand-700: var(--accent-strong, var(--accent));
+  --c-brand-50: color-mix(in srgb, var(--accent) 12%, var(--c-surface));
+  --c-brand-100: color-mix(in srgb, var(--accent) 22%, var(--c-surface));
+}
+
+[data-theme="drr"]         { --tint: #15365e; --accent: #f0a500; --accent-strong: #cc8400; --accent-fg: 10 22 40; }
+[data-theme="default"]     { --tint: #475569; --accent: #6366f1; --accent-strong: #4f46e5; --accent-fg: 255 255 255; }
+[data-theme="claude"]      { --tint: #b08968; --accent: #c15f3c; --accent-strong: #a44a2e; --accent-fg: 255 255 255; }
+[data-theme="tokyo-night"] { --tint: #2a2e54; --accent: #6a8df5; --accent-strong: #4f6fe0; --accent-fg: 255 255 255; }
+[data-theme="nord"]        { --tint: #3b4a63; --accent: #5b9bb5; --accent-strong: #4a85a0; --accent-fg: 255 255 255; }
+[data-theme="tide"]        { --tint: #0e3b46; --accent: #14b8a6; --accent-strong: #0d9488; --accent-fg: 255 255 255; }
+[data-theme="sage"]        { --tint: #4b6650; --accent: #6b8f71; --accent-strong: #587a5e; --accent-fg: 255 255 255; }
+[data-theme="catppuccin"]  { --tint: #3a2f5c; --accent: #a06cf0; --accent-strong: #8a54e0; --accent-fg: 255 255 255; }
+[data-theme="gruvbox"]     { --tint: #5a4a32; --accent: #e8731a; --accent-strong: #cc5e0a; --accent-fg: 255 255 255; }
+[data-theme="rose-pine"]   { --tint: #4a2f47; --accent: #c97f8a; --accent-strong: #b3656f; --accent-fg: 255 255 255; }
+[data-theme="caffeine"]    { --tint: #6f4e37; --accent: #8b5e3c; --accent-strong: #6f4e37; --accent-fg: 255 255 255; }
+
+body {
+  @apply bg-slate-50 text-slate-800 antialiased;
+}
+
+/* Controles nativos (calendário do input date, checkbox…) usam o destaque do tema */
+html {
+  accent-color: var(--c-brand-600);
+}
+
+/* Transição suave ao trocar de tema/modo (especificidade 0 => não atrapalha hover) */
+:where(body, aside, .card, .input, .th, .td, .badge, table, select, textarea, input, button) {
+  transition: background-color 0.25s ease, border-color 0.25s ease,
+    color 0.2s ease;
+}
+
+@layer components {
+  .input {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm
+           text-slate-800 shadow-sm outline-none transition focus:border-brand-500
+           focus:ring-2 focus:ring-brand-100;
+  }
+
+  .label {
+    @apply mb-1 block text-xs font-medium text-slate-600;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2
+           text-sm font-medium transition-all duration-150 active:scale-[.97]
+           disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand-600 hover:bg-brand-700;
+    color: rgb(var(--accent-fg));
+  }
+
+  .btn-ghost {
+    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-100;
+  }
+
+  .btn-danger {
+    @apply btn text-red-600 hover:bg-red-500/10;
+  }
+
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+
+  .th {
+    @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500;
+  }
+
+  .td {
+    @apply px-4 py-3 text-sm text-slate-700;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+}
+
+@layer utilities {
+  .text-on-accent {
+    color: rgb(var(--accent-fg));
+  }
+  .bg-accent {
+    background-color: var(--c-brand-600);
+  }
+  /* Eleva sutilmente no hover */
+  .hover-lift {
+    @apply transition-transform duration-200 will-change-transform;
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* Conteúdo entra com leve fade/slide */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.page-enter {
+  animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Realce sutil ao passar o mouse nas linhas das tabelas */
+.card table tbody tr {
+  transition: background-color 0.15s ease;
+}
+.card table tbody tr:hover {
+  background-color: color-mix(in srgb, var(--c-slate-100) 60%, transparent);
+}
+
+/* Cartões e botões com micro-interações */
+.card {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.btn-primary:hover {
+  box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* Respeita preferências do usuário e o toggle de configurações */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+html.no-anim *,
+html.no-anim *::before,
+html.no-anim *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Rodapé do PDF — escondido na tela, exibido apenas na impressão */
+.report-footer {
+  display: none;
+}
+
+/* Impressão / exportação em PDF (via navegador) */
+@media print {
+  /* Paleta clara/neutra para impressão, independente do tema/modo.
+     !important vence a especificidade de [data-theme]/[data-mode]. */
+  html,
+  html[data-mode],
+  html[data-theme] {
+    --c-slate-50: #f8fafc !important;
+    --c-slate-100: #f1f5f9 !important;
+    --c-slate-200: #e2e8f0 !important;
+    --c-slate-300: #cbd5e1 !important;
+    --c-slate-400: #64748b !important;
+    --c-slate-500: #475569 !important;
+    --c-slate-600: #334155 !important;
+    --c-slate-700: #1e293b !important;
+    --c-slate-800: #111827 !important;
+    --c-slate-900: #0a1628 !important;
+    --c-surface: #ffffff !important;
+    --accent: #c98f00 !important;
+    --accent-strong: #a67400 !important;
+    --accent-fg: 255 255 255 !important;
+    color-scheme: light;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* margin:0 faz o Chrome/Edge não imprimirem o cabeçalho/rodapé (URL, título) */
+  @page {
+    margin: 0;
+  }
+  body {
+    background: #fff;
+  }
+  aside,
+  .no-print {
+    display: none !important;
+  }
+  /* Deixa o conteúdo fluir por todas as páginas (sem o recorte do h-screen) */
+  #app-shell {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  main {
+    overflow: visible !important;
+    height: auto !important;
+  }
+  main > div {
+    max-width: none !important;
+    padding: 14mm 12mm !important;
+  }
+  .card {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border-color: #e2e8f0 !important;
+  }
+  /* Rodapé ao fim do documento (sem position:fixed => nunca cobre conteúdo) */
+  .report-footer {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 10mm;
+    padding-top: 3.5mm;
+    border-top: 1px solid #cbd5e1;
+    font-size: 8.5pt;
+    color: #64748b;
+    break-inside: avoid;
+  }
+  .report-footer span:first-child {
+    font-weight: 700;
+    color: #0a1628;
+  }
+}

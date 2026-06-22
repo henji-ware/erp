@@ -1,0 +1,235 @@
+// ERP + CRM unificado — schema do banco de dados (PostgreSQL / Vercel + Neon)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // conexão (pooled) usada em runtime
+  directUrl = env("DIRECT_URL") // conexão direta para migrações/db push
+}
+
+// --------------------------- Acesso ----------------------------
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+// ---------------------------- RH -------------------------------
+
+model Employee {
+  id           Int           @id @default(autoincrement())
+  name         String
+  role         String? // cargo
+  department   String?
+  email        String?
+  phone        String?
+  contractType String        @default("CLT") // CLT | PJ
+  salary       Float         @default(0)
+  commissionPct Float        @default(0) // percentual de comissão sobre vendas
+  benefits     String? // benefícios (VR, VT, plano de saúde…)
+  hireDate     DateTime?
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  sales        Order[]       @relation("Seller")
+  projects     Project[]     @relation("ProjectResponsible")
+  appointments Appointment[]
+}
+
+// --------------------- Projetos / Obras ------------------------
+
+// type: ENGENHARIA | INSPECAO | MONTAGEM | REMANEJAMENTO | MANUTENCAO | VENDA | LOCACAO
+// status: ORCAMENTO | APROVADO | EM_EXECUCAO | CONCLUIDO | CANCELADO
+model Project {
+  id            Int       @id @default(autoincrement())
+  number        String    @unique
+  title         String
+  type          String    @default("ENGENHARIA")
+  status        String    @default("ORCAMENTO")
+  customer      Customer  @relation(fields: [customerId], references: [id])
+  customerId    Int
+  responsible   Employee? @relation("ProjectResponsible", fields: [responsibleId], references: [id])
+  responsibleId Int?
+  value         Float     @default(0)
+  location      String?
+  startDate     DateTime?
+  endDate       DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+}
+
+// ------------------- Inspeções e Laudos ------------------------
+
+// status: AGENDADA | REALIZADA | LAUDO_EMITIDO   risk: VERDE | AMARELO | VERMELHO
+model Inspection {
+  id          Int       @id @default(autoincrement())
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  customerId  Int
+  location    String?
+  scheduledAt DateTime
+  status      String    @default("AGENDADA")
+  riskLevel   String?
+  engineer    String? // engenheiro responsável
+  artNumber   String? // número da ART
+  findings    String?
+  createdAt   DateTime  @default(now())
+}
+
+// ------------------------ Agendamentos -------------------------
+
+// type: VISIT | MEETING     status: SCHEDULED | DONE | CANCELLED
+model Appointment {
+  id         Int       @id @default(autoincrement())
+  title      String
+  type       String    @default("MEETING")
+  startsAt   DateTime
+  status     String    @default("SCHEDULED")
+  location   String?
+  notes      String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  customerId Int?
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+  employeeId Int?
+  createdAt  DateTime  @default(now())
+}
+
+// ------------------------- Fornecedores ------------------------
+
+model Supplier {
+  id           Int           @id @default(autoincrement())
+  name         String
+  document     String? // CPF/CNPJ
+  email        String?
+  phone        String?
+  notes        String?
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+}
+
+// ----------------------------- CRM -----------------------------
+
+model Customer {
+  id           Int           @id @default(autoincrement())
+  name         String
+  email        String?
+  phone        String?
+  company      String?
+  document     String? // CPF/CNPJ
+  notes        String?
+  createdAt    DateTime      @default(now())
+  orders       Order[]
+  leads        Lead[]
+  transactions Transaction[]
+  appointments Appointment[]
+  projects     Project[]
+  inspections  Inspection[]
+}
+
+// Funil de vendas / Orçamentos. stage: NEW | CONTACTED | PROPOSAL | WON | LOST
+model Lead {
+  id          Int          @id @default(autoincrement())
+  name        String
+  email       String?
+  phone       String?
+  document    String? // CPF/CNPJ
+  source      String?
+  stage       String       @default("NEW")
+  value       Float        @default(0)
+  customer    Customer?    @relation(fields: [customerId], references: [id])
+  customerId  Int?
+  attachments Attachment[]
+  createdAt   DateTime     @default(now())
+}
+
+// Anexo (proposta em PDF/Word) vinculado a um orçamento/lead.
+model Attachment {
+  id         Int      @id @default(autoincrement())
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId     Int
+  fileName   String // nome original do arquivo
+  storedName String // nome único (disco) ou caminho do blob
+  url        String? // URL do Vercel Blob (nuvem); vazio = arquivo em disco (local)
+  mimeType   String
+  size       Int      @default(0)
+  createdAt  DateTime @default(now())
+}
+
+// -------------------------- Estoque ----------------------------
+
+// kind: PRODUCT | SERVICE  (serviços não controlam estoque)
+model Product {
+  id        Int         @id @default(autoincrement())
+  sku       String      @unique
+  name      String
+  kind      String      @default("PRODUCT")
+  category  String? // Equipamento, Acessório de Segurança, Nível de Carregamento, Serviço
+  rentable  Boolean     @default(false) // disponível para locação
+  price     Float       @default(0)
+  cost      Float       @default(0)
+  stock     Int         @default(0)
+  createdAt DateTime    @default(now())
+  items     OrderItem[]
+}
+
+// --------------------------- Vendas ----------------------------
+
+// status: DRAFT | CONFIRMED | INVOICED | CANCELLED
+model Order {
+  id           Int           @id @default(autoincrement())
+  number       String        @unique
+  customer     Customer      @relation(fields: [customerId], references: [id])
+  customerId   Int
+  seller       Employee?     @relation("Seller", fields: [sellerId], references: [id])
+  sellerId     Int?
+  status       String        @default("DRAFT")
+  total        Float         @default(0)
+  createdAt    DateTime      @default(now())
+  items        OrderItem[]
+  transactions Transaction[]
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   Int
+  product   Product @relation(fields: [productId], references: [id])
+  productId Int
+  quantity  Int     @default(1)
+  unitPrice Float   @default(0)
+}
+
+// ------------------------- Financeiro --------------------------
+
+// type: RECEIVABLE | PAYABLE   status: PENDING | PARTIAL | PAID
+model Transaction {
+  id          Int       @id @default(autoincrement())
+  description String
+  type        String
+  amount      Float     @default(0)
+  dueDate     DateTime
+  status      String    @default("PENDING")
+  order       Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderId     Int?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  customerId  Int?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  supplierId  Int?
+  payments    Payment[]
+  createdAt   DateTime  @default(now())
+}
+
+// Pagamentos podem ser parciais. method: CARD_CREDIT | CARD_DEBIT | PIX | BOLETO | CASH
+model Payment {
+  id            Int         @id @default(autoincrement())
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  transactionId Int
+  amount        Float       @default(0)
+  method        String      @default("CASH")
+  paidAt        DateTime    @default(now())
+  createdAt     DateTime    @default(now())
+}
