@@ -47,9 +47,33 @@ export async function updateCustomer(formData: FormData) {
 export async function deleteCustomer(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
-  // Impede excluir cliente com pedidos vinculados.
-  const orders = await prisma.order.count({ where: { customerId: id } });
-  if (orders > 0) return;
+
+  // Não exclui cliente com registros vinculados (pedidos, projetos, inspeções,
+  // orçamentos, lançamentos ou agendamentos) — evita erro de chave estrangeira.
+  const c = await prisma.customer.findUnique({
+    where: { id },
+    select: {
+      _count: {
+        select: {
+          orders: true,
+          projects: true,
+          inspections: true,
+          leads: true,
+          transactions: true,
+          appointments: true,
+        },
+      },
+    },
+  });
+  if (!c) return;
+  const linked =
+    c._count.orders +
+    c._count.projects +
+    c._count.inspections +
+    c._count.leads +
+    c._count.transactions +
+    c._count.appointments;
+  if (linked > 0) return;
 
   await prisma.customer.delete({ where: { id } });
   revalidatePath("/customers");

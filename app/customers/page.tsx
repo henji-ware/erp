@@ -27,7 +27,18 @@ export default async function CustomersPage({
         }
       : undefined,
     orderBy: { createdAt: "desc" },
-    include: { _count: { select: { orders: true } } },
+    include: {
+      _count: {
+        select: {
+          orders: true,
+          projects: true,
+          inspections: true,
+          leads: true,
+          transactions: true,
+          appointments: true,
+        },
+      },
+    },
   });
 
   return (
@@ -93,7 +104,15 @@ export default async function CustomersPage({
                   </td>
                 </tr>
               ) : (
-                customers.map((c) => (
+                customers.map((c) => {
+                  const linked =
+                    c._count.orders +
+                    c._count.projects +
+                    c._count.inspections +
+                    c._count.leads +
+                    c._count.transactions +
+                    c._count.appointments;
+                  return (
                   <tr key={c.id} className="border-b border-slate-50 last:border-0">
                     <td className="td">
                       <p className="font-medium text-slate-800">{c.name}</p>
@@ -119,11 +138,11 @@ export default async function CustomersPage({
                             type="submit"
                             className="btn-danger px-3 py-1.5 text-xs"
                             title={
-                              c._count.orders > 0
-                                ? "Cliente com pedidos não pode ser excluído"
+                              linked > 0
+                                ? "Cliente com registros vinculados não pode ser excluído"
                                 : "Excluir"
                             }
-                            disabled={c._count.orders > 0}
+                            disabled={linked > 0}
                           >
                             <Icon name="trash" size={14} />
                           </button>
@@ -131,7 +150,8 @@ export default async function CustomersPage({
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
