@@ -190,8 +190,18 @@ html {
     transform: translateY(0);
   }
 }
+/* Entrada da página: SÓ opacidade (sem transform), senão quebra o
+   position:fixed da tela de login, que deixa de cobrir a tela inteira. */
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 .page-enter {
-  animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: page-fade-in 0.35s ease both;
 }
 
 /* Realce sutil ao passar o mouse nas linhas das tabelas */
