@@ -7,7 +7,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL") // conexão (pooled) usada em runtime
-  directUrl = env("DIRECT_URL") // conexão direta para migrações/db push
+  directUrl = env("DATABASE_URL_UNPOOLED") // conexão direta (injetada pela Vercel/Neon)
 }
 
 // --------------------------- Acesso ----------------------------
