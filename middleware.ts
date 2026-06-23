@@ -22,7 +22,10 @@ export async function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-// Aplica a tudo, exceto assets internos do Next, o favicon e o ícone do app.
+// Aplica a tudo, exceto assets internos do Next e imagens públicas
+// (logo/favicon precisam carregar sem sessão, ex.: na tela de login).
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|logo.png|favicon.png).*)",
+  ],
 };
