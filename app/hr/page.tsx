@@ -49,7 +49,7 @@ export default async function HrPage({
               <label className="label">Nome *</label>
               <input name="name" required className="input" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="label">Cargo</label>
                 <input name="role" className="input" placeholder="Vendedor..." />
@@ -59,7 +59,7 @@ export default async function HrPage({
                 <input name="department" className="input" placeholder="Comercial..." />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="label">E-mail</label>
                 <input name="email" type="email" className="input" />
@@ -69,7 +69,7 @@ export default async function HrPage({
                 <input name="phone" className="input" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="label">Tipo de contrato</label>
                 <select name="contractType" className="input" defaultValue="CLT">
@@ -82,7 +82,7 @@ export default async function HrPage({
                 <input name="commissionPct" type="number" step="0.1" min="0" className="input" placeholder="0" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="label">Salário (R$)</label>
                 <input name="salary" type="number" step="0.01" min="0" className="input" />
@@ -106,6 +106,7 @@ export default async function HrPage({
         </div>
 
         <div className="card overflow-hidden lg:col-span-2">
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="border-b border-slate-100 bg-slate-50">
               <tr>
@@ -177,6 +178,7 @@ export default async function HrPage({
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

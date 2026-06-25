@@ -48,7 +48,7 @@ export default async function FinancePage() {
         subtitle="Agende contas a pagar/receber, acompanhe vencimentos e dê baixa (inclusive parcial)"
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard label="A receber (saldo)" value={formatCurrency(recPending)} accent="text-green-600" delay={0} />
         <StatCard label="A pagar (saldo)" value={formatCurrency(payPending)} accent="text-red-600" delay={60} />
         <StatCard
@@ -119,6 +119,7 @@ export default async function FinancePage() {
         </div>
 
         <div className="card overflow-hidden lg:col-span-2">
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="border-b border-slate-100 bg-slate-50">
               <tr>
@@ -213,6 +214,7 @@ export default async function FinancePage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

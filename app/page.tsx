@@ -66,7 +66,7 @@ export default async function DashboardPage() {
         subtitle="Visão geral — projetos, inspeções, vendas, equipamentos e financeiro"
       />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Clientes" value={String(customerCount)} hint="CRM" delay={0} />
         <StatCard
           label="Funil aberto"
@@ -133,6 +133,7 @@ export default async function DashboardPage() {
               Nenhum pedido ainda.
             </p>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full">
               <tbody>
                 {recentOrders.map((o) => (
@@ -151,6 +152,7 @@ export default async function DashboardPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 
@@ -167,6 +169,7 @@ export default async function DashboardPage() {
               Nenhum lead ainda.
             </p>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full">
               <tbody>
                 {recentLeads.map((l) => (
@@ -184,6 +187,7 @@ export default async function DashboardPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
@@ -201,6 +205,7 @@ export default async function DashboardPage() {
             Nenhum agendamento futuro.
           </p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full">
             <tbody>
               {upcomingAppointments.map((a) => (
@@ -217,6 +222,7 @@ export default async function DashboardPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

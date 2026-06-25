@@ -45,7 +45,7 @@ export default async function ProductsPage({
               <label className="label">Nome *</label>
               <input name="name" required className="input" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="label">Tipo</label>
                 <select name="kind" className="input" defaultValue="PRODUCT">
@@ -58,7 +58,7 @@ export default async function ProductsPage({
                 <input name="sku" className="input" placeholder="Automático" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="label">Preço venda (R$)</label>
                 <input name="price" type="number" step="0.01" min="0" className="input" />
@@ -77,6 +77,7 @@ export default async function ProductsPage({
         </div>
 
         <div className="card overflow-hidden lg:col-span-2">
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="border-b border-slate-100 bg-slate-50">
               <tr>
@@ -172,6 +173,7 @@ export default async function ProductsPage({
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

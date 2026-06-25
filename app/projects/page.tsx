@@ -53,7 +53,7 @@ export default async function ProjectsPage({
         action={<SearchBar placeholder="Buscar por título, cliente..." defaultValue={q} />}
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Em carteira" value={formatCurrency(backlog)} hint={`${open.length} ativos`} accent="text-brand-600" delay={0} />
         <StatCard label="Em orçamento" value={String(inQuote.length)} delay={60} />
         <StatCard label="Em execução" value={String(running.length)} accent="text-amber-600" delay={120} />
@@ -78,7 +78,7 @@ export default async function ProjectsPage({
                 ))}
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="label">Tipo</label>
                 <select name="type" className="input" defaultValue="ENGENHARIA">
@@ -105,7 +105,7 @@ export default async function ProjectsPage({
               <label className="label">Local / Endereço</label>
               <input name="location" className="input" placeholder="Cidade / CD do cliente" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="label">Início</label>
                 <input name="startDate" type="date" className="input" />
@@ -125,6 +125,7 @@ export default async function ProjectsPage({
 
         {/* Tabela */}
         <div className="card overflow-hidden xl:col-span-2">
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="border-b border-slate-100 bg-slate-50">
               <tr>
@@ -185,6 +186,7 @@ export default async function ProjectsPage({
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

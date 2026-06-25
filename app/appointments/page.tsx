@@ -100,6 +100,7 @@ export default async function AppointmentsPage() {
         </div>
 
         <div className="card overflow-hidden lg:col-span-2">
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="border-b border-slate-100 bg-slate-50">
               <tr>
@@ -175,6 +176,7 @@ export default async function AppointmentsPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

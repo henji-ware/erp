@@ -179,6 +179,110 @@ html {
   }
 }
 
+/* =========================================================================
+   SIDEBAR — mobile drawer + desktop collapse
+   ========================================================================= */
+
+/* ---- Mobile top bar (hamburger + logo) ---- */
+.sidebar-mobile-header {
+  @apply sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3;
+}
+
+/* ---- Overlay behind mobile drawer ---- */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.45);
+  animation: sidebar-fade-in 0.2s ease;
+}
+
+@keyframes sidebar-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ---- Sidebar aside (base) ---- */
+.sidebar-aside {
+  @apply flex shrink-0 flex-col border-r border-slate-200 bg-white;
+  position: relative;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Desktop: expanded (default) */
+@media (min-width: 768px) {
+  .sidebar-expanded { width: 15rem; /* 240px */ }
+  .sidebar-collapsed { width: 4.5rem; /* 72px — icon-only */ }
+}
+
+/* Mobile: off-canvas drawer */
+@media (max-width: 767.98px) {
+  .sidebar-aside {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 16rem;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: none;
+  }
+  .sidebar-aside.sidebar-mobile-open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px -4px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* ---- Collapse toggle button (desktop only) ---- */
+.sidebar-collapse-btn {
+  position: absolute;
+  top: 1.75rem;
+  right: -0.75rem;
+  z-index: 10;
+  width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid var(--c-slate-200);
+  background: var(--c-surface);
+  color: var(--c-slate-500);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+  opacity: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.sidebar-aside:hover .sidebar-collapse-btn,
+.sidebar-collapse-btn:focus-visible {
+  opacity: 1;
+}
+.sidebar-collapse-btn:hover {
+  background: var(--c-slate-100);
+  color: var(--c-slate-700);
+}
+
+/* ---- Label hide/show when collapsing ---- */
+.sidebar-label {
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.2s ease, width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 1;
+}
+.sidebar-label-hidden {
+  opacity: 0;
+  width: 0;
+  pointer-events: none;
+}
+/* On mobile, labels are always visible (even if desktop is collapsed) */
+@media (max-width: 767.98px) {
+  .sidebar-label-hidden {
+    opacity: 1;
+    width: auto;
+    pointer-events: auto;
+  }
+}
+
 /* Conteúdo entra com leve fade/slide */
 @keyframes fade-in-up {
   from {
@@ -274,7 +378,9 @@ html.no-anim *::after {
     background: #fff;
   }
   aside,
-  .no-print {
+  .no-print,
+  .sidebar-mobile-header,
+  .sidebar-overlay {
     display: none !important;
   }
   /* Deixa o conteúdo fluir por todas as páginas (sem o recorte do h-screen) */

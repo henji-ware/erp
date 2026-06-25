@@ -50,7 +50,7 @@ export default async function InspectionsPage({
         action={<SearchBar placeholder="Buscar por cliente, ART..." defaultValue={q} />}
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Agendadas" value={String(scheduled)} accent="text-blue-600" delay={0} />
         <StatCard label="Laudos emitidos" value={String(reports)} accent="text-green-600" delay={60} />
         <StatCard label="Risco crítico (vermelho)" value={String(critical)} accent="text-red-600" delay={120} />
@@ -79,7 +79,7 @@ export default async function InspectionsPage({
               <label className="label">Local / Endereço</label>
               <input name="location" className="input" placeholder="CD / galpão do cliente" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="label">Engenheiro</label>
                 <input name="engineer" className="input" placeholder="Eng. responsável" />
@@ -108,6 +108,7 @@ export default async function InspectionsPage({
 
         {/* Tabela */}
         <div className="card overflow-hidden xl:col-span-2">
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="border-b border-slate-100 bg-slate-50">
               <tr>
@@ -167,6 +168,7 @@ export default async function InspectionsPage({
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

@@ -62,7 +62,7 @@ export default async function CustomersPage({
               <label className="label">Empresa</label>
               <input name="company" className="input" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="label">E-mail</label>
                 <input name="email" type="email" className="input" />
@@ -86,6 +86,7 @@ export default async function CustomersPage({
 
         {/* Tabela */}
         <div className="card overflow-hidden lg:col-span-2">
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="border-b border-slate-100 bg-slate-50">
               <tr>
@@ -155,6 +156,7 @@ export default async function CustomersPage({
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

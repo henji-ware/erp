@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 import { logout } from "../login/actions";
 import { Icon, type IconName } from "./icons";
 import Logo from "./Logo";
@@ -23,15 +24,45 @@ const links: { href: string; label: string; icon: IconName }[] = [
 
 export default function Sidebar({ userName }: { userName?: string }) {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
-  return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white">
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Close mobile drawer on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileOpen(false);
+    };
+    if (mobileOpen) {
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [mobileOpen]);
+
+  // Lock body scroll when mobile drawer is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = ""; };
+    }
+  }, [mobileOpen]);
+
+  const toggleMobile = useCallback(() => setMobileOpen((v) => !v), []);
+  const toggleCollapse = useCallback(() => setCollapsed((v) => !v), []);
+
+  const sidebarContent = (
+    <>
+      {/* Header */}
       <div className="flex items-center gap-2.5 px-5 py-5">
         <Logo size={38} />
-        <div>
+        <div className={`sidebar-label ${collapsed ? "sidebar-label-hidden" : ""}`}>
           <p className="text-sm font-bold leading-tight text-slate-800">
             DRR&nbsp;Projetos
           </p>
@@ -39,6 +70,7 @@ export default function Sidebar({ userName }: { userName?: string }) {
         </div>
       </div>
 
+      {/* Navigation */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
         {links.map((link, i) => {
           const active = isActive(link.href);
@@ -46,6 +78,7 @@ export default function Sidebar({ userName }: { userName?: string }) {
             <Link
               key={link.href}
               href={link.href}
+              title={collapsed ? link.label : undefined}
               style={{ animationDelay: `${i * 45}ms` }}
               className={`animate-slide-in-left flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 hover:translate-x-0.5 ${
                 active
@@ -53,38 +86,106 @@ export default function Sidebar({ userName }: { userName?: string }) {
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               }`}
             >
-              <Icon name={link.icon} size={18} />
-              {link.label}
+              <Icon name={link.icon} size={18} className="shrink-0" />
+              <span className={`sidebar-label ${collapsed ? "sidebar-label-hidden" : ""}`}>
+                {link.label}
+              </span>
             </Link>
           );
         })}
       </nav>
 
+      {/* Footer */}
       <div className="space-y-1 border-t border-slate-100 px-3 py-3">
         <Link
           href="/settings"
+          title={collapsed ? "Configurações" : undefined}
           className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 ${
             isActive("/settings")
               ? "bg-brand-50 text-brand-700"
               : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
           }`}
         >
-          <Icon name="settings" size={18} />
-          Configurações
+          <Icon name="settings" size={18} className="shrink-0" />
+          <span className={`sidebar-label ${collapsed ? "sidebar-label-hidden" : ""}`}>
+            Configurações
+          </span>
         </Link>
 
-        {userName && (
+        {userName && !collapsed && (
           <p className="truncate px-3 pt-2 text-xs text-slate-500">
             Olá, <span className="font-medium text-slate-700">{userName}</span>
           </p>
         )}
         <form action={logout}>
-          <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-red-500/10 hover:text-red-600">
-            <Icon name="logout" size={18} />
-            Sair
+          <button
+            title={collapsed ? "Sair" : undefined}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-red-500/10 hover:text-red-600"
+          >
+            <Icon name="logout" size={18} className="shrink-0" />
+            <span className={`sidebar-label ${collapsed ? "sidebar-label-hidden" : ""}`}>
+              Sair
+            </span>
           </button>
         </form>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* ─── Mobile top bar ─── */}
+      <div className="sidebar-mobile-header md:hidden">
+        <button
+          onClick={toggleMobile}
+          className="rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+          aria-label="Abrir menu"
+        >
+          <Icon name="menu" size={22} />
+        </button>
+        <div className="flex items-center gap-2">
+          <Logo size={28} />
+          <span className="text-sm font-bold text-slate-800">DRR&nbsp;Projetos</span>
+        </div>
+        <div className="w-[38px]" /> {/* Spacer to center the logo */}
+      </div>
+
+      {/* ─── Mobile overlay ─── */}
+      {mobileOpen && (
+        <div
+          className="sidebar-overlay md:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ─── Sidebar (desktop: always visible; mobile: drawer) ─── */}
+      <aside
+        className={`sidebar-aside ${
+          collapsed ? "sidebar-collapsed" : "sidebar-expanded"
+        } ${mobileOpen ? "sidebar-mobile-open" : ""}`}
+      >
+        {/* Desktop collapse toggle */}
+        <button
+          onClick={toggleCollapse}
+          className="sidebar-collapse-btn hidden md:flex"
+          aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+          title={collapsed ? "Expandir menu" : "Recolher menu"}
+        >
+          <Icon name={collapsed ? "chevronRight" : "chevronLeft"} size={14} strokeWidth={2.2} />
+        </button>
+
+        {/* Mobile close button */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="absolute right-3 top-4 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 md:hidden"
+          aria-label="Fechar menu"
+        >
+          <Icon name="close" size={18} />
+        </button>
+
+        {sidebarContent}
+      </aside>
+    </>
   );
 }
