@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 
 export async function createSupplier(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
 
-  await prisma.supplier.create({
+  const supplier = await prisma.supplier.create({
     data: {
       name,
       document: str(formData.get("document")),
@@ -17,6 +18,7 @@ export async function createSupplier(formData: FormData) {
       notes: str(formData.get("notes")),
     },
   });
+  await logAudit({ action: "CREATE", entity: "Fornecedor", entityId: supplier.id, summary: `"${name}" cadastrado` });
 
   revalidatePath("/suppliers");
 }
@@ -36,6 +38,7 @@ export async function updateSupplier(formData: FormData) {
       notes: str(formData.get("notes")),
     },
   });
+  await logAudit({ action: "UPDATE", entity: "Fornecedor", entityId: id, summary: `"${name}" editado` });
 
   revalidatePath("/suppliers");
   redirect("/suppliers");
@@ -48,6 +51,7 @@ export async function deleteSupplier(formData: FormData) {
   if (used > 0) return;
 
   await prisma.supplier.delete({ where: { id } });
+  await logAudit({ action: "DELETE", entity: "Fornecedor", entityId: id, summary: "Fornecedor excluído" });
   revalidatePath("/suppliers");
 }
 

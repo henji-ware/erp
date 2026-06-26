@@ -30,6 +30,7 @@ export default async function SettingsPage() {
       prisma.transaction.count(),
       prisma.employee.count(),
       prisma.appointment.count(),
+      prisma.auditLog.count(),
     ]),
   ]);
 
@@ -40,7 +41,7 @@ export default async function SettingsPage() {
   const animOn = store.get(ANIM_COOKIE)?.value !== "off";
   const currentName =
     THEMES.find((t) => t.id === current)?.name ?? "Default";
-  const [customers, products, orders, suppliers, transactions, employees, appointments] = counts;
+  const [customers, products, orders, suppliers, transactions, employees, appointments, auditLogs] = counts;
 
   return (
     <div className="max-w-4xl">
@@ -86,8 +87,8 @@ export default async function SettingsPage() {
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
           <Info label="Usuário" value={user?.name ?? "—"} />
           <Info label="E-mail" value={user?.email ?? "—"} />
-          <Info label="Versão" value="0.4.0" />
-          <Info label="Banco de dados" value="SQLite (dev)" />
+          <Info label="Versão" value="0.5.0" />
+          <Info label="Banco de dados" value="PostgreSQL (Neon)" />
           <Info label="Clientes" value={String(customers)} />
           <Info label="Funcionários" value={String(employees)} />
           <Info label="Fornecedores" value={String(suppliers)} />
@@ -95,6 +96,7 @@ export default async function SettingsPage() {
           <Info label="Pedidos" value={String(orders)} />
           <Info label="Agendamentos" value={String(appointments)} />
           <Info label="Lançamentos" value={String(transactions)} />
+          <Info label="Eventos de auditoria" value={String(auditLogs)} />
         </dl>
 
         <p className="mt-5 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">

@@ -4,6 +4,8 @@ import { formatCurrency, PRODUCT_KIND_LABELS } from "@/lib/format";
 import { PageHeader, EmptyState, Badge } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
+import { Pagination } from "../components/Pagination";
+import { parsePage, paginate } from "@/lib/pagination";
 import SubmitButton from "../components/SubmitButton";
 import { createProduct, deleteProduct, adjustStock } from "./actions";
 
@@ -12,20 +14,27 @@ export const dynamic = "force-dynamic";
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, page: pageParam } = await searchParams;
+  const where = q
+    ? {
+        OR: [
+          { name: { contains: q } },
+          { sku: { contains: q } },
+          { category: { contains: q } },
+        ],
+      }
+    : undefined;
+
+  const total = await prisma.product.count({ where });
+  const pg = paginate(total, parsePage(pageParam));
+
   const products = await prisma.product.findMany({
-    where: q
-      ? {
-          OR: [
-            { name: { contains: q } },
-            { sku: { contains: q } },
-            { category: { contains: q } },
-          ],
-        }
-      : undefined,
+    where,
     orderBy: { name: "asc" },
+    skip: pg.skip,
+    take: pg.take,
     include: { _count: { select: { items: true } } },
   });
 
@@ -174,6 +183,15 @@ export default async function ProductsPage({
             </tbody>
           </table>
           </div>
+          <Pagination
+            basePath="/products"
+            page={pg.page}
+            totalPages={pg.totalPages}
+            from={pg.from}
+            to={pg.to}
+            total={pg.total}
+            params={{ q }}
+          />
         </div>
       </div>
     </div>

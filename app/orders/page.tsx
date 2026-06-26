@@ -2,16 +2,28 @@ import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { PageHeader, EmptyState } from "../components/ui";
 import { Icon } from "../components/icons";
+import { Pagination } from "../components/Pagination";
+import { parsePage, paginate } from "@/lib/pagination";
 import OrderForm from "./OrderForm";
 import OrderStatusSelect from "./OrderStatusSelect";
 import { deleteOrder } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function OrdersPage() {
+export default async function OrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { page: pageParam } = await searchParams;
+  const total = await prisma.order.count();
+  const pg = paginate(total, parsePage(pageParam));
+
   const [orders, customers, products, employees] = await Promise.all([
     prisma.order.findMany({
       orderBy: { createdAt: "desc" },
+      skip: pg.skip,
+      take: pg.take,
       include: {
         customer: true,
         seller: true,
@@ -106,6 +118,14 @@ export default async function OrdersPage() {
             </tbody>
           </table>
           </div>
+          <Pagination
+            basePath="/orders"
+            page={pg.page}
+            totalPages={pg.totalPages}
+            from={pg.from}
+            to={pg.to}
+            total={pg.total}
+          />
         </div>
       </div>
     </div>

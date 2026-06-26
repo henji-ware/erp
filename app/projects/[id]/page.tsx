@@ -8,6 +8,7 @@ import {
 } from "@/lib/format";
 import { PageHeader } from "../../components/ui";
 import SubmitButton from "../../components/SubmitButton";
+import { AttachmentsCard } from "../../components/AttachmentsCard";
 import { updateProject } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -21,19 +22,23 @@ export default async function EditProjectPage({
 }) {
   const { id } = await params;
   const [project, customers, employees] = await Promise.all([
-    prisma.project.findUnique({ where: { id: Number(id) } }),
+    prisma.project.findUnique({
+      where: { id: Number(id) },
+      include: { attachments: { orderBy: { createdAt: "desc" } } },
+    }),
     prisma.customer.findMany({ orderBy: { name: "asc" } }),
     prisma.employee.findMany({ orderBy: { name: "asc" } }),
   ]);
   if (!project) notFound();
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-5xl">
       <PageHeader
         title="Editar projeto"
         subtitle={`${project.number} · ${PROJECT_STATUS_LABELS[project.status]}`}
       />
 
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div className="card p-6">
         <form action={updateProject} className="space-y-3">
           <input type="hidden" name="id" value={project.id} />
@@ -97,6 +102,15 @@ export default async function EditProjectPage({
             <Link href="/projects" className="btn-ghost">Cancelar</Link>
           </div>
         </form>
+      </div>
+
+        <AttachmentsCard
+          ownerType="project"
+          ownerId={project.id}
+          attachments={project.attachments}
+          title="Documentos do projeto"
+          hint="Contratos, ARTs, plantas, relatórios (PDF ou Word)."
+        />
       </div>
     </div>
   );

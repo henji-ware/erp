@@ -10,6 +10,8 @@ import {
 import { paidAmount, remaining, dueInfo } from "@/lib/finance";
 import { PageHeader, EmptyState, Badge, StatCard } from "../components/ui";
 import { Icon } from "../components/icons";
+import { Pagination } from "../components/Pagination";
+import { parsePage, paginate } from "@/lib/pagination";
 import SubmitButton from "../components/SubmitButton";
 import {
   createTransaction,
@@ -19,7 +21,12 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function FinancePage() {
+export default async function FinancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { page: pageParam } = await searchParams;
   const [transactions, customers, suppliers] = await Promise.all([
     prisma.transaction.findMany({
       orderBy: { dueDate: "asc" },
@@ -28,6 +35,9 @@ export default async function FinancePage() {
     prisma.customer.findMany({ orderBy: { name: "asc" } }),
     prisma.supplier.findMany({ orderBy: { name: "asc" } }),
   ]);
+
+  const pg = paginate(transactions.length, parsePage(pageParam));
+  const pageItems = transactions.slice(pg.skip, pg.skip + pg.take);
 
   const byType = (t: string) => transactions.filter((x) => x.type === t);
   const sumPaid = (t: string) => byType(t).reduce((s, x) => s + paidAmount(x), 0);
@@ -132,14 +142,14 @@ export default async function FinancePage() {
               </tr>
             </thead>
             <tbody>
-              {transactions.length === 0 ? (
+              {pageItems.length === 0 ? (
                 <tr>
                   <td colSpan={6}>
                     <EmptyState>Nenhum lançamento.</EmptyState>
                   </td>
                 </tr>
               ) : (
-                transactions.map((t) => {
+                pageItems.map((t) => {
                   const paid = paidAmount(t);
                   const left = remaining(t);
                   const who = t.customer?.name ?? t.supplier?.name;
@@ -215,6 +225,14 @@ export default async function FinancePage() {
             </tbody>
           </table>
           </div>
+          <Pagination
+            basePath="/finance"
+            page={pg.page}
+            totalPages={pg.totalPages}
+            from={pg.from}
+            to={pg.to}
+            total={pg.total}
+          />
         </div>
       </div>
     </div>

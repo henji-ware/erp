@@ -11,7 +11,10 @@ export function remaining(tx: WithPayments): number {
 }
 
 // Status derivado a partir do total pago.
-export function deriveStatus(amount: number, paid: number): string {
+export function deriveStatus(
+  amount: number,
+  paid: number,
+): "PENDING" | "PARTIAL" | "PAID" {
   if (paid <= 0.0001) return "PENDING";
   if (paid + 0.0001 >= amount) return "PAID";
   return "PARTIAL";

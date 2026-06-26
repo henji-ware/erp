@@ -20,6 +20,7 @@ const links: { href: string; label: string; icon: IconName }[] = [
   { href: "/hr", label: "RH / Equipe", icon: "hr" },
   { href: "/finance", label: "Financeiro", icon: "finance" },
   { href: "/reports", label: "Relatórios", icon: "reports" },
+  { href: "/audit", label: "Auditoria", icon: "lock" },
 ];
 
 export default function Sidebar({ userName }: { userName?: string }) {

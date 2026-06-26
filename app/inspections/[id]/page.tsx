@@ -8,6 +8,7 @@ import {
 } from "@/lib/format";
 import { PageHeader } from "../../components/ui";
 import SubmitButton from "../../components/SubmitButton";
+import { AttachmentsCard } from "../../components/AttachmentsCard";
 import { updateInspection } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -24,18 +25,22 @@ export default async function EditInspectionPage({
 }) {
   const { id } = await params;
   const [insp, customers] = await Promise.all([
-    prisma.inspection.findUnique({ where: { id: Number(id) } }),
+    prisma.inspection.findUnique({
+      where: { id: Number(id) },
+      include: { attachments: { orderBy: { createdAt: "desc" } } },
+    }),
     prisma.customer.findMany({ orderBy: { name: "asc" } }),
   ]);
   if (!insp) notFound();
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-5xl">
       <PageHeader
         title="Inspeção / Laudo"
         subtitle={INSPECTION_STATUS_LABELS[insp.status]}
       />
 
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div className="card p-6">
         <form action={updateInspection} className="space-y-3">
           <input type="hidden" name="id" value={insp.id} />
@@ -88,6 +93,15 @@ export default async function EditInspectionPage({
             <Link href="/inspections" className="btn-ghost">Cancelar</Link>
           </div>
         </form>
+      </div>
+
+        <AttachmentsCard
+          ownerType="inspection"
+          ownerId={insp.id}
+          attachments={insp.attachments}
+          title="Laudos e documentos"
+          hint="Laudo técnico, ART, fotos em PDF, relatórios (PDF ou Word)."
+        />
       </div>
     </div>
   );

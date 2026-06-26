@@ -4,6 +4,8 @@ import { formatDate } from "@/lib/format";
 import { PageHeader, EmptyState } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
+import { Pagination } from "../components/Pagination";
+import { parsePage, paginate } from "@/lib/pagination";
 import SubmitButton from "../components/SubmitButton";
 import { createCustomer, deleteCustomer } from "./actions";
 
@@ -12,21 +14,28 @@ export const dynamic = "force-dynamic";
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, page: pageParam } = await searchParams;
+  const where = q
+    ? {
+        OR: [
+          { name: { contains: q } },
+          { company: { contains: q } },
+          { email: { contains: q } },
+          { document: { contains: q } },
+        ],
+      }
+    : undefined;
+
+  const total = await prisma.customer.count({ where });
+  const pg = paginate(total, parsePage(pageParam));
+
   const customers = await prisma.customer.findMany({
-    where: q
-      ? {
-          OR: [
-            { name: { contains: q } },
-            { company: { contains: q } },
-            { email: { contains: q } },
-            { document: { contains: q } },
-          ],
-        }
-      : undefined,
+    where,
     orderBy: { createdAt: "desc" },
+    skip: pg.skip,
+    take: pg.take,
     include: {
       _count: {
         select: {
@@ -157,6 +166,15 @@ export default async function CustomersPage({
             </tbody>
           </table>
           </div>
+          <Pagination
+            basePath="/customers"
+            page={pg.page}
+            totalPages={pg.totalPages}
+            from={pg.from}
+            to={pg.to}
+            total={pg.total}
+            params={{ q }}
+          />
         </div>
       </div>
     </div>

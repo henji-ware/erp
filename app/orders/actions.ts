@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { ORDER_STATUSES } from "@/lib/format";
+import { asEnum, ORDER_STATUSES, ORDER_STATUS_LABELS } from "@/lib/format";
+import { logAudit } from "@/lib/audit";
 
 const ACTIVE = ["CONFIRMED", "INVOICED"];
 
@@ -10,10 +11,7 @@ export async function createOrder(formData: FormData) {
   const customerId = Number(formData.get("customerId"));
   if (!customerId) return;
 
-  const requested = String(formData.get("status") ?? "DRAFT");
-  const status = ORDER_STATUSES.includes(requested as (typeof ORDER_STATUSES)[number])
-    ? requested
-    : "DRAFT";
+  const status = asEnum(ORDER_STATUSES, formData.get("status"), "DRAFT");
 
   const productIds = formData.getAll("productId").map((v) => Number(v));
   const quantities = formData.getAll("quantity").map((v) => parseInt(String(v), 10));
@@ -55,6 +53,7 @@ export async function createOrder(formData: FormData) {
     await applyConfirm(order.id);
     await prisma.order.update({ where: { id: order.id }, data: { status } });
   }
+  await logAudit({ action: "CREATE", entity: "Pedido", entityId: order.id, summary: `Pedido ${order.number} criado` });
 
   revalidatePath("/orders");
   revalidatePath("/products");
@@ -80,7 +79,11 @@ export async function updateOrderStatus(formData: FormData) {
     await reverseConfirm(id); // devolve estoque + cancela conta a receber
   }
 
-  await prisma.order.update({ where: { id }, data: { status: next } });
+  await prisma.order.update({
+    where: { id },
+    data: { status: asEnum(ORDER_STATUSES, next, "DRAFT") },
+  });
+  await logAudit({ action: "STATUS", entity: "Pedido", entityId: id, summary: `Status → ${ORDER_STATUS_LABELS[next]}` });
 
   revalidatePath("/orders");
   revalidatePath("/products");
@@ -98,6 +101,7 @@ export async function deleteOrder(formData: FormData) {
   if (ACTIVE.includes(order.status)) await reverseConfirm(id);
   await prisma.transaction.deleteMany({ where: { orderId: id } });
   await prisma.order.delete({ where: { id } }); // itens em cascata
+  await logAudit({ action: "DELETE", entity: "Pedido", entityId: id, summary: `Pedido ${order.number} excluído` });
 
   revalidatePath("/orders");
   revalidatePath("/products");

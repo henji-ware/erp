@@ -3,14 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { INSPECTION_STATUSES, RISK_LEVELS } from "@/lib/format";
+import { asEnum, INSPECTION_STATUSES, INSPECTION_STATUS_LABELS, RISK_LEVELS } from "@/lib/format";
+import { logAudit } from "@/lib/audit";
 
 export async function createInspection(formData: FormData) {
   const customerId = Number(formData.get("customerId"));
   const scheduledRaw = String(formData.get("scheduledAt") ?? "");
   if (!customerId || !scheduledRaw) return;
 
-  await prisma.inspection.create({
+  const insp = await prisma.inspection.create({
     data: {
       customerId,
       scheduledAt: new Date(scheduledRaw),
@@ -22,6 +23,7 @@ export async function createInspection(formData: FormData) {
       findings: str(formData.get("findings")),
     },
   });
+  await logAudit({ action: "CREATE", entity: "Inspeção", entityId: insp.id, summary: "Inspeção registrada" });
 
   revalidatePath("/inspections");
   revalidatePath("/");
@@ -45,6 +47,7 @@ export async function updateInspection(formData: FormData) {
       findings: str(formData.get("findings")),
     },
   });
+  await logAudit({ action: "UPDATE", entity: "Inspeção", entityId: id, summary: "Inspeção / laudo editado" });
 
   revalidatePath("/inspections");
   redirect("/inspections");
@@ -56,7 +59,11 @@ export async function setInspectionStatus(formData: FormData) {
   if (!id || !INSPECTION_STATUSES.includes(status as (typeof INSPECTION_STATUSES)[number]))
     return;
 
-  await prisma.inspection.update({ where: { id }, data: { status } });
+  await prisma.inspection.update({
+    where: { id },
+    data: { status: asEnum(INSPECTION_STATUSES, status, "AGENDADA") },
+  });
+  await logAudit({ action: "STATUS", entity: "Inspeção", entityId: id, summary: `Status → ${INSPECTION_STATUS_LABELS[status]}` });
   revalidatePath("/inspections");
   revalidatePath("/");
 }
@@ -65,6 +72,7 @@ export async function deleteInspection(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
   await prisma.inspection.delete({ where: { id } });
+  await logAudit({ action: "DELETE", entity: "Inspeção", entityId: id, summary: "Inspeção excluída" });
   revalidatePath("/inspections");
   revalidatePath("/");
 }
@@ -73,7 +81,9 @@ function str(v: FormDataEntryValue | null): string | null {
   const s = String(v ?? "").trim();
   return s.length ? s : null;
 }
-function risk(v: FormDataEntryValue | null): string | null {
+function risk(v: FormDataEntryValue | null) {
   const s = String(v ?? "").trim();
-  return RISK_LEVELS.includes(s as (typeof RISK_LEVELS)[number]) ? s : null;
+  return RISK_LEVELS.includes(s as (typeof RISK_LEVELS)[number])
+    ? (s as (typeof RISK_LEVELS)[number])
+    : null;
 }

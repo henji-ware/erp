@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 
 export async function createEmployee(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
 
-  await prisma.employee.create({
+  const employee = await prisma.employee.create({
     data: {
       name,
       role: str(formData.get("role")),
@@ -23,6 +24,7 @@ export async function createEmployee(formData: FormData) {
       active: true,
     },
   });
+  await logAudit({ action: "CREATE", entity: "Funcionário", entityId: employee.id, summary: `"${name}" cadastrado` });
 
   revalidatePath("/hr");
 }
@@ -48,6 +50,7 @@ export async function updateEmployee(formData: FormData) {
       active: formData.get("active") === "on",
     },
   });
+  await logAudit({ action: "UPDATE", entity: "Funcionário", entityId: id, summary: `"${name}" editado` });
 
   revalidatePath("/hr");
   redirect("/hr");
@@ -57,6 +60,7 @@ export async function deleteEmployee(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
   await prisma.employee.delete({ where: { id } });
+  await logAudit({ action: "DELETE", entity: "Funcionário", entityId: id, summary: "Funcionário excluído" });
   revalidatePath("/hr");
 }
 
@@ -72,6 +76,6 @@ function date(v: FormDataEntryValue | null): Date | null {
   const s = String(v ?? "").trim();
   return s ? new Date(s) : null;
 }
-function contract(v: FormDataEntryValue | null): string {
+function contract(v: FormDataEntryValue | null): "CLT" | "PJ" {
   return String(v ?? "") === "PJ" ? "PJ" : "CLT";
 }

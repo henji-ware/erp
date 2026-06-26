@@ -1,20 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { LEAD_STAGES, LEAD_STAGE_LABELS, formatDate } from "@/lib/format";
+import { LEAD_STAGES, LEAD_STAGE_LABELS } from "@/lib/format";
 import { PageHeader } from "../../components/ui";
-import { Icon } from "../../components/icons";
 import SubmitButton from "../../components/SubmitButton";
+import { AttachmentsCard } from "../../components/AttachmentsCard";
 import { updateLead } from "../actions";
-import { uploadAttachment, deleteAttachment } from "../attachments";
 
 export const dynamic = "force-dynamic";
-
-function fmtSize(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export default async function EditLeadPage({
   params,
@@ -96,64 +89,13 @@ export default async function EditLeadPage({
         </div>
 
         {/* Proposta / Anexos */}
-        <div className="card p-6">
-          <h2 className="mb-1 font-semibold text-slate-800">Proposta / Anexos</h2>
-          <p className="mb-4 text-xs text-slate-400">
-            Anexe a proposta (PDF ou Word). Qualquer usuário logado pode baixá-la.
-          </p>
-
-          <form action={uploadAttachment} className="mb-5 space-y-3 rounded-lg border border-slate-200 p-4">
-            <input type="hidden" name="leadId" value={lead.id} />
-            <input
-              type="file"
-              name="file"
-              required
-              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100"
-            />
-            <SubmitButton>
-              <Icon name="download" size={15} /> Anexar proposta
-            </SubmitButton>
-          </form>
-
-          {lead.attachments.length === 0 ? (
-            <p className="py-4 text-center text-sm text-slate-400">
-              Nenhum anexo ainda.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {lead.attachments.map((a) => (
-                <li
-                  key={a.id}
-                  className="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2"
-                >
-                  <span className="text-slate-400">
-                    <Icon name="file" size={18} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-800">{a.fileName}</p>
-                    <p className="text-xs text-slate-400">
-                      {fmtSize(a.size)} · {formatDate(a.createdAt)}
-                    </p>
-                  </div>
-                  <a
-                    href={`/api/attachments/${a.id}`}
-                    className="btn-ghost px-2 py-1 text-xs"
-                    title="Baixar"
-                  >
-                    <Icon name="download" size={14} />
-                  </a>
-                  <form action={deleteAttachment}>
-                    <input type="hidden" name="id" value={a.id} />
-                    <button className="btn-danger px-2 py-1 text-xs" title="Excluir anexo">
-                      <Icon name="trash" size={14} />
-                    </button>
-                  </form>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <AttachmentsCard
+          ownerType="lead"
+          ownerId={lead.id}
+          attachments={lead.attachments}
+          title="Proposta / Anexos"
+          hint="Anexe a proposta (PDF ou Word). Qualquer usuário logado pode baixá-la."
+        />
       </div>
     </div>
   );

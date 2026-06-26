@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 
 export async function createCustomer(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
 
-  await prisma.customer.create({
+  const customer = await prisma.customer.create({
     data: {
       name,
       email: str(formData.get("email")),
@@ -18,6 +19,7 @@ export async function createCustomer(formData: FormData) {
       notes: str(formData.get("notes")),
     },
   });
+  await logAudit({ action: "CREATE", entity: "Cliente", entityId: customer.id, summary: `Cliente "${name}" criado` });
 
   revalidatePath("/customers");
   revalidatePath("/");
@@ -39,6 +41,7 @@ export async function updateCustomer(formData: FormData) {
       notes: str(formData.get("notes")),
     },
   });
+  await logAudit({ action: "UPDATE", entity: "Cliente", entityId: id, summary: `Cliente "${name}" editado` });
 
   revalidatePath("/customers");
   redirect("/customers");
@@ -76,6 +79,7 @@ export async function deleteCustomer(formData: FormData) {
   if (linked > 0) return;
 
   await prisma.customer.delete({ where: { id } });
+  await logAudit({ action: "DELETE", entity: "Cliente", entityId: id, summary: "Cliente excluído" });
   revalidatePath("/customers");
   revalidatePath("/");
 }

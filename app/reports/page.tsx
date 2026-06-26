@@ -260,6 +260,58 @@ export default async function ReportsPage({
         </div>
       </div>
 
+      {/* Comissões a pagar no período */}
+      <div className="mt-6 card overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+          <h2 className="font-semibold text-slate-800">Comissões a pagar</h2>
+          <span className="text-xs text-slate-400">
+            Faturamento confirmado × % de cada vendedor · período {rangeLabel(range)}
+          </span>
+        </div>
+        <table className="w-full">
+          <thead className="border-b border-slate-100 bg-slate-50">
+            <tr>
+              <th className="th">Vendedor</th>
+              <th className="th text-right">Vendas</th>
+              <th className="th text-right">Faturamento</th>
+              <th className="th text-right">% comissão</th>
+              <th className="th text-right">Comissão</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.commissions.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-400">
+                  Nenhum vendedor com comissão no período. Defina o % de comissão em RH / Equipe.
+                </td>
+              </tr>
+            ) : (
+              <>
+                {data.commissions.map((c) => (
+                  <tr key={c.name} className="border-b border-slate-50 last:border-0">
+                    <td className="td font-medium text-slate-800">{c.name}</td>
+                    <td className="td text-right">{c.orders}</td>
+                    <td className="td text-right">{formatCurrency(c.revenue)}</td>
+                    <td className="td text-right text-slate-500">{c.commissionPct}%</td>
+                    <td className="td text-right font-semibold text-brand-600">
+                      {formatCurrency(c.commission)}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="bg-slate-50">
+                  <td className="td font-semibold text-slate-800" colSpan={4}>
+                    Total de comissões
+                  </td>
+                  <td className="td text-right font-bold text-brand-700">
+                    {formatCurrency(data.commissionTotal)}
+                  </td>
+                </tr>
+              </>
+            )}
+          </tbody>
+        </table>
+      </div>
+
       <p className="no-print mt-6 text-center text-xs text-slate-400">
         Dica: use “Imprimir / PDF” para salvar este relatório como PDF.
       </p>

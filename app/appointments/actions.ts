@@ -3,19 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { APPOINTMENT_TYPES, APPOINTMENT_STATUSES } from "@/lib/format";
+import { asEnum, APPOINTMENT_TYPES, APPOINTMENT_STATUSES } from "@/lib/format";
+import { logAudit } from "@/lib/audit";
 
 export async function createAppointment(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
-  const type = String(formData.get("type") ?? "MEETING");
   const startsRaw = String(formData.get("startsAt") ?? "");
   if (!title || !startsRaw) return;
-  if (!APPOINTMENT_TYPES.includes(type as (typeof APPOINTMENT_TYPES)[number])) return;
 
-  await prisma.appointment.create({
+  const appt = await prisma.appointment.create({
     data: {
       title,
-      type,
+      type: asEnum(APPOINTMENT_TYPES, formData.get("type"), "MEETING"),
       startsAt: new Date(startsRaw),
       location: str(formData.get("location")),
       notes: str(formData.get("notes")),
@@ -24,6 +23,7 @@ export async function createAppointment(formData: FormData) {
       status: "SCHEDULED",
     },
   });
+  await logAudit({ action: "CREATE", entity: "Agendamento", entityId: appt.id, summary: `"${title}" agendado` });
 
   revalidatePath("/appointments");
   revalidatePath("/");
@@ -32,7 +32,6 @@ export async function createAppointment(formData: FormData) {
 export async function updateAppointment(formData: FormData) {
   const id = Number(formData.get("id"));
   const title = String(formData.get("title") ?? "").trim();
-  const type = String(formData.get("type") ?? "MEETING");
   const startsRaw = String(formData.get("startsAt") ?? "");
   if (!id || !title || !startsRaw) return;
 
@@ -40,7 +39,7 @@ export async function updateAppointment(formData: FormData) {
     where: { id },
     data: {
       title,
-      type,
+      type: asEnum(APPOINTMENT_TYPES, formData.get("type"), "MEETING"),
       startsAt: new Date(startsRaw),
       location: str(formData.get("location")),
       notes: str(formData.get("notes")),
@@ -48,6 +47,7 @@ export async function updateAppointment(formData: FormData) {
       employeeId: Number(formData.get("employeeId")) || null,
     },
   });
+  await logAudit({ action: "UPDATE", entity: "Agendamento", entityId: id, summary: `"${title}" editado` });
 
   revalidatePath("/appointments");
   redirect("/appointments");
@@ -59,7 +59,10 @@ export async function setAppointmentStatus(formData: FormData) {
   if (!id || !APPOINTMENT_STATUSES.includes(status as (typeof APPOINTMENT_STATUSES)[number]))
     return;
 
-  await prisma.appointment.update({ where: { id }, data: { status } });
+  await prisma.appointment.update({
+    where: { id },
+    data: { status: asEnum(APPOINTMENT_STATUSES, status, "SCHEDULED") },
+  });
   revalidatePath("/appointments");
   revalidatePath("/");
 }
@@ -68,6 +71,7 @@ export async function deleteAppointment(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
   await prisma.appointment.delete({ where: { id } });
+  await logAudit({ action: "DELETE", entity: "Agendamento", entityId: id, summary: "Agendamento excluído" });
   revalidatePath("/appointments");
   revalidatePath("/");
 }

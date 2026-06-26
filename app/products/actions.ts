@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 
 export async function createProduct(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -16,7 +17,7 @@ export async function createProduct(formData: FormData) {
 
   const kind = formData.get("kind") === "SERVICE" ? "SERVICE" : "PRODUCT";
 
-  await prisma.product.create({
+  const product = await prisma.product.create({
     data: {
       sku,
       name,
@@ -26,6 +27,7 @@ export async function createProduct(formData: FormData) {
       stock: kind === "SERVICE" ? 0 : int(formData.get("stock")),
     },
   });
+  await logAudit({ action: "CREATE", entity: "Produto", entityId: product.id, summary: `"${name}" (${sku}) criado` });
 
   revalidatePath("/products");
   revalidatePath("/");
@@ -48,6 +50,7 @@ export async function updateProduct(formData: FormData) {
       stock: kind === "SERVICE" ? 0 : int(formData.get("stock")),
     },
   });
+  await logAudit({ action: "UPDATE", entity: "Produto", entityId: id, summary: `"${name}" editado` });
 
   revalidatePath("/products");
   redirect("/products");
@@ -78,6 +81,7 @@ export async function deleteProduct(formData: FormData) {
   if (used > 0) return; // produto já usado em pedidos não pode ser excluído
 
   await prisma.product.delete({ where: { id } });
+  await logAudit({ action: "DELETE", entity: "Produto", entityId: id, summary: "Produto/serviço excluído" });
   revalidatePath("/products");
   revalidatePath("/");
 }

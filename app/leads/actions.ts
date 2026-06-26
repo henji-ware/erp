@@ -3,13 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { LEAD_STAGES } from "@/lib/format";
+import { asEnum, LEAD_STAGES, LEAD_STAGE_LABELS } from "@/lib/format";
+import { logAudit } from "@/lib/audit";
 
 export async function createLead(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
 
-  await prisma.lead.create({
+  const lead = await prisma.lead.create({
     data: {
       name,
       email: str(formData.get("email")),
@@ -20,6 +21,7 @@ export async function createLead(formData: FormData) {
       stage: "NEW",
     },
   });
+  await logAudit({ action: "CREATE", entity: "Orçamento", entityId: lead.id, summary: `Orçamento "${name}" criado` });
 
   revalidatePath("/leads");
   revalidatePath("/");
@@ -40,9 +42,10 @@ export async function updateLead(formData: FormData) {
       document: str(formData.get("document")),
       source: str(formData.get("source")),
       value: num(formData.get("value")),
-      stage: LEAD_STAGES.includes(stage as (typeof LEAD_STAGES)[number]) ? stage : "NEW",
+      stage: asEnum(LEAD_STAGES, stage, "NEW"),
     },
   });
+  await logAudit({ action: "UPDATE", entity: "Orçamento", entityId: id, summary: `Orçamento "${name}" editado` });
 
   revalidatePath("/leads");
   redirect(`/leads/${id}`);
@@ -53,7 +56,8 @@ export async function updateLeadStage(formData: FormData) {
   const stage = String(formData.get("stage") ?? "");
   if (!id || !LEAD_STAGES.includes(stage as (typeof LEAD_STAGES)[number])) return;
 
-  await prisma.lead.update({ where: { id }, data: { stage } });
+  await prisma.lead.update({ where: { id }, data: { stage: asEnum(LEAD_STAGES, stage, "NEW") } });
+  await logAudit({ action: "STATUS", entity: "Orçamento", entityId: id, summary: `Etapa → ${LEAD_STAGE_LABELS[stage]}` });
   revalidatePath("/leads");
   revalidatePath("/");
 }
@@ -79,6 +83,7 @@ export async function convertLeadToCustomer(formData: FormData) {
     where: { id },
     data: { stage: "WON", customerId: customer.id },
   });
+  await logAudit({ action: "UPDATE", entity: "Orçamento", entityId: id, summary: `Convertido em cliente "${customer.name}"` });
 
   revalidatePath("/leads");
   revalidatePath("/customers");
@@ -89,6 +94,7 @@ export async function deleteLead(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
   await prisma.lead.delete({ where: { id } });
+  await logAudit({ action: "DELETE", entity: "Orçamento", entityId: id, summary: "Orçamento excluído" });
   revalidatePath("/leads");
   revalidatePath("/");
 }

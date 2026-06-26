@@ -1,3 +1,4 @@
+import { OrderStatus } from "@prisma/client";
 import { prisma } from "./prisma";
 import { remaining } from "./finance";
 import { PAYMENT_METHODS } from "./format";
@@ -48,7 +49,7 @@ function monthBuckets(range: Range) {
 export type ReportData = Awaited<ReturnType<typeof getReportData>>;
 
 export async function getReportData(range: Range) {
-  const activeStatus = ["CONFIRMED", "INVOICED"];
+  const activeStatus: OrderStatus[] = ["CONFIRMED", "INVOICED"];
 
   const [orders, leads, transactions] = await Promise.all([
     prisma.order.findMany({
@@ -119,20 +120,37 @@ export async function getReportData(range: Range) {
   }
   const topCustomers = [...custMap.values()].sort((a, b) => b.revenue - a.revenue);
 
-  // Vendas por vendedor
-  const sellerMap = new Map<number, { name: string; revenue: number; orders: number }>();
+  // Vendas por vendedor (+ comissão a partir do % de cada funcionário)
+  const sellerMap = new Map<
+    number,
+    { name: string; revenue: number; orders: number; commissionPct: number }
+  >();
   for (const o of orders) {
     if (!o.sellerId) continue;
     const e = sellerMap.get(o.sellerId) ?? {
       name: o.seller?.name ?? "—",
       revenue: 0,
       orders: 0,
+      commissionPct: o.seller?.commissionPct ?? 0,
     };
     e.revenue += o.total;
     e.orders += 1;
     sellerMap.set(o.sellerId, e);
   }
   const salesBySeller = [...sellerMap.values()].sort((a, b) => b.revenue - a.revenue);
+
+  // Comissões a pagar no período (faturamento × % do vendedor)
+  const commissions = salesBySeller
+    .map((s) => ({
+      name: s.name,
+      revenue: s.revenue,
+      orders: s.orders,
+      commissionPct: s.commissionPct,
+      commission: s.revenue * (s.commissionPct / 100),
+    }))
+    .filter((s) => s.commissionPct > 0)
+    .sort((a, b) => b.commission - a.commission);
+  const commissionTotal = commissions.reduce((s, c) => s + c.commission, 0);
 
   // Funil de leads (estado atual, valor por etapa)
   const STAGES = ["NEW", "CONTACTED", "PROPOSAL", "WON", "LOST"];
@@ -181,6 +199,8 @@ export async function getReportData(range: Range) {
     abc,
     topCustomers,
     salesBySeller,
+    commissions,
+    commissionTotal,
     funnel,
     finance,
     paymentsByMethod,

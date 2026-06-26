@@ -3,21 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { PAYMENT_METHODS } from "@/lib/format";
+import { asEnum, PAYMENT_METHODS, TX_TYPES } from "@/lib/format";
 import { deriveStatus, remaining } from "@/lib/finance";
+import { logAudit } from "@/lib/audit";
 
 export async function createTransaction(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim();
   const type = String(formData.get("type") ?? "");
-  if (!description || !["RECEIVABLE", "PAYABLE"].includes(type)) return;
+  if (!description || !TX_TYPES.includes(type as (typeof TX_TYPES)[number])) return;
 
   const dueRaw = String(formData.get("dueDate") ?? "");
   const dueDate = dueRaw ? new Date(dueRaw) : new Date();
 
-  await prisma.transaction.create({
+  const tx = await prisma.transaction.create({
     data: {
       description,
-      type,
+      type: asEnum(TX_TYPES, type, "RECEIVABLE"),
       amount: num(formData.get("amount")),
       dueDate,
       status: "PENDING",
@@ -25,6 +26,7 @@ export async function createTransaction(formData: FormData) {
       supplierId: type === "PAYABLE" ? Number(formData.get("supplierId")) || null : null,
     },
   });
+  await logAudit({ action: "CREATE", entity: "Financeiro", entityId: tx.id, summary: `Lançamento "${description}" criado` });
 
   revalidatePath("/finance");
   revalidatePath("/");
@@ -34,14 +36,14 @@ export async function updateTransaction(formData: FormData) {
   const id = Number(formData.get("id"));
   const description = String(formData.get("description") ?? "").trim();
   const type = String(formData.get("type") ?? "");
-  if (!id || !description || !["RECEIVABLE", "PAYABLE"].includes(type)) return;
+  if (!id || !description || !TX_TYPES.includes(type as (typeof TX_TYPES)[number])) return;
 
   const dueRaw = String(formData.get("dueDate") ?? "");
   await prisma.transaction.update({
     where: { id },
     data: {
       description,
-      type,
+      type: asEnum(TX_TYPES, type, "RECEIVABLE"),
       amount: num(formData.get("amount")),
       dueDate: dueRaw ? new Date(dueRaw) : undefined,
       customerId: type === "RECEIVABLE" ? Number(formData.get("customerId")) || null : null,
@@ -49,6 +51,7 @@ export async function updateTransaction(formData: FormData) {
     },
   });
   await recompute(id);
+  await logAudit({ action: "UPDATE", entity: "Financeiro", entityId: id, summary: `Lançamento "${description}" editado` });
 
   revalidatePath("/finance");
   revalidatePath("/");
@@ -68,11 +71,12 @@ export async function addPayment(formData: FormData) {
     data: {
       transactionId,
       amount,
-      method,
+      method: asEnum(PAYMENT_METHODS, method, "CASH"),
       paidAt: dateRaw ? new Date(dateRaw) : new Date(),
     },
   });
   await recompute(transactionId);
+  await logAudit({ action: "UPDATE", entity: "Financeiro", entityId: transactionId, summary: "Pagamento registrado" });
 
   revalidatePath("/finance");
   revalidatePath(`/finance/${transactionId}`);
@@ -82,7 +86,7 @@ export async function addPayment(formData: FormData) {
 // Quita o valor restante de uma vez (forma de pagamento informada).
 export async function payRemaining(formData: FormData) {
   const id = Number(formData.get("id"));
-  const method = String(formData.get("method") ?? "CASH");
+  const method = asEnum(PAYMENT_METHODS, formData.get("method"), "CASH");
   if (!id) return;
 
   const tx = await prisma.transaction.findUnique({
@@ -97,6 +101,7 @@ export async function payRemaining(formData: FormData) {
     data: { transactionId: id, amount: left, method },
   });
   await recompute(id);
+  await logAudit({ action: "UPDATE", entity: "Financeiro", entityId: id, summary: "Quitação registrada" });
 
   revalidatePath("/finance");
   revalidatePath(`/finance/${id}`);
@@ -121,6 +126,7 @@ export async function deleteTransaction(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
   await prisma.transaction.delete({ where: { id } }); // pagamentos em cascata
+  await logAudit({ action: "DELETE", entity: "Financeiro", entityId: id, summary: "Lançamento excluído" });
   revalidatePath("/finance");
   revalidatePath("/");
 }

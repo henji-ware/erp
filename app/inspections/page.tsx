@@ -9,6 +9,8 @@ import {
 import { PageHeader, EmptyState, Badge, StatCard } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
+import { Pagination } from "../components/Pagination";
+import { parsePage, paginate } from "@/lib/pagination";
 import SubmitButton from "../components/SubmitButton";
 import InspectionStatusSelect from "./InspectionStatusSelect";
 import { createInspection, deleteInspection } from "./actions";
@@ -18,29 +20,39 @@ export const dynamic = "force-dynamic";
 export default async function InspectionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const { q } = await searchParams;
-  const [inspections, customers] = await Promise.all([
-    prisma.inspection.findMany({
-      orderBy: { scheduledAt: "desc" },
-      include: { customer: true },
-    }),
-    prisma.customer.findMany({ orderBy: { name: "asc" } }),
-  ]);
+  const { q, page: pageParam } = await searchParams;
+  const where = q
+    ? {
+        OR: [
+          { location: { contains: q } },
+          { engineer: { contains: q } },
+          { artNumber: { contains: q } },
+          { customer: { name: { contains: q } } },
+        ],
+      }
+    : undefined;
 
-  const scheduled = inspections.filter((i) => i.status === "AGENDADA").length;
-  const reports = inspections.filter((i) => i.status === "LAUDO_EMITIDO").length;
-  const critical = inspections.filter((i) => i.riskLevel === "VERMELHO").length;
+  // Cards calculados sobre todas as inspeções (independente da busca).
+  const [scheduled, reports, critical, totalAll, totalFiltered, customers] =
+    await Promise.all([
+      prisma.inspection.count({ where: { status: "AGENDADA" } }),
+      prisma.inspection.count({ where: { status: "LAUDO_EMITIDO" } }),
+      prisma.inspection.count({ where: { riskLevel: "VERMELHO" } }),
+      prisma.inspection.count(),
+      prisma.inspection.count({ where }),
+      prisma.customer.findMany({ orderBy: { name: "asc" } }),
+    ]);
 
-  const term = (q ?? "").toLowerCase();
-  const list = term
-    ? inspections.filter((i) =>
-        [i.customer.name, i.location, i.engineer, i.artNumber]
-          .filter(Boolean)
-          .some((v) => v!.toLowerCase().includes(term)),
-      )
-    : inspections;
+  const pg = paginate(totalFiltered, parsePage(pageParam));
+  const list = await prisma.inspection.findMany({
+    where,
+    orderBy: { scheduledAt: "desc" },
+    skip: pg.skip,
+    take: pg.take,
+    include: { customer: true },
+  });
 
   return (
     <div>
@@ -54,7 +66,7 @@ export default async function InspectionsPage({
         <StatCard label="Agendadas" value={String(scheduled)} accent="text-blue-600" delay={0} />
         <StatCard label="Laudos emitidos" value={String(reports)} accent="text-green-600" delay={60} />
         <StatCard label="Risco crítico (vermelho)" value={String(critical)} accent="text-red-600" delay={120} />
-        <StatCard label="Total" value={String(inspections.length)} delay={180} />
+        <StatCard label="Total" value={String(totalAll)} delay={180} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -169,6 +181,15 @@ export default async function InspectionsPage({
             </tbody>
           </table>
           </div>
+          <Pagination
+            basePath="/inspections"
+            page={pg.page}
+            totalPages={pg.totalPages}
+            from={pg.from}
+            to={pg.to}
+            total={pg.total}
+            params={{ q }}
+          />
         </div>
       </div>
     </div>

@@ -1,5 +1,17 @@
 // Helpers de formatação e rótulos compartilhados pela UI.
 
+// Valida um valor recebido (FormData/string) contra uma lista fechada de
+// opções. Retorna o valor com o tipo literal (compatível com os enums do
+// Prisma) ou o fallback. Centraliza a checagem de status/tipo/etapa.
+export function asEnum<T extends string>(
+  allowed: readonly T[],
+  value: unknown,
+  fallback: T,
+): T {
+  const s = String(value ?? "").trim();
+  return (allowed as readonly string[]).includes(s) ? (s as T) : fallback;
+}
+
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -164,6 +176,9 @@ export const ORDER_STATUS_COLORS: Record<string, string> = {
 };
 
 // ---- Financeiro ----
+export const TX_TYPES = ["RECEIVABLE", "PAYABLE"] as const;
+export const TX_STATUSES = ["PENDING", "PARTIAL", "PAID"] as const;
+
 export const TX_TYPE_LABELS: Record<string, string> = {
   RECEIVABLE: "A receber",
   PAYABLE: "A pagar",

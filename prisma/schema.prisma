@@ -10,6 +10,95 @@ datasource db {
   directUrl = env("DATABASE_URL_UNPOOLED") // conexão direta (injetada pela Vercel/Neon)
 }
 
+// --------------------------- Enums -----------------------------
+// Valores fechados (antes eram String livre). Garantem integridade no banco:
+// um valor inválido não pode mais ser gravado por engano.
+
+enum ProductKind {
+  PRODUCT
+  SERVICE
+}
+
+enum ContractType {
+  CLT
+  PJ
+}
+
+enum ProjectType {
+  ENGENHARIA
+  INSPECAO
+  MONTAGEM
+  REMANEJAMENTO
+  MANUTENCAO
+  VENDA
+  LOCACAO
+}
+
+enum ProjectStatus {
+  ORCAMENTO
+  APROVADO
+  EM_EXECUCAO
+  CONCLUIDO
+  CANCELADO
+}
+
+enum InspectionStatus {
+  AGENDADA
+  REALIZADA
+  LAUDO_EMITIDO
+}
+
+enum RiskLevel {
+  VERDE
+  AMARELO
+  VERMELHO
+}
+
+enum AppointmentType {
+  VISIT
+  MEETING
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  DONE
+  CANCELLED
+}
+
+enum LeadStage {
+  NEW
+  CONTACTED
+  PROPOSAL
+  WON
+  LOST
+}
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  INVOICED
+  CANCELLED
+}
+
+enum TransactionType {
+  RECEIVABLE
+  PAYABLE
+}
+
+enum TransactionStatus {
+  PENDING
+  PARTIAL
+  PAID
+}
+
+enum PaymentMethod {
+  CARD_CREDIT
+  CARD_DEBIT
+  PIX
+  BOLETO
+  CASH
+}
+
 // --------------------------- Acesso ----------------------------
 
 model User {
@@ -18,6 +107,24 @@ model User {
   email        String   @unique
   passwordHash String
   createdAt    DateTime @default(now())
+}
+
+// ----------------------- Log de auditoria ----------------------
+
+// Trilha de quem criou/alterou/excluiu cada registro. action:
+// CREATE | UPDATE | DELETE | STATUS
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  userName  String? // nome "congelado" (sobrevive se o usuário for removido)
+  action    String
+  entity    String // "Projeto", "Cliente", "Pedido"...
+  entityId  Int?
+  summary   String? // descrição legível ("Projeto PRJ-X criado")
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
 }
 
 // ---------------------------- RH -------------------------------
@@ -29,7 +136,7 @@ model Employee {
   department   String?
   email        String?
   phone        String?
-  contractType String        @default("CLT") // CLT | PJ
+  contractType ContractType  @default(CLT)
   salary       Float         @default(0)
   commissionPct Float        @default(0) // percentual de comissão sobre vendas
   benefits     String? // benefícios (VR, VT, plano de saúde…)
@@ -46,49 +153,51 @@ model Employee {
 // type: ENGENHARIA | INSPECAO | MONTAGEM | REMANEJAMENTO | MANUTENCAO | VENDA | LOCACAO
 // status: ORCAMENTO | APROVADO | EM_EXECUCAO | CONCLUIDO | CANCELADO
 model Project {
-  id            Int       @id @default(autoincrement())
-  number        String    @unique
+  id            Int           @id @default(autoincrement())
+  number        String        @unique
   title         String
-  type          String    @default("ENGENHARIA")
-  status        String    @default("ORCAMENTO")
-  customer      Customer  @relation(fields: [customerId], references: [id])
+  type          ProjectType   @default(ENGENHARIA)
+  status        ProjectStatus @default(ORCAMENTO)
+  customer      Customer      @relation(fields: [customerId], references: [id])
   customerId    Int
-  responsible   Employee? @relation("ProjectResponsible", fields: [responsibleId], references: [id])
+  responsible   Employee?     @relation("ProjectResponsible", fields: [responsibleId], references: [id])
   responsibleId Int?
-  value         Float     @default(0)
+  value         Float         @default(0)
   location      String?
   startDate     DateTime?
   endDate       DateTime?
   notes         String?
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime      @default(now())
+  attachments   Attachment[]
 }
 
 // ------------------- Inspeções e Laudos ------------------------
 
 // status: AGENDADA | REALIZADA | LAUDO_EMITIDO   risk: VERDE | AMARELO | VERMELHO
 model Inspection {
-  id          Int       @id @default(autoincrement())
-  customer    Customer  @relation(fields: [customerId], references: [id])
+  id          Int              @id @default(autoincrement())
+  customer    Customer         @relation(fields: [customerId], references: [id])
   customerId  Int
   location    String?
   scheduledAt DateTime
-  status      String    @default("AGENDADA")
-  riskLevel   String?
+  status      InspectionStatus @default(AGENDADA)
+  riskLevel   RiskLevel?
   engineer    String? // engenheiro responsável
   artNumber   String? // número da ART
   findings    String?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime         @default(now())
+  attachments Attachment[]
 }
 
 // ------------------------ Agendamentos -------------------------
 
 // type: VISIT | MEETING     status: SCHEDULED | DONE | CANCELLED
 model Appointment {
-  id         Int       @id @default(autoincrement())
+  id         Int               @id @default(autoincrement())
   title      String
-  type       String    @default("MEETING")
+  type       AppointmentType   @default(MEETING)
   startsAt   DateTime
-  status     String    @default("SCHEDULED")
+  status     AppointmentStatus @default(SCHEDULED)
   location   String?
   notes      String?
   customer   Customer? @relation(fields: [customerId], references: [id])
@@ -138,7 +247,7 @@ model Lead {
   phone       String?
   document    String? // CPF/CNPJ
   source      String?
-  stage       String       @default("NEW")
+  stage       LeadStage    @default(NEW)
   value       Float        @default(0)
   customer    Customer?    @relation(fields: [customerId], references: [id])
   customerId  Int?
@@ -146,17 +255,26 @@ model Lead {
   createdAt   DateTime     @default(now())
 }
 
-// Anexo (proposta em PDF/Word) vinculado a um orçamento/lead.
+// Anexo (proposta, ART, laudo, contrato em PDF/Word). Pode pertencer a um
+// orçamento/lead, a um projeto OU a uma inspeção (apenas um vínculo por anexo).
 model Attachment {
-  id         Int      @id @default(autoincrement())
-  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  leadId     Int
-  fileName   String // nome original do arquivo
-  storedName String // nome único (disco) ou caminho do blob
-  url        String? // URL do Vercel Blob (nuvem); vazio = arquivo em disco (local)
-  mimeType   String
-  size       Int      @default(0)
-  createdAt  DateTime @default(now())
+  id           Int         @id @default(autoincrement())
+  lead         Lead?       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId       Int?
+  project      Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId    Int?
+  inspection   Inspection? @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspectionId Int?
+  fileName     String // nome original do arquivo
+  storedName   String // nome único (disco) ou caminho do blob
+  url          String? // URL do Vercel Blob (nuvem); vazio = arquivo em disco (local)
+  mimeType     String
+  size         Int         @default(0)
+  createdAt    DateTime    @default(now())
+
+  @@index([leadId])
+  @@index([projectId])
+  @@index([inspectionId])
 }
 
 // -------------------------- Estoque ----------------------------
@@ -166,7 +284,7 @@ model Product {
   id        Int         @id @default(autoincrement())
   sku       String      @unique
   name      String
-  kind      String      @default("PRODUCT")
+  kind      ProductKind @default(PRODUCT)
   category  String? // Equipamento, Acessório de Segurança, Nível de Carregamento, Serviço
   rentable  Boolean     @default(false) // disponível para locação
   price     Float       @default(0)
@@ -186,7 +304,7 @@ model Order {
   customerId   Int
   seller       Employee?     @relation("Seller", fields: [sellerId], references: [id])
   sellerId     Int?
-  status       String        @default("DRAFT")
+  status       OrderStatus   @default(DRAFT)
   total        Float         @default(0)
   createdAt    DateTime      @default(now())
   items        OrderItem[]
@@ -207,13 +325,13 @@ model OrderItem {
 
 // type: RECEIVABLE | PAYABLE   status: PENDING | PARTIAL | PAID
 model Transaction {
-  id          Int       @id @default(autoincrement())
+  id          Int               @id @default(autoincrement())
   description String
-  type        String
-  amount      Float     @default(0)
+  type        TransactionType
+  amount      Float             @default(0)
   dueDate     DateTime
-  status      String    @default("PENDING")
-  order       Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  status      TransactionStatus @default(PENDING)
+  order       Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
   orderId     Int?
   customer    Customer? @relation(fields: [customerId], references: [id])
   customerId  Int?
@@ -225,11 +343,11 @@ model Transaction {
 
 // Pagamentos podem ser parciais. method: CARD_CREDIT | CARD_DEBIT | PIX | BOLETO | CASH
 model Payment {
-  id            Int         @id @default(autoincrement())
-  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  id            Int           @id @default(autoincrement())
+  transaction   Transaction   @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   transactionId Int
-  amount        Float       @default(0)
-  method        String      @default("CASH")
-  paidAt        DateTime    @default(now())
+  amount        Float         @default(0)
+  method        PaymentMethod @default(CASH)
+  paidAt        DateTime      @default(now())
   createdAt     DateTime    @default(now())
 }

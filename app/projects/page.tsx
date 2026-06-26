@@ -9,41 +9,59 @@ import {
 import { PageHeader, EmptyState, Badge, StatCard } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
+import { Pagination } from "../components/Pagination";
+import { parsePage, paginate } from "@/lib/pagination";
 import SubmitButton from "../components/SubmitButton";
 import ProjectStatusSelect from "./ProjectStatusSelect";
 import { createProject, deleteProject } from "./actions";
 
 export const dynamic = "force-dynamic";
 
+const CLOSED = ["CONCLUIDO", "CANCELADO"];
+
 export default async function ProjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, page: pageParam } = await searchParams;
+  const where = q
+    ? {
+        OR: [
+          { title: { contains: q } },
+          { number: { contains: q } },
+          { location: { contains: q } },
+          { customer: { name: { contains: q } } },
+        ],
+      }
+    : undefined;
+
+  // Estatísticas calculadas sobre o conjunto inteiro (não só a página atual).
+  const grouped = await prisma.project.groupBy({
+    by: ["status"],
+    where,
+    _count: { _all: true },
+    _sum: { value: true },
+  });
+  const total = grouped.reduce((s, g) => s + g._count._all, 0);
+  const openGroups = grouped.filter((g) => !CLOSED.includes(g.status));
+  const open = { length: openGroups.reduce((s, g) => s + g._count._all, 0) };
+  const inQuote = { length: grouped.find((g) => g.status === "ORCAMENTO")?._count._all ?? 0 };
+  const running = { length: grouped.find((g) => g.status === "EM_EXECUCAO")?._count._all ?? 0 };
+  const backlog = openGroups.reduce((s, g) => s + (g._sum.value ?? 0), 0);
+
+  const pg = paginate(total, parsePage(pageParam));
   const [projects, customers, employees] = await Promise.all([
     prisma.project.findMany({
-      where: q
-        ? {
-            OR: [
-              { title: { contains: q } },
-              { number: { contains: q } },
-              { location: { contains: q } },
-              { customer: { name: { contains: q } } },
-            ],
-          }
-        : undefined,
+      where,
       orderBy: { createdAt: "desc" },
+      skip: pg.skip,
+      take: pg.take,
       include: { customer: true, responsible: true },
     }),
     prisma.customer.findMany({ orderBy: { name: "asc" } }),
     prisma.employee.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
-
-  const open = projects.filter((p) => !["CONCLUIDO", "CANCELADO"].includes(p.status));
-  const inQuote = projects.filter((p) => p.status === "ORCAMENTO");
-  const running = projects.filter((p) => p.status === "EM_EXECUCAO");
-  const backlog = open.reduce((s, p) => s + p.value, 0);
 
   return (
     <div>
@@ -57,7 +75,7 @@ export default async function ProjectsPage({
         <StatCard label="Em carteira" value={formatCurrency(backlog)} hint={`${open.length} ativos`} accent="text-brand-600" delay={0} />
         <StatCard label="Em orçamento" value={String(inQuote.length)} delay={60} />
         <StatCard label="Em execução" value={String(running.length)} accent="text-amber-600" delay={120} />
-        <StatCard label="Total de projetos" value={String(projects.length)} delay={180} />
+        <StatCard label="Total de projetos" value={String(total)} delay={180} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -187,6 +205,15 @@ export default async function ProjectsPage({
             </tbody>
           </table>
           </div>
+          <Pagination
+            basePath="/projects"
+            page={pg.page}
+            totalPages={pg.totalPages}
+            from={pg.from}
+            to={pg.to}
+            total={pg.total}
+            params={{ q }}
+          />
         </div>
       </div>
     </div>
