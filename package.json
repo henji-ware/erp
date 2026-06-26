@@ -14,9 +14,6 @@
     "db:seed": "node prisma/seed.mjs",
     "db:reset": "prisma db push --force-reset && node prisma/seed.mjs"
   },
-  "prisma": {
-    "seed": "node prisma/seed.mjs"
-  },
   "dependencies": {
     "@prisma/client": "^6.5.0",
     "@vercel/blob": "^2.4.1",
