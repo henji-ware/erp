@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import {
-  PROJECT_TYPES,
+  PROJECT_TYPE_OPTIONS,
   PROJECT_TYPE_LABELS,
   PROJECT_STATUS_LABELS,
   formatCurrency,
@@ -42,6 +42,12 @@ export default async function EditProjectPage({
   const invoiced = project.transactions.reduce((s, t) => s + t.amount, 0);
   const remainingToInvoice = Math.max(0, project.value - invoiced);
 
+  // Inclui o tipo atual mesmo que seja um tipo "legado" (Inspeção, Venda...),
+  // para não trocá-lo sem querer ao editar um projeto antigo.
+  const typeOptions = (PROJECT_TYPE_OPTIONS as readonly string[]).includes(project.type)
+    ? [...PROJECT_TYPE_OPTIONS]
+    : [project.type, ...PROJECT_TYPE_OPTIONS];
+
   return (
     <div className="max-w-5xl">
       <PageHeader
@@ -69,7 +75,7 @@ export default async function EditProjectPage({
             <div>
               <label className="label">Tipo</label>
               <select name="type" defaultValue={project.type} className="input">
-                {PROJECT_TYPES.map((t) => (
+                {typeOptions.map((t) => (
                   <option key={t} value={t}>{PROJECT_TYPE_LABELS[t]}</option>
                 ))}
               </select>

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {
   formatCurrency,
   formatDate,
-  PROJECT_TYPES,
+  PROJECT_TYPE_OPTIONS,
   PROJECT_TYPE_LABELS,
 } from "@/lib/format";
 import { PageHeader, EmptyState, Badge, StatCard } from "../components/ui";
@@ -103,7 +103,7 @@ export default async function ProjectsPage({
               <div>
                 <label className="label">Tipo</label>
                 <select name="type" className="input" defaultValue="ENGENHARIA">
-                  {PROJECT_TYPES.map((t) => (
+                  {PROJECT_TYPE_OPTIONS.map((t) => (
                     <option key={t} value={t}>{PROJECT_TYPE_LABELS[t]}</option>
                   ))}
                 </select>

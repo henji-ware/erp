@@ -59,6 +59,11 @@ export const PROJECT_TYPE_LABELS: Record<string, string> = {
   LOCACAO: "Locação",
 };
 
+// Tipos oferecidos no formulário de projeto. Inspeção, Manutenção, Venda e
+// Locação têm módulos próprios (na barra lateral), então ficam fora daqui
+// para não duplicar. Os demais (PROJECT_TYPES) seguem válidos no banco.
+export const PROJECT_TYPE_OPTIONS = ["ENGENHARIA", "MONTAGEM", "REMANEJAMENTO"] as const;
+
 export const PROJECT_STATUSES = [
   "ORCAMENTO",
   "APROVADO",
