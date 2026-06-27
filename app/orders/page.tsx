@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { PageHeader, EmptyState } from "../components/ui";
 import { Icon } from "../components/icons";
+import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
 import { parsePage, paginate } from "@/lib/pagination";
 import OrderForm from "./OrderForm";
@@ -13,14 +14,25 @@ export const dynamic = "force-dynamic";
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const { page: pageParam } = await searchParams;
-  const total = await prisma.order.count();
+  const { q, page: pageParam } = await searchParams;
+  const where = q
+    ? {
+        OR: [
+          { number: { contains: q } },
+          { customer: { name: { contains: q } } },
+          { seller: { name: { contains: q } } },
+        ],
+      }
+    : undefined;
+
+  const total = await prisma.order.count({ where });
   const pg = paginate(total, parsePage(pageParam));
 
   const [orders, customers, products, employees] = await Promise.all([
     prisma.order.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       skip: pg.skip,
       take: pg.take,
@@ -40,6 +52,7 @@ export default async function OrdersPage({
       <PageHeader
         title="Pedidos"
         subtitle="Ao confirmar, o estoque baixa e uma conta a receber é gerada no financeiro."
+        action={<SearchBar placeholder="Buscar por nº, cliente, vendedor..." defaultValue={q} />}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -125,6 +138,7 @@ export default async function OrdersPage({
             from={pg.from}
             to={pg.to}
             total={pg.total}
+            params={{ q }}
           />
         </div>
       </div>

@@ -9,6 +9,7 @@ import {
 } from "@/lib/format";
 import { PageHeader, EmptyState, Badge } from "../components/ui";
 import { Icon } from "../components/icons";
+import { SearchBar } from "../components/SearchBar";
 import SubmitButton from "../components/SubmitButton";
 import {
   createAppointment,
@@ -18,7 +19,12 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function AppointmentsPage() {
+export default async function AppointmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
   const [appointments, customers, employees] = await Promise.all([
     prisma.appointment.findMany({
       orderBy: { startsAt: "asc" },
@@ -33,15 +39,27 @@ export default async function AppointmentsPage() {
     (a) => a.status === "SCHEDULED" && a.startsAt >= now,
   );
 
+  const term = (q ?? "").toLowerCase();
+  const list = term
+    ? appointments.filter((a) =>
+        [a.title, a.customer?.name, a.employee?.name, a.location]
+          .filter(Boolean)
+          .some((v) => v!.toLowerCase().includes(term)),
+      )
+    : appointments;
+
   return (
     <div>
       <PageHeader
         title="Agendamentos"
         subtitle="Visitas e reuniões — vinculadas a clientes e à equipe"
         action={
-          <Badge className="bg-brand-50 text-brand-700">
-            {upcoming.length} próximo(s)
-          </Badge>
+          <div className="flex items-center gap-2">
+            <SearchBar placeholder="Buscar por título, cliente..." defaultValue={q} />
+            <Badge className="bg-brand-50 text-brand-700">
+              {upcoming.length} próximo(s)
+            </Badge>
+          </div>
         }
       />
 
@@ -111,14 +129,14 @@ export default async function AppointmentsPage() {
               </tr>
             </thead>
             <tbody>
-              {appointments.length === 0 ? (
+              {list.length === 0 ? (
                 <tr>
                   <td colSpan={4}>
                     <EmptyState>Nenhum agendamento.</EmptyState>
                   </td>
                 </tr>
               ) : (
-                appointments.map((a) => (
+                list.map((a) => (
                   <tr key={a.id} className="border-b border-slate-50 align-top last:border-0">
                     <td className="td">
                       <div className="flex items-center gap-2">

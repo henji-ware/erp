@@ -34,6 +34,15 @@ export default function Sidebar({ userName }: { userName?: string }) {
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
+  // Iniciais do usuário para o avatar (ex.: "Gustavo DRR" → "GD").
+  const initials =
+    (userName ?? "")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("") || "U";
+
   // Close mobile drawer on route change
   useEffect(() => {
     setMobileOpen(false);
@@ -100,13 +109,13 @@ export default function Sidebar({ userName }: { userName?: string }) {
       </nav>
 
       {/* Footer */}
-      <div className="space-y-1 border-t border-slate-100 px-3 py-3">
+      <div className="mt-auto space-y-2 border-t border-slate-200 bg-slate-50 px-3 py-3">
         <Link
           href="/settings"
           title={collapsed ? "Configurações" : undefined}
           className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 ${
             isActive("/settings")
-              ? "bg-brand-50 text-brand-700"
+              ? "bg-brand-50 text-brand-700 shadow-sm"
               : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
           }`}
         >
@@ -116,22 +125,38 @@ export default function Sidebar({ userName }: { userName?: string }) {
           </span>
         </Link>
 
-        {userName && !collapsed && (
-          <p className="truncate px-3 pt-2 text-xs text-slate-500">
-            Olá, <span className="font-medium text-slate-700">{userName}</span>
-          </p>
-        )}
-        <form action={logout}>
-          <button
-            title={collapsed ? "Sair" : undefined}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-red-500/10 hover:text-red-600"
-          >
-            <Icon name="logout" size={18} className="shrink-0" />
-            <span className={`sidebar-label ${collapsed ? "sidebar-label-hidden" : ""}`}>
-              Sair
+        {collapsed ? (
+          // Recolhido: só o ícone de sair (avatar não cabe).
+          <form action={logout}>
+            <button
+              title="Sair"
+              className="flex w-full items-center justify-center rounded-lg px-3 py-2 text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-600"
+            >
+              <Icon name="logout" size={18} className="shrink-0" />
+            </button>
+          </form>
+        ) : (
+          // Expandido: card do usuário com avatar + botão de sair.
+          <div className="flex items-center gap-2.5 rounded-xl bg-slate-100 p-2">
+            <span className="bg-accent text-on-accent flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold">
+              {initials}
             </span>
-          </button>
-        </form>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-sm font-semibold text-slate-700">
+                {userName ?? "Usuário"}
+              </p>
+              <p className="truncate text-[11px] text-slate-400">Conectado</p>
+            </div>
+            <form action={logout}>
+              <button
+                title="Sair"
+                className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-500/10 hover:text-red-600"
+              >
+                <Icon name="logout" size={16} className="shrink-0" />
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </>
   );

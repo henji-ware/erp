@@ -2,17 +2,39 @@ import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/format";
 import { PageHeader, EmptyState } from "../components/ui";
 import { Icon } from "../components/icons";
+import { SearchBar } from "../components/SearchBar";
 import { restoreItem, purgeItem } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function TrashPage() {
+export default async function TrashPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+  const archived = { deletedAt: { not: null } };
   const [customers, products, suppliers, projects, leads] = await Promise.all([
-    prisma.customer.findMany({ where: { deletedAt: { not: null } }, orderBy: { deletedAt: "desc" } }),
-    prisma.product.findMany({ where: { deletedAt: { not: null } }, orderBy: { deletedAt: "desc" } }),
-    prisma.supplier.findMany({ where: { deletedAt: { not: null } }, orderBy: { deletedAt: "desc" } }),
-    prisma.project.findMany({ where: { deletedAt: { not: null } }, orderBy: { deletedAt: "desc" } }),
-    prisma.lead.findMany({ where: { deletedAt: { not: null } }, orderBy: { deletedAt: "desc" } }),
+    prisma.customer.findMany({
+      where: { ...archived, ...(q ? { name: { contains: q } } : {}) },
+      orderBy: { deletedAt: "desc" },
+    }),
+    prisma.product.findMany({
+      where: { ...archived, ...(q ? { OR: [{ name: { contains: q } }, { sku: { contains: q } }] } : {}) },
+      orderBy: { deletedAt: "desc" },
+    }),
+    prisma.supplier.findMany({
+      where: { ...archived, ...(q ? { name: { contains: q } } : {}) },
+      orderBy: { deletedAt: "desc" },
+    }),
+    prisma.project.findMany({
+      where: { ...archived, ...(q ? { OR: [{ title: { contains: q } }, { number: { contains: q } }] } : {}) },
+      orderBy: { deletedAt: "desc" },
+    }),
+    prisma.lead.findMany({
+      where: { ...archived, ...(q ? { name: { contains: q } } : {}) },
+      orderBy: { deletedAt: "desc" },
+    }),
   ]);
 
   const sections: { entity: string; title: string; items: { id: number; label: string; sub?: string; deletedAt: Date | null }[] }[] = [
@@ -30,11 +52,12 @@ export default async function TrashPage() {
       <PageHeader
         title="Lixeira"
         subtitle="Itens arquivados — restaure ou exclua definitivamente"
+        action={<SearchBar placeholder="Buscar arquivados..." defaultValue={q} />}
       />
 
       {totalItems === 0 ? (
         <div className="card">
-          <EmptyState>A lixeira está vazia.</EmptyState>
+          <EmptyState>{q ? "Nenhum item arquivado corresponde à busca." : "A lixeira está vazia."}</EmptyState>
         </div>
       ) : (
         <div className="space-y-6">

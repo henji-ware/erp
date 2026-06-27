@@ -3,6 +3,7 @@ import { formatDateTime } from "@/lib/format";
 import { AUDIT_ACTION_LABELS, AUDIT_ACTION_COLORS } from "@/lib/audit";
 import { parsePage, paginate } from "@/lib/pagination";
 import { PageHeader, EmptyState, Badge } from "../components/ui";
+import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
 
 export const dynamic = "force-dynamic";
@@ -10,15 +11,27 @@ export const dynamic = "force-dynamic";
 export default async function AuditPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const sp = await searchParams;
+  const q = sp.q;
   const page = parsePage(sp.page);
 
-  const total = await prisma.auditLog.count();
+  const where = q
+    ? {
+        OR: [
+          { summary: { contains: q } },
+          { entity: { contains: q } },
+          { userName: { contains: q } },
+        ],
+      }
+    : undefined;
+
+  const total = await prisma.auditLog.count({ where });
   const pg = paginate(total, page);
 
   const logs = await prisma.auditLog.findMany({
+    where,
     orderBy: { createdAt: "desc" },
     skip: pg.skip,
     take: pg.take,
@@ -29,6 +42,7 @@ export default async function AuditPage({
       <PageHeader
         title="Auditoria"
         subtitle="Histórico de quem criou, alterou ou excluiu registros no sistema"
+        action={<SearchBar placeholder="Buscar por registro, usuário..." defaultValue={q} />}
       />
 
       <div className="card overflow-hidden">
@@ -80,6 +94,7 @@ export default async function AuditPage({
           from={pg.from}
           to={pg.to}
           total={pg.total}
+          params={{ q }}
         />
       </div>
     </div>

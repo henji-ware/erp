@@ -10,6 +10,7 @@ import {
 import { paidAmount, remaining, dueInfo } from "@/lib/finance";
 import { PageHeader, EmptyState, Badge, StatCard } from "../components/ui";
 import { Icon } from "../components/icons";
+import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
 import { parsePage, paginate } from "@/lib/pagination";
 import SubmitButton from "../components/SubmitButton";
@@ -24,9 +25,9 @@ export const dynamic = "force-dynamic";
 export default async function FinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const { page: pageParam } = await searchParams;
+  const { q, page: pageParam } = await searchParams;
   const [transactions, customers, suppliers] = await Promise.all([
     prisma.transaction.findMany({
       orderBy: { dueDate: "asc" },
@@ -36,8 +37,18 @@ export default async function FinancePage({
     prisma.supplier.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
   ]);
 
-  const pg = paginate(transactions.length, parsePage(pageParam));
-  const pageItems = transactions.slice(pg.skip, pg.skip + pg.take);
+  // Os KPIs usam TODAS as transações; a tabela respeita a busca.
+  const term = (q ?? "").toLowerCase();
+  const filtered = term
+    ? transactions.filter((t) =>
+        [t.description, t.customer?.name, t.supplier?.name]
+          .filter(Boolean)
+          .some((v) => v!.toLowerCase().includes(term)),
+      )
+    : transactions;
+
+  const pg = paginate(filtered.length, parsePage(pageParam));
+  const pageItems = filtered.slice(pg.skip, pg.skip + pg.take);
 
   const byType = (t: string) => transactions.filter((x) => x.type === t);
   const sumPaid = (t: string) => byType(t).reduce((s, x) => s + paidAmount(x), 0);
@@ -56,6 +67,7 @@ export default async function FinancePage({
       <PageHeader
         title="Financeiro"
         subtitle="Agende contas a pagar/receber, acompanhe vencimentos e dê baixa (inclusive parcial)"
+        action={<SearchBar placeholder="Buscar por descrição, cliente..." defaultValue={q} />}
       />
 
       <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 lg:grid-cols-5">
@@ -232,6 +244,7 @@ export default async function FinancePage({
             from={pg.from}
             to={pg.to}
             total={pg.total}
+            params={{ q }}
           />
         </div>
       </div>
