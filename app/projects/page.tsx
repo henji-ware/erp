@@ -25,16 +25,19 @@ export default async function ProjectsPage({
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { q, page: pageParam } = await searchParams;
-  const where = q
-    ? {
-        OR: [
-          { title: { contains: q } },
-          { number: { contains: q } },
-          { location: { contains: q } },
-          { customer: { name: { contains: q } } },
-        ],
-      }
-    : undefined;
+  const where = {
+    deletedAt: null,
+    ...(q
+      ? {
+          OR: [
+            { title: { contains: q } },
+            { number: { contains: q } },
+            { location: { contains: q } },
+            { customer: { name: { contains: q } } },
+          ],
+        }
+      : {}),
+  };
 
   // Estatísticas calculadas sobre o conjunto inteiro (não só a página atual).
   const grouped = await prisma.project.groupBy({
@@ -59,7 +62,7 @@ export default async function ProjectsPage({
       take: pg.take,
       include: { customer: true, responsible: true },
     }),
-    prisma.customer.findMany({ orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
     prisma.employee.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
 

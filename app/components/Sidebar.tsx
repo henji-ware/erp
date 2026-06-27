@@ -13,14 +13,17 @@ const links: { href: string; label: string; icon: IconName }[] = [
   { href: "/leads", label: "Leads / Orçamentos", icon: "leads" },
   { href: "/projects", label: "Projetos / Obras", icon: "projects" },
   { href: "/inspections", label: "Inspeções / Laudos", icon: "inspection" },
+  { href: "/maintenance", label: "Manutenção", icon: "maintenance" },
   { href: "/products", label: "Equipamentos / Serviços", icon: "products" },
   { href: "/orders", label: "Vendas / Pedidos", icon: "orders" },
+  { href: "/rentals", label: "Locações", icon: "rental" },
   { href: "/appointments", label: "Agendamentos", icon: "calendar" },
   { href: "/suppliers", label: "Fornecedores", icon: "suppliers" },
   { href: "/hr", label: "RH / Equipe", icon: "hr" },
   { href: "/finance", label: "Financeiro", icon: "finance" },
   { href: "/reports", label: "Relatórios", icon: "reports" },
   { href: "/audit", label: "Auditoria", icon: "lock" },
+  { href: "/trash", label: "Lixeira", icon: "trash" },
 ];
 
 export default function Sidebar({ userName }: { userName?: string }) {

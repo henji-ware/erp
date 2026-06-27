@@ -78,8 +78,9 @@ export async function deleteCustomer(formData: FormData) {
     c._count.appointments;
   if (linked > 0) return;
 
-  await prisma.customer.delete({ where: { id } });
-  await logAudit({ action: "DELETE", entity: "Cliente", entityId: id, summary: "Cliente excluído" });
+  // Soft delete: vai para a Lixeira (recuperável), não some de vez.
+  await prisma.customer.update({ where: { id }, data: { deletedAt: new Date() } });
+  await logAudit({ action: "DELETE", entity: "Cliente", entityId: id, summary: "Cliente arquivado" });
   revalidatePath("/customers");
   revalidatePath("/");
 }

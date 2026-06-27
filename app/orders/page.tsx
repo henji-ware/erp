@@ -30,8 +30,8 @@ export default async function OrdersPage({
         items: { include: { product: true } },
       },
     }),
-    prisma.customer.findMany({ orderBy: { name: "asc" } }),
-    prisma.product.findMany({ orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.product.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
     prisma.employee.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
 

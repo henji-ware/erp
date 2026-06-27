@@ -73,13 +73,53 @@ export async function setProjectStatus(formData: FormData) {
   revalidatePath("/");
 }
 
+// Gera uma conta a receber (financeiro) a partir do projeto. Permite faturar
+// por etapas: cada chamada cria um lançamento vinculado ao projeto.
+export async function invoiceProject(formData: FormData) {
+  const projectId = Number(formData.get("projectId"));
+  if (!projectId) return;
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) return;
+
+  const amount = num(formData.get("amount")) || project.value;
+  if (amount <= 0) return;
+
+  const dueRaw = String(formData.get("dueDate") ?? "");
+  const due = dueRaw ? new Date(dueRaw) : addDays(new Date(), 30);
+  const description =
+    str(formData.get("description")) ?? `Faturamento do projeto ${project.number}`;
+
+  await prisma.transaction.create({
+    data: {
+      description,
+      type: "RECEIVABLE",
+      amount,
+      dueDate: due,
+      status: "PENDING",
+      projectId,
+      customerId: project.customerId,
+    },
+  });
+  await logAudit({ action: "CREATE", entity: "Projeto", entityId: projectId, summary: `Faturado ${description}` });
+
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/finance");
+  revalidatePath("/");
+}
+
 export async function deleteProject(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
-  await prisma.project.delete({ where: { id } });
-  await logAudit({ action: "DELETE", entity: "Projeto", entityId: id, summary: "Projeto excluído" });
+  await prisma.project.update({ where: { id }, data: { deletedAt: new Date() } });
+  await logAudit({ action: "DELETE", entity: "Projeto", entityId: id, summary: "Projeto arquivado" });
   revalidatePath("/projects");
   revalidatePath("/");
+}
+
+function addDays(d: Date, days: number): Date {
+  const r = new Date(d);
+  r.setDate(r.getDate() + days);
+  return r;
 }
 
 function str(v: FormDataEntryValue | null): string | null {

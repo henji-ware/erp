@@ -42,7 +42,7 @@ export default async function InspectionsPage({
       prisma.inspection.count({ where: { riskLevel: "VERMELHO" } }),
       prisma.inspection.count(),
       prisma.inspection.count({ where }),
-      prisma.customer.findMany({ orderBy: { name: "asc" } }),
+      prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
     ]);
 
   const pg = paginate(totalFiltered, parsePage(pageParam));

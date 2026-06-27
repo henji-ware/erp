@@ -42,7 +42,10 @@ export type IconName =
   | "menu"
   | "chevronLeft"
   | "chevronRight"
-  | "panelLeft";
+  | "panelLeft"
+  | "rental"
+  | "maintenance"
+  | "history";
 
 const paths: Record<IconName, React.ReactNode> = {
   dashboard: (
@@ -270,6 +273,23 @@ const paths: Record<IconName, React.ReactNode> = {
     <>
       <rect x="3" y="3" width="18" height="18" rx="2" />
       <line x1="9" y1="3" x2="9" y2="21" />
+    </>
+  ),
+  rental: (
+    <>
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <path d="M9 22V12h6v10" />
+      <path d="m14.5 5.5 3 3" />
+    </>
+  ),
+  maintenance: (
+    <path d="M14.7 6.3a4 4 0 0 0-5.4 5.3L3 18l3 3 6.4-6.3a4 4 0 0 0 5.3-5.4l-2.6 2.6-2.3-2.3 2.6-2.6z" />
+  ),
+  history: (
+    <>
+      <path d="M3 3v5h5" />
+      <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+      <path d="M12 7v5l4 2" />
     </>
   ),
 };

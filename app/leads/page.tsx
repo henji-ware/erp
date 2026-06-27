@@ -21,16 +21,19 @@ export default async function LeadsPage({
 }) {
   const { q } = await searchParams;
   const leads = await prisma.lead.findMany({
-    where: q
-      ? {
-          OR: [
-            { name: { contains: q } },
-            { email: { contains: q } },
-            { document: { contains: q } },
-            { source: { contains: q } },
-          ],
-        }
-      : undefined,
+    where: {
+      deletedAt: null,
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q } },
+              { email: { contains: q } },
+              { document: { contains: q } },
+              { source: { contains: q } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { createdAt: "desc" },
   });
 

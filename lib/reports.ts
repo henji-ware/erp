@@ -63,7 +63,7 @@ export async function getReportData(range: Range) {
         items: { include: { product: true } },
       },
     }),
-    prisma.lead.findMany(),
+    prisma.lead.findMany({ where: { deletedAt: null } }),
     prisma.transaction.findMany({ include: { payments: true } }),
   ]);
 

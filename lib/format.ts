@@ -213,6 +213,56 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: "Dinheiro",
 };
 
+// ---- Locação ----
+export const RENTAL_STATUSES = ["ACTIVE", "RETURNED", "OVERDUE", "CANCELLED"] as const;
+export const RENTAL_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "Em locação",
+  RETURNED: "Devolvido",
+  OVERDUE: "Atrasado",
+  CANCELLED: "Cancelado",
+};
+export const RENTAL_STATUS_COLORS: Record<string, string> = {
+  ACTIVE: "bg-blue-100 text-blue-700",
+  RETURNED: "bg-green-100 text-green-700",
+  OVERDUE: "bg-red-100 text-red-700",
+  CANCELLED: "bg-slate-100 text-slate-600",
+};
+
+// ---- Contratos de manutenção ----
+export const MAINTENANCE_FREQUENCIES = [
+  "MONTHLY",
+  "BIMONTHLY",
+  "QUARTERLY",
+  "SEMIANNUAL",
+  "ANNUAL",
+] as const;
+export const MAINTENANCE_FREQUENCY_LABELS: Record<string, string> = {
+  MONTHLY: "Mensal",
+  BIMONTHLY: "Bimestral",
+  QUARTERLY: "Trimestral",
+  SEMIANNUAL: "Semestral",
+  ANNUAL: "Anual",
+};
+// Intervalo em dias aproximado de cada frequência (para calcular a próxima visita).
+export const MAINTENANCE_FREQUENCY_DAYS: Record<string, number> = {
+  MONTHLY: 30,
+  BIMONTHLY: 60,
+  QUARTERLY: 90,
+  SEMIANNUAL: 180,
+  ANNUAL: 365,
+};
+export const MAINTENANCE_STATUSES = ["ACTIVE", "PAUSED", "ENDED"] as const;
+export const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "Ativo",
+  PAUSED: "Pausado",
+  ENDED: "Encerrado",
+};
+export const MAINTENANCE_STATUS_COLORS: Record<string, string> = {
+  ACTIVE: "bg-green-100 text-green-700",
+  PAUSED: "bg-amber-100 text-amber-700",
+  ENDED: "bg-slate-100 text-slate-600",
+};
+
 // Nome do ícone correspondente (componente Icon)
 export const PAYMENT_METHOD_ICONS: Record<string, "card" | "pix" | "boleto" | "cash"> = {
   CARD_CREDIT: "card",

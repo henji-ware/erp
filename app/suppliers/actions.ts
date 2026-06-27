@@ -50,8 +50,8 @@ export async function deleteSupplier(formData: FormData) {
   const used = await prisma.transaction.count({ where: { supplierId: id } });
   if (used > 0) return;
 
-  await prisma.supplier.delete({ where: { id } });
-  await logAudit({ action: "DELETE", entity: "Fornecedor", entityId: id, summary: "Fornecedor excluído" });
+  await prisma.supplier.update({ where: { id }, data: { deletedAt: new Date() } });
+  await logAudit({ action: "DELETE", entity: "Fornecedor", entityId: id, summary: "Fornecedor arquivado" });
   revalidatePath("/suppliers");
 }
 

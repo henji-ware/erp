@@ -17,16 +17,19 @@ export default async function CustomersPage({
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { q, page: pageParam } = await searchParams;
-  const where = q
-    ? {
-        OR: [
-          { name: { contains: q } },
-          { company: { contains: q } },
-          { email: { contains: q } },
-          { document: { contains: q } },
-        ],
-      }
-    : undefined;
+  const where = {
+    deletedAt: null,
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q } },
+            { company: { contains: q } },
+            { email: { contains: q } },
+            { document: { contains: q } },
+          ],
+        }
+      : {}),
+  };
 
   const total = await prisma.customer.count({ where });
   const pg = paginate(total, parsePage(pageParam));

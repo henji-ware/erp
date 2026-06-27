@@ -93,8 +93,8 @@ export async function convertLeadToCustomer(formData: FormData) {
 export async function deleteLead(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
-  await prisma.lead.delete({ where: { id } });
-  await logAudit({ action: "DELETE", entity: "Orçamento", entityId: id, summary: "Orçamento excluído" });
+  await prisma.lead.update({ where: { id }, data: { deletedAt: new Date() } });
+  await logAudit({ action: "DELETE", entity: "Orçamento", entityId: id, summary: "Orçamento arquivado" });
   revalidatePath("/leads");
   revalidatePath("/");
 }

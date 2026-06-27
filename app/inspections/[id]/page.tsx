@@ -29,7 +29,7 @@ export default async function EditInspectionPage({
       where: { id: Number(id) },
       include: { attachments: { orderBy: { createdAt: "desc" } } },
     }),
-    prisma.customer.findMany({ orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
   ]);
   if (!insp) notFound();
 

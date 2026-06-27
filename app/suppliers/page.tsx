@@ -17,15 +17,18 @@ export default async function SuppliersPage({
 }) {
   const { q } = await searchParams;
   const suppliers = await prisma.supplier.findMany({
-    where: q
-      ? {
-          OR: [
-            { name: { contains: q } },
-            { email: { contains: q } },
-            { document: { contains: q } },
-          ],
-        }
-      : undefined,
+    where: {
+      deletedAt: null,
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q } },
+              { email: { contains: q } },
+              { document: { contains: q } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { name: "asc" },
     include: {
       transactions: { where: { type: "PAYABLE" }, include: { payments: true } },

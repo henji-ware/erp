@@ -99,6 +99,27 @@ enum PaymentMethod {
   CASH
 }
 
+enum RentalStatus {
+  ACTIVE // em locação
+  RETURNED // devolvido
+  OVERDUE // atrasado (passou da data prevista)
+  CANCELLED
+}
+
+enum MaintenanceFrequency {
+  MONTHLY
+  BIMONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+}
+
+enum MaintenanceStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
 // --------------------------- Acesso ----------------------------
 
 model User {
@@ -167,8 +188,12 @@ model Project {
   startDate     DateTime?
   endDate       DateTime?
   notes         String?
+  deletedAt     DateTime? // soft delete (lixeira)
   createdAt     DateTime      @default(now())
   attachments   Attachment[]
+  transactions  Transaction[] // faturamento gerado a partir do projeto
+
+  @@index([deletedAt])
 }
 
 // ------------------- Inspeções e Laudos ------------------------
@@ -216,27 +241,35 @@ model Supplier {
   email        String?
   phone        String?
   notes        String?
+  deletedAt    DateTime? // soft delete (lixeira)
   createdAt    DateTime      @default(now())
   transactions Transaction[]
+
+  @@index([deletedAt])
 }
 
 // ----------------------------- CRM -----------------------------
 
 model Customer {
-  id           Int           @id @default(autoincrement())
-  name         String
-  email        String?
-  phone        String?
-  company      String?
-  document     String? // CPF/CNPJ
-  notes        String?
-  createdAt    DateTime      @default(now())
-  orders       Order[]
-  leads        Lead[]
-  transactions Transaction[]
-  appointments Appointment[]
-  projects     Project[]
-  inspections  Inspection[]
+  id                   Int                   @id @default(autoincrement())
+  name                 String
+  email                String?
+  phone                String?
+  company              String?
+  document             String? // CPF/CNPJ
+  notes                String?
+  deletedAt            DateTime? // soft delete (lixeira): preenchido = arquivado
+  createdAt            DateTime              @default(now())
+  orders               Order[]
+  leads                Lead[]
+  transactions         Transaction[]
+  appointments         Appointment[]
+  projects             Project[]
+  inspections          Inspection[]
+  rentals              Rental[]
+  maintenanceContracts MaintenanceContract[]
+
+  @@index([deletedAt])
 }
 
 // Funil de vendas / Orçamentos. stage: NEW | CONTACTED | PROPOSAL | WON | LOST
@@ -252,7 +285,10 @@ model Lead {
   customer    Customer?    @relation(fields: [customerId], references: [id])
   customerId  Int?
   attachments Attachment[]
+  deletedAt   DateTime? // soft delete (lixeira)
   createdAt   DateTime     @default(now())
+
+  @@index([deletedAt])
 }
 
 // Anexo (proposta, ART, laudo, contrato em PDF/Word). Pode pertencer a um
@@ -290,8 +326,12 @@ model Product {
   price     Float       @default(0)
   cost      Float       @default(0)
   stock     Int         @default(0)
+  deletedAt DateTime? // soft delete (lixeira)
   createdAt DateTime    @default(now())
   items     OrderItem[]
+  rentals   Rental[]
+
+  @@index([deletedAt])
 }
 
 // --------------------------- Vendas ----------------------------
@@ -333,12 +373,14 @@ model Transaction {
   status      TransactionStatus @default(PENDING)
   order       Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
   orderId     Int?
-  customer    Customer? @relation(fields: [customerId], references: [id])
+  project     Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId   Int?
+  customer    Customer?         @relation(fields: [customerId], references: [id])
   customerId  Int?
-  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  supplier    Supplier?         @relation(fields: [supplierId], references: [id])
   supplierId  Int?
   payments    Payment[]
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime          @default(now())
 }
 
 // Pagamentos podem ser parciais. method: CARD_CREDIT | CARD_DEBIT | PIX | BOLETO | CASH
@@ -350,4 +392,44 @@ model Payment {
   method        PaymentMethod @default(CASH)
   paidAt        DateTime      @default(now())
   createdAt     DateTime    @default(now())
+}
+
+// --------------------------- Locação ---------------------------
+
+// Contrato de aluguel de equipamento. status: ACTIVE | RETURNED | OVERDUE | CANCELLED
+model Rental {
+  id          Int          @id @default(autoincrement())
+  number      String       @unique
+  customer    Customer     @relation(fields: [customerId], references: [id])
+  customerId  Int
+  product     Product      @relation(fields: [productId], references: [id])
+  productId   Int
+  quantity    Int          @default(1)
+  monthlyRate Float        @default(0) // valor mensal por unidade
+  startDate   DateTime
+  expectedEnd DateTime? // devolução prevista
+  returnedAt  DateTime? // devolução efetiva
+  status      RentalStatus @default(ACTIVE)
+  notes       String?
+  createdAt   DateTime     @default(now())
+
+  @@index([status])
+}
+
+// ------------------- Contratos de manutenção -------------------
+
+// Manutenção recorrente. frequency define o intervalo; nextVisit é a próxima.
+model MaintenanceContract {
+  id         Int                  @id @default(autoincrement())
+  title      String
+  customer   Customer             @relation(fields: [customerId], references: [id])
+  customerId Int
+  frequency  MaintenanceFrequency @default(MONTHLY)
+  value      Float                @default(0) // valor por visita
+  nextVisit  DateTime?
+  status     MaintenanceStatus    @default(ACTIVE)
+  notes      String?
+  createdAt  DateTime             @default(now())
+
+  @@index([status])
 }

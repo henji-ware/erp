@@ -32,8 +32,8 @@ export default async function FinancePage({
       orderBy: { dueDate: "asc" },
       include: { customer: true, supplier: true, payments: true },
     }),
-    prisma.customer.findMany({ orderBy: { name: "asc" } }),
-    prisma.supplier.findMany({ orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.supplier.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
   ]);
 
   const pg = paginate(transactions.length, parsePage(pageParam));

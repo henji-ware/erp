@@ -24,7 +24,7 @@ export default async function AppointmentsPage() {
       orderBy: { startsAt: "asc" },
       include: { customer: true, employee: true },
     }),
-    prisma.customer.findMany({ orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
     prisma.employee.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
 

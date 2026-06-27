@@ -25,7 +25,7 @@ export default async function EditAppointmentPage({
   const { id } = await params;
   const [appt, customers, employees] = await Promise.all([
     prisma.appointment.findUnique({ where: { id: Number(id) } }),
-    prisma.customer.findMany({ orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
     prisma.employee.findMany({ orderBy: { name: "asc" } }),
   ]);
   if (!appt) notFound();

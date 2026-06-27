@@ -78,10 +78,10 @@ export async function deleteProduct(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
   const used = await prisma.orderItem.count({ where: { productId: id } });
-  if (used > 0) return; // produto já usado em pedidos não pode ser excluído
+  if (used > 0) return; // produto já usado em pedidos não pode ser arquivado
 
-  await prisma.product.delete({ where: { id } });
-  await logAudit({ action: "DELETE", entity: "Produto", entityId: id, summary: "Produto/serviço excluído" });
+  await prisma.product.update({ where: { id }, data: { deletedAt: new Date() } });
+  await logAudit({ action: "DELETE", entity: "Produto", entityId: id, summary: "Produto/serviço arquivado" });
   revalidatePath("/products");
   revalidatePath("/");
 }

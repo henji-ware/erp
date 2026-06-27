@@ -87,7 +87,7 @@ export default async function SettingsPage() {
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
           <Info label="Usuário" value={user?.name ?? "—"} />
           <Info label="E-mail" value={user?.email ?? "—"} />
-          <Info label="Versão" value="0.5.0" />
+          <Info label="Versão" value="0.6.0" />
           <Info label="Banco de dados" value="PostgreSQL (Neon)" />
           <Info label="Clientes" value={String(customers)} />
           <Info label="Funcionários" value={String(employees)} />
