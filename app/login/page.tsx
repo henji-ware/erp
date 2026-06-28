@@ -120,10 +120,6 @@ export default async function LoginPage({
               Entrar
             </button>
           </form>
-
-          <p className="mt-6 text-center text-xs text-slate-400">
-            Acessos: gustavo@drrprojetos.com.br · durval@drrprojetos.com.br
-          </p>
         </div>
       </div>
     </div>
