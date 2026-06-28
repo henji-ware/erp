@@ -379,7 +379,7 @@ export default async function ReportsPage({
       <div className="report-footer">
         <span>DRR Projetos e Equipamentos</span>
         <span>Projetos · Equipamentos · Inspeções · Manutenção</span>
-        <span>contato@drrprojetos.com.br · +55 (11) 3000-4567</span>
+        <span>contato@drrprojetos.com.br</span>
       </div>
     </div>
   );
