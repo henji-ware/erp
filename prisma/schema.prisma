@@ -220,12 +220,15 @@ model Project {
   startDate     DateTime?
   endDate       DateTime?
   notes         String?
+  ownerId       Int? // usuário que criou (escopo por dono)
+  shared        Boolean       @default(false)
   deletedAt     DateTime? // soft delete (lixeira)
   createdAt     DateTime      @default(now())
   attachments   Attachment[]
   transactions  Transaction[] // faturamento gerado a partir do projeto
 
   @@index([deletedAt])
+  @@index([ownerId])
 }
 
 // ------------------- Inspeções e Laudos ------------------------
@@ -242,8 +245,12 @@ model Inspection {
   engineer    String? // engenheiro responsável
   artNumber   String? // número da ART
   findings    String?
+  ownerId     Int? // usuário que criou (escopo por dono)
+  shared      Boolean          @default(false)
   createdAt   DateTime         @default(now())
   attachments Attachment[]
+
+  @@index([ownerId])
 }
 
 // ------------------------ Agendamentos -------------------------
@@ -261,7 +268,11 @@ model Appointment {
   customerId Int?
   employee   Employee? @relation(fields: [employeeId], references: [id])
   employeeId Int?
+  ownerId    Int? // usuário que criou (escopo por dono)
+  shared     Boolean   @default(false)
   createdAt  DateTime  @default(now())
+
+  @@index([ownerId])
 }
 
 // ------------------------- Fornecedores ------------------------
@@ -290,6 +301,8 @@ model Customer {
   company              String?
   document             String? // CPF/CNPJ
   notes                String?
+  ownerId              Int? // usuário que criou (escopo por dono)
+  shared               Boolean               @default(false) // visível a todos os usuários
   deletedAt            DateTime? // soft delete (lixeira): preenchido = arquivado
   createdAt            DateTime              @default(now())
   orders               Order[]
@@ -302,6 +315,7 @@ model Customer {
   maintenanceContracts MaintenanceContract[]
 
   @@index([deletedAt])
+  @@index([ownerId])
 }
 
 // Funil de vendas / Orçamentos. stage: NEW | CONTACTED | PROPOSAL | WON | LOST
@@ -321,6 +335,7 @@ model Lead {
   ownerId     Int? // usuário que criou (para o escopo "vê só o seu")
   lossReason  LeadLossReason? // motivo, quando marcado como Perdido
   lossNote    String? // observação livre sobre a perda
+  shared      Boolean         @default(false) // visível a todos os usuários
   attachments Attachment[]
   deletedAt   DateTime? // soft delete (lixeira)
   createdAt   DateTime        @default(now())
@@ -384,9 +399,13 @@ model Order {
   sellerId     Int?
   status       OrderStatus   @default(DRAFT)
   total        Float         @default(0)
+  ownerId      Int? // usuário que criou (escopo por dono)
+  shared       Boolean       @default(false)
   createdAt    DateTime      @default(now())
   items        OrderItem[]
   transactions Transaction[]
+
+  @@index([ownerId])
 }
 
 model OrderItem {
@@ -417,8 +436,12 @@ model Transaction {
   customerId  Int?
   supplier    Supplier?         @relation(fields: [supplierId], references: [id])
   supplierId  Int?
+  ownerId     Int? // usuário que criou (escopo por dono)
+  shared      Boolean           @default(false)
   payments    Payment[]
   createdAt   DateTime          @default(now())
+
+  @@index([ownerId])
 }
 
 // Pagamentos podem ser parciais. method: CARD_CREDIT | CARD_DEBIT | PIX | BOLETO | CASH
@@ -449,9 +472,12 @@ model Rental {
   returnedAt  DateTime? // devolução efetiva
   status      RentalStatus @default(ACTIVE)
   notes       String?
+  ownerId     Int? // usuário que criou (escopo por dono)
+  shared      Boolean      @default(false)
   createdAt   DateTime     @default(now())
 
   @@index([status])
+  @@index([ownerId])
 }
 
 // ------------------- Contratos de manutenção -------------------
@@ -467,7 +493,10 @@ model MaintenanceContract {
   nextVisit  DateTime?
   status     MaintenanceStatus    @default(ACTIVE)
   notes      String?
+  ownerId    Int? // usuário que criou (escopo por dono)
+  shared     Boolean              @default(false)
   createdAt  DateTime             @default(now())
 
   @@index([status])
+  @@index([ownerId])
 }

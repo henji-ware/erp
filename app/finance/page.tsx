@@ -12,7 +12,10 @@ import { PageHeader, EmptyState, Badge, StatCard } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
+import { ShareToggle } from "../components/ShareToggle";
+import { OwnerTag } from "../components/OwnerTag";
 import { parsePage, paginate } from "@/lib/pagination";
+import { getCurrentUser, isAdmin, crmScope, ownerNames } from "@/lib/auth";
 import SubmitButton from "../components/SubmitButton";
 import {
   createTransaction,
@@ -28,12 +31,16 @@ export default async function FinancePage({
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { q, page: pageParam } = await searchParams;
+  const user = await getCurrentUser();
+  const scope = crmScope(user);
+  const owners = await ownerNames();
   const [transactions, customers, suppliers] = await Promise.all([
     prisma.transaction.findMany({
+      where: scope,
       orderBy: { dueDate: "asc" },
       include: { customer: true, supplier: true, payments: true },
     }),
-    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null, ...scope }, orderBy: { name: "asc" } }),
     prisma.supplier.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
   ]);
 
@@ -169,7 +176,10 @@ export default async function FinancePage({
                   return (
                     <tr key={t.id} className="border-b border-slate-50 last:border-0">
                       <td className="td">
-                        <p className="font-medium text-slate-800">{t.description}</p>
+                        <p className="font-medium text-slate-800">
+                          {t.description}
+                          {t.ownerId && <OwnerTag name={owners.get(t.ownerId)} />}
+                        </p>
                         <p className="text-xs text-slate-400">
                           venc. {formatDate(t.dueDate)}
                           {who ? ` · ${who}` : ""}
@@ -203,6 +213,7 @@ export default async function FinancePage({
                       </td>
                       <td className="td">
                         <div className="flex items-center justify-end gap-1">
+                          <ShareToggle entity="transaction" id={t.id} shared={t.shared} canToggle={isAdmin(user) || t.ownerId === user?.id} />
                           {left > 0 && (
                             <form action={payRemaining}>
                               <input type="hidden" name="id" value={t.id} />

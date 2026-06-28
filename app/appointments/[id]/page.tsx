@@ -9,6 +9,7 @@ import {
 import { PageHeader } from "../../components/ui";
 import SubmitButton from "../../components/SubmitButton";
 import { updateAppointment } from "../actions";
+import { getCurrentUser, canSee, crmScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +24,14 @@ export default async function EditAppointmentPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await getCurrentUser();
   const [appt, customers, employees] = await Promise.all([
     prisma.appointment.findUnique({ where: { id: Number(id) } }),
-    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null, ...crmScope(user) }, orderBy: { name: "asc" } }),
     prisma.employee.findMany({ orderBy: { name: "asc" } }),
   ]);
   if (!appt) notFound();
+  if (!canSee(user, appt)) notFound();
 
   return (
     <div className="max-w-xl">

@@ -5,12 +5,14 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { asEnum, INSPECTION_STATUSES, INSPECTION_STATUS_LABELS, RISK_LEVELS } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function createInspection(formData: FormData) {
   const customerId = Number(formData.get("customerId"));
   const scheduledRaw = String(formData.get("scheduledAt") ?? "");
   if (!customerId || !scheduledRaw) return;
 
+  const user = await getCurrentUser();
   const insp = await prisma.inspection.create({
     data: {
       customerId,
@@ -21,6 +23,7 @@ export async function createInspection(formData: FormData) {
       artNumber: str(formData.get("artNumber")),
       riskLevel: risk(formData.get("riskLevel")),
       findings: str(formData.get("findings")),
+      ownerId: user?.id ?? null,
     },
   });
   await logAudit({ action: "CREATE", entity: "Inspeção", entityId: insp.id, summary: "Inspeção registrada" });

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { asEnum, PAYMENT_METHODS, TX_TYPES } from "@/lib/format";
 import { deriveStatus, remaining } from "@/lib/finance";
 import { logAudit } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function createTransaction(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim();
@@ -15,6 +16,7 @@ export async function createTransaction(formData: FormData) {
   const dueRaw = String(formData.get("dueDate") ?? "");
   const dueDate = dueRaw ? new Date(dueRaw) : new Date();
 
+  const user = await getCurrentUser();
   const tx = await prisma.transaction.create({
     data: {
       description,
@@ -24,6 +26,7 @@ export async function createTransaction(formData: FormData) {
       status: "PENDING",
       customerId: type === "RECEIVABLE" ? Number(formData.get("customerId")) || null : null,
       supplierId: type === "PAYABLE" ? Number(formData.get("supplierId")) || null : null,
+      ownerId: user?.id ?? null,
     },
   });
   await logAudit({ action: "CREATE", entity: "Financeiro", entityId: tx.id, summary: `Lançamento "${description}" criado` });

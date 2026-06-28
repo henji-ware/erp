@@ -5,7 +5,10 @@ import { PageHeader, EmptyState } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
+import { ShareToggle } from "../components/ShareToggle";
+import { OwnerTag } from "../components/OwnerTag";
 import { parsePage, paginate } from "@/lib/pagination";
+import { getCurrentUser, isAdmin, crmScope, ownerNames } from "@/lib/auth";
 import SubmitButton from "../components/SubmitButton";
 import { createCustomer, deleteCustomer } from "./actions";
 
@@ -17,18 +20,26 @@ export default async function CustomersPage({
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { q, page: pageParam } = await searchParams;
+  const user = await getCurrentUser();
+  const scope = crmScope(user);
+  const owners = await ownerNames();
   const where = {
     deletedAt: null,
     ...(q
       ? {
-          OR: [
-            { name: { contains: q } },
-            { company: { contains: q } },
-            { email: { contains: q } },
-            { document: { contains: q } },
+          AND: [
+            scope,
+            {
+              OR: [
+                { name: { contains: q } },
+                { company: { contains: q } },
+                { email: { contains: q } },
+                { document: { contains: q } },
+              ],
+            },
           ],
         }
-      : {}),
+      : scope),
   };
 
   const total = await prisma.customer.count({ where });
@@ -128,7 +139,10 @@ export default async function CustomersPage({
                   return (
                   <tr key={c.id} className="border-b border-slate-50 last:border-0">
                     <td className="td">
-                      <p className="font-medium text-slate-800">{c.name}</p>
+                      <p className="font-medium text-slate-800">
+                        {c.name}
+                        {c.ownerId && <OwnerTag name={owners.get(c.ownerId)} />}
+                      </p>
                       {c.company && (
                         <p className="text-xs text-slate-400">{c.company}</p>
                       )}
@@ -142,6 +156,7 @@ export default async function CustomersPage({
                     <td className="td text-slate-500">{formatDate(c.createdAt)}</td>
                     <td className="td">
                       <div className="flex items-center justify-end gap-1">
+                        <ShareToggle entity="customer" id={c.id} shared={c.shared} canToggle={isAdmin(user) || c.ownerId === user?.id} />
                         <Link href={`/customers/${c.id}`} className="btn-ghost px-3 py-1.5 text-xs">
                           <Icon name="edit" size={14} /> Editar
                         </Link>

@@ -10,6 +10,7 @@ import { PageHeader } from "../../components/ui";
 import SubmitButton from "../../components/SubmitButton";
 import { AttachmentsCard } from "../../components/AttachmentsCard";
 import { updateInspection } from "../actions";
+import { getCurrentUser, canSee, crmScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -24,14 +25,16 @@ export default async function EditInspectionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await getCurrentUser();
   const [insp, customers] = await Promise.all([
     prisma.inspection.findUnique({
       where: { id: Number(id) },
       include: { attachments: { orderBy: { createdAt: "desc" } } },
     }),
-    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null, ...crmScope(user) }, orderBy: { name: "asc" } }),
   ]);
   if (!insp) notFound();
+  if (!canSee(user, insp)) notFound();
 
   return (
     <div className="max-w-5xl">

@@ -11,7 +11,7 @@ import {
 } from "@/lib/format";
 import { PageHeader, StatCard, Badge } from "./components/ui";
 import { Icon, type IconName } from "./components/icons";
-import { getCurrentUser, ownerScope } from "@/lib/auth";
+import { getCurrentUser, crmScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export default async function DashboardPage() {
   const now = new Date();
   const in7 = new Date(now.getTime() + 7 * 86400000);
   const user = await getCurrentUser();
-  const leadScope = ownerScope(user);
+  const scope = crmScope(user); // {} p/ admin; { OR: próprios + compartilhados }
 
   const [
     customerCount,
@@ -38,34 +38,34 @@ export default async function DashboardPage() {
     activeRentals,
     maintenanceDue,
   ] = await Promise.all([
-    prisma.customer.count({ where: { deletedAt: null } }),
+    prisma.customer.count({ where: { deletedAt: null, ...scope } }),
     prisma.product.findMany({ where: { deletedAt: null } }),
-    prisma.lead.findMany({ where: { deletedAt: null, ...leadScope, stage: { notIn: ["WON", "LOST"] } } }),
-    prisma.order.findMany({ where: { status: { not: "CANCELLED" } } }),
-    prisma.transaction.findMany({ where: { type: "RECEIVABLE", status: { not: "PAID" } }, include: { payments: true } }),
-    prisma.transaction.findMany({ where: { type: "PAYABLE", status: { not: "PAID" } }, include: { payments: true } }),
-    prisma.order.findMany({ take: 5, orderBy: { createdAt: "desc" }, include: { customer: true } }),
-    prisma.lead.findMany({ where: { deletedAt: null, ...leadScope }, take: 5, orderBy: { createdAt: "desc" } }),
+    prisma.lead.findMany({ where: { deletedAt: null, ...scope, stage: { notIn: ["WON", "LOST"] } } }),
+    prisma.order.findMany({ where: { status: { not: "CANCELLED" }, ...scope } }),
+    prisma.transaction.findMany({ where: { type: "RECEIVABLE", status: { not: "PAID" }, ...scope }, include: { payments: true } }),
+    prisma.transaction.findMany({ where: { type: "PAYABLE", status: { not: "PAID" }, ...scope }, include: { payments: true } }),
+    prisma.order.findMany({ where: scope, take: 5, orderBy: { createdAt: "desc" }, include: { customer: true } }),
+    prisma.lead.findMany({ where: { deletedAt: null, ...scope }, take: 5, orderBy: { createdAt: "desc" } }),
     prisma.appointment.findMany({
-      where: { status: "SCHEDULED", startsAt: { gte: now } },
+      where: { status: "SCHEDULED", startsAt: { gte: now }, ...scope },
       take: 5,
       orderBy: { startsAt: "asc" },
       include: { customer: true, employee: true },
     }),
-    prisma.project.findMany({ where: { deletedAt: null, status: { notIn: ["CONCLUIDO", "CANCELADO"] } } }),
-    prisma.inspection.count({ where: { status: "AGENDADA" } }),
+    prisma.project.findMany({ where: { deletedAt: null, status: { notIn: ["CONCLUIDO", "CANCELADO"] }, ...scope } }),
+    prisma.inspection.count({ where: { status: "AGENDADA", ...scope } }),
     prisma.inspection.findMany({
-      where: { status: "AGENDADA", scheduledAt: { gte: now, lte: in7 } },
+      where: { status: "AGENDADA", scheduledAt: { gte: now, lte: in7 }, ...scope },
       orderBy: { scheduledAt: "asc" },
       include: { customer: true },
     }),
     prisma.rental.findMany({
-      where: { status: "ACTIVE", expectedEnd: { lt: now } },
+      where: { status: "ACTIVE", expectedEnd: { lt: now }, ...scope },
       include: { customer: true, product: true },
     }),
-    prisma.rental.findMany({ where: { status: "ACTIVE" } }),
+    prisma.rental.findMany({ where: { status: "ACTIVE", ...scope } }),
     prisma.maintenanceContract.findMany({
-      where: { status: "ACTIVE", nextVisit: { lte: in7 } },
+      where: { status: "ACTIVE", nextVisit: { lte: in7 }, ...scope },
       orderBy: { nextVisit: "asc" },
       include: { customer: true },
     }),

@@ -9,10 +9,12 @@ import {
 import { Icon } from "../components/icons";
 import { PageHeader, Badge } from "../components/ui";
 import { SearchBar } from "../components/SearchBar";
+import { ShareToggle } from "../components/ShareToggle";
+import { OwnerTag } from "../components/OwnerTag";
 import SubmitButton from "../components/SubmitButton";
 import StageSelect from "./StageSelect";
 import { createLead, convertLeadToCustomer, deleteLead } from "./actions";
-import { getCurrentUser, ownerScope, isAdmin } from "@/lib/auth";
+import { getCurrentUser, crmScope, isAdmin, ownerNames } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -23,21 +25,27 @@ export default async function LeadsPage({
 }) {
   const { q } = await searchParams;
   const user = await getCurrentUser();
+  const scope = crmScope(user);
+  const owners = await ownerNames();
   const leads = await prisma.lead.findMany({
     where: {
       deletedAt: null,
-      ...ownerScope(user),
       ...(q
         ? {
-            OR: [
-              { number: { contains: q } },
-              { name: { contains: q } },
-              { email: { contains: q } },
-              { document: { contains: q } },
-              { source: { contains: q } },
+            AND: [
+              scope,
+              {
+                OR: [
+                  { number: { contains: q } },
+                  { name: { contains: q } },
+                  { email: { contains: q } },
+                  { document: { contains: q } },
+                  { source: { contains: q } },
+                ],
+              },
             ],
           }
-        : {}),
+        : scope),
     },
     orderBy: { createdAt: "desc" },
   });
@@ -123,6 +131,9 @@ export default async function LeadsPage({
                   {l.source && (
                     <p className="mt-0.5 text-xs text-slate-400">via {l.source}</p>
                   )}
+                  {l.ownerId && owners.get(l.ownerId) && (
+                    <p className="text-[11px] text-slate-400">por {owners.get(l.ownerId)}</p>
+                  )}
                   {l.stage === "LOST" && l.lossReason && (
                     <Badge className="mt-1 bg-red-100 text-red-700">
                       {LEAD_LOSS_REASON_LABELS[l.lossReason]}
@@ -131,7 +142,8 @@ export default async function LeadsPage({
 
                   <div className="mt-3 space-y-2">
                     <StageSelect id={l.id} stage={l.stage} />
-                    <div className="flex gap-1">
+                    <div className="flex items-center gap-1">
+                      <ShareToggle entity="lead" id={l.id} shared={l.shared} canToggle={isAdmin(user) || l.ownerId === user?.id} />
                       <Link
                         href={`/leads/${l.id}`}
                         className="btn-ghost px-2 py-1 text-xs"

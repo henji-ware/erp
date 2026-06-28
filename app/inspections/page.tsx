@@ -10,7 +10,10 @@ import { PageHeader, EmptyState, Badge, StatCard } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
+import { ShareToggle } from "../components/ShareToggle";
+import { OwnerTag } from "../components/OwnerTag";
 import { parsePage, paginate } from "@/lib/pagination";
+import { getCurrentUser, isAdmin, crmScope, ownerNames } from "@/lib/auth";
 import SubmitButton from "../components/SubmitButton";
 import InspectionStatusSelect from "./InspectionStatusSelect";
 import { createInspection, deleteInspection } from "./actions";
@@ -23,31 +26,39 @@ export default async function InspectionsPage({
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { q, page: pageParam } = await searchParams;
-  const where = q
+  const user = await getCurrentUser();
+  const scope = crmScope(user);
+  const owners = await ownerNames();
+  const listWhere = q
     ? {
-        OR: [
-          { location: { contains: q } },
-          { engineer: { contains: q } },
-          { artNumber: { contains: q } },
-          { customer: { name: { contains: q } } },
+        AND: [
+          scope,
+          {
+            OR: [
+              { location: { contains: q } },
+              { engineer: { contains: q } },
+              { artNumber: { contains: q } },
+              { customer: { name: { contains: q } } },
+            ],
+          },
         ],
       }
-    : undefined;
+    : scope;
 
-  // Cards calculados sobre todas as inspeções (independente da busca).
+  // Cards calculados sobre as inspeções visíveis ao usuário.
   const [scheduled, reports, critical, totalAll, totalFiltered, customers] =
     await Promise.all([
-      prisma.inspection.count({ where: { status: "AGENDADA" } }),
-      prisma.inspection.count({ where: { status: "LAUDO_EMITIDO" } }),
-      prisma.inspection.count({ where: { riskLevel: "VERMELHO" } }),
-      prisma.inspection.count(),
-      prisma.inspection.count({ where }),
-      prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+      prisma.inspection.count({ where: { status: "AGENDADA", ...scope } }),
+      prisma.inspection.count({ where: { status: "LAUDO_EMITIDO", ...scope } }),
+      prisma.inspection.count({ where: { riskLevel: "VERMELHO", ...scope } }),
+      prisma.inspection.count({ where: scope }),
+      prisma.inspection.count({ where: listWhere }),
+      prisma.customer.findMany({ where: { deletedAt: null, ...scope }, orderBy: { name: "asc" } }),
     ]);
 
   const pg = paginate(totalFiltered, parsePage(pageParam));
   const list = await prisma.inspection.findMany({
-    where,
+    where: listWhere,
     orderBy: { scheduledAt: "desc" },
     skip: pg.skip,
     take: pg.take,
@@ -142,7 +153,10 @@ export default async function InspectionsPage({
                 list.map((i) => (
                   <tr key={i.id} className="border-b border-slate-50 align-top last:border-0">
                     <td className="td">
-                      <p className="font-medium text-slate-800">{i.customer.name}</p>
+                      <p className="font-medium text-slate-800">
+                        {i.customer.name}
+                        {i.ownerId && <OwnerTag name={owners.get(i.ownerId)} />}
+                      </p>
                       <p className="text-xs text-slate-400">
                         {i.location ?? "—"}
                         {i.engineer ? ` · ${i.engineer}` : ""}
@@ -164,6 +178,7 @@ export default async function InspectionsPage({
                     </td>
                     <td className="td">
                       <div className="flex items-center justify-end gap-1">
+                        <ShareToggle entity="inspection" id={i.id} shared={i.shared} canToggle={isAdmin(user) || i.ownerId === user?.id} />
                         <Link href={`/inspections/${i.id}`} className="btn-ghost px-2 py-1 text-xs" title="Editar / Laudo">
                           <Icon name="edit" size={14} />
                         </Link>

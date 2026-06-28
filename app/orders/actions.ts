@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { asEnum, ORDER_STATUSES, ORDER_STATUS_LABELS } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth";
 
 const ACTIVE = ["CONFIRMED", "INVOICED"];
 
@@ -36,6 +37,7 @@ export async function createOrder(formData: FormData) {
   if (items.length === 0) return;
 
   const sellerId = Number(formData.get("sellerId")) || null;
+  const user = await getCurrentUser();
 
   const order = await prisma.order.create({
     data: {
@@ -45,6 +47,7 @@ export async function createOrder(formData: FormData) {
       status: "DRAFT",
       total,
       items: { create: items },
+      ownerId: user?.id ?? null,
     },
   });
 
@@ -137,6 +140,7 @@ async function applyConfirm(orderId: number) {
         status: "PENDING",
         orderId: order.id,
         customerId: order.customerId,
+        ownerId: order.ownerId,
       },
     });
   }

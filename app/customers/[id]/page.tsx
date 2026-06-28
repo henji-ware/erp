@@ -17,6 +17,7 @@ import { PageHeader } from "../../components/ui";
 import { Icon, type IconName } from "../../components/icons";
 import SubmitButton from "../../components/SubmitButton";
 import { updateCustomer } from "../actions";
+import { getCurrentUser, canSee } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,7 @@ export default async function EditCustomerPage({
     },
   });
   if (!customer) notFound();
+  if (!canSee(await getCurrentUser(), customer)) notFound();
 
   // Monta a linha do tempo unificada (todos os vínculos, mais recente primeiro).
   const events: TimelineEvent[] = [

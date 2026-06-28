@@ -10,7 +10,10 @@ import { PageHeader, EmptyState, StatCard } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
+import { ShareToggle } from "../components/ShareToggle";
+import { OwnerTag } from "../components/OwnerTag";
 import { parsePage, paginate } from "@/lib/pagination";
+import { getCurrentUser, isAdmin, crmScope, ownerNames } from "@/lib/auth";
 import SubmitButton from "../components/SubmitButton";
 import MaintenanceStatusSelect from "./MaintenanceStatusSelect";
 import { createMaintenance, completeVisit, deleteMaintenance } from "./actions";
@@ -23,18 +26,26 @@ export default async function MaintenancePage({
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { q, page: pageParam } = await searchParams;
+  const user = await getCurrentUser();
+  const scope = crmScope(user);
+  const owners = await ownerNames();
   const where = q
     ? {
-        OR: [
-          { title: { contains: q } },
-          { customer: { name: { contains: q } } },
+        AND: [
+          scope,
+          {
+            OR: [
+              { title: { contains: q } },
+              { customer: { name: { contains: q } } },
+            ],
+          },
         ],
       }
-    : undefined;
+    : scope;
 
-  // KPIs sobre contratos ativos.
+  // KPIs sobre contratos ativos visíveis ao usuário.
   const activeContracts = await prisma.maintenanceContract.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", ...scope },
   });
   const recurringValue = activeContracts.reduce((s, c) => s + c.value, 0);
   const now = new Date();
@@ -52,7 +63,7 @@ export default async function MaintenancePage({
       take: pg.take,
       include: { customer: true },
     }),
-    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null, ...scope }, orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -140,7 +151,10 @@ export default async function MaintenancePage({
                     return (
                       <tr key={c.id} className="border-b border-slate-50 align-top last:border-0">
                         <td className="td">
-                          <p className="font-medium text-slate-800">{c.title}</p>
+                          <p className="font-medium text-slate-800">
+                            {c.title}
+                            {c.ownerId && <OwnerTag name={owners.get(c.ownerId)} />}
+                          </p>
                           <p className="text-xs text-slate-400">
                             {c.customer.name} · {MAINTENANCE_FREQUENCY_LABELS[c.frequency]}
                           </p>
@@ -155,6 +169,7 @@ export default async function MaintenancePage({
                         </td>
                         <td className="td">
                           <div className="flex items-center justify-end gap-1">
+                            <ShareToggle entity="maintenanceContract" id={c.id} shared={c.shared} canToggle={isAdmin(user) || c.ownerId === user?.id} />
                             <form action={completeVisit}>
                               <input type="hidden" name="id" value={c.id} />
                               <button className="btn-ghost px-2 py-1 text-xs" title="Registrar visita e reagendar próxima">

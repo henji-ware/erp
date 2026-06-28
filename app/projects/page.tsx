@@ -10,7 +10,10 @@ import { PageHeader, EmptyState, Badge, StatCard } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
+import { ShareToggle } from "../components/ShareToggle";
+import { OwnerTag } from "../components/OwnerTag";
 import { parsePage, paginate } from "@/lib/pagination";
+import { getCurrentUser, isAdmin, crmScope, ownerNames } from "@/lib/auth";
 import SubmitButton from "../components/SubmitButton";
 import ProjectStatusSelect from "./ProjectStatusSelect";
 import { createProject, deleteProject } from "./actions";
@@ -25,18 +28,26 @@ export default async function ProjectsPage({
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { q, page: pageParam } = await searchParams;
+  const user = await getCurrentUser();
+  const scope = crmScope(user);
+  const owners = await ownerNames();
   const where = {
     deletedAt: null,
     ...(q
       ? {
-          OR: [
-            { title: { contains: q } },
-            { number: { contains: q } },
-            { location: { contains: q } },
-            { customer: { name: { contains: q } } },
+          AND: [
+            scope,
+            {
+              OR: [
+                { title: { contains: q } },
+                { number: { contains: q } },
+                { location: { contains: q } },
+                { customer: { name: { contains: q } } },
+              ],
+            },
           ],
         }
-      : {}),
+      : scope),
   };
 
   // Estatísticas calculadas sobre o conjunto inteiro (não só a página atual).
@@ -62,7 +73,7 @@ export default async function ProjectsPage({
       take: pg.take,
       include: { customer: true, responsible: true },
     }),
-    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null, ...scope }, orderBy: { name: "asc" } }),
     prisma.employee.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
 
@@ -168,7 +179,10 @@ export default async function ProjectsPage({
                 projects.map((p) => (
                   <tr key={p.id} className="border-b border-slate-50 align-top last:border-0">
                     <td className="td">
-                      <p className="font-medium text-slate-800">{p.title}</p>
+                      <p className="font-medium text-slate-800">
+                        {p.title}
+                        {p.ownerId && <OwnerTag name={owners.get(p.ownerId)} />}
+                      </p>
                       <p className="text-xs text-slate-400">
                         {p.number} · {p.customer.name}
                         {p.responsible ? ` · ${p.responsible.name}` : ""}
@@ -191,6 +205,7 @@ export default async function ProjectsPage({
                     <td className="td text-right font-medium">{formatCurrency(p.value)}</td>
                     <td className="td">
                       <div className="flex items-center justify-end gap-1">
+                        <ShareToggle entity="project" id={p.id} shared={p.shared} canToggle={isAdmin(user) || p.ownerId === user?.id} />
                         <Link href={`/projects/${p.id}`} className="btn-ghost px-2 py-1 text-xs" title="Editar">
                           <Icon name="edit" size={14} />
                         </Link>

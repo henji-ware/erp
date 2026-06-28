@@ -6,7 +6,7 @@ import SubmitButton from "../../components/SubmitButton";
 import { AttachmentsCard } from "../../components/AttachmentsCard";
 import LeadStageLossFields from "../LeadStageLossFields";
 import { updateLead } from "../actions";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getCurrentUser, canSee } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +24,8 @@ export default async function EditLeadPage({
     getCurrentUser(),
   ]);
   if (!lead) notFound();
-  // Usuário comum só acessa os próprios orçamentos.
-  if (!isAdmin(user) && lead.ownerId !== user?.id) notFound();
+  // Usuário comum só acessa os próprios orçamentos (ou compartilhados).
+  if (!canSee(user, lead)) notFound();
 
   return (
     <div className="max-w-4xl">

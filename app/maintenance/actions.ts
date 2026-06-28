@@ -9,12 +9,14 @@ import {
   MAINTENANCE_STATUSES,
 } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function createMaintenance(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const customerId = Number(formData.get("customerId"));
   if (!title || !customerId) return;
 
+  const user = await getCurrentUser();
   const contract = await prisma.maintenanceContract.create({
     data: {
       title,
@@ -24,6 +26,7 @@ export async function createMaintenance(formData: FormData) {
       nextVisit: date(formData.get("nextVisit")),
       status: "ACTIVE",
       notes: str(formData.get("notes")),
+      ownerId: user?.id ?? null,
     },
   });
   await logAudit({ action: "CREATE", entity: "Manutenção", entityId: contract.id, summary: `Contrato "${title}" criado` });

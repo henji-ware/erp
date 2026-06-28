@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { asEnum, RENTAL_STATUSES, RENTAL_STATUS_LABELS } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function createRental(formData: FormData) {
   const customerId = Number(formData.get("customerId"));
@@ -11,6 +12,7 @@ export async function createRental(formData: FormData) {
   const startRaw = String(formData.get("startDate") ?? "");
   if (!customerId || !productId || !startRaw) return;
 
+  const user = await getCurrentUser();
   const rental = await prisma.rental.create({
     data: {
       number: "LOC-" + Date.now().toString(36).toUpperCase(),
@@ -22,6 +24,7 @@ export async function createRental(formData: FormData) {
       expectedEnd: date(formData.get("expectedEnd")),
       status: "ACTIVE",
       notes: str(formData.get("notes")),
+      ownerId: user?.id ?? null,
     },
   });
   await logAudit({ action: "CREATE", entity: "Locação", entityId: rental.id, summary: `Locação ${rental.number} criada` });

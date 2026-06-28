@@ -15,6 +15,7 @@ import SubmitButton from "../../components/SubmitButton";
 import { AttachmentsCard } from "../../components/AttachmentsCard";
 import { Icon } from "../../components/icons";
 import { updateProject, invoiceProject } from "../actions";
+import { getCurrentUser, canSee, crmScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default async function EditProjectPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await getCurrentUser();
   const [project, customers, employees] = await Promise.all([
     prisma.project.findUnique({
       where: { id: Number(id) },
@@ -34,10 +36,11 @@ export default async function EditProjectPage({
         transactions: { orderBy: { dueDate: "asc" } },
       },
     }),
-    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null, ...crmScope(user) }, orderBy: { name: "asc" } }),
     prisma.employee.findMany({ orderBy: { name: "asc" } }),
   ]);
   if (!project) notFound();
+  if (!canSee(user, project)) notFound();
 
   const invoiced = project.transactions.reduce((s, t) => s + t.amount, 0);
   const remainingToInvoice = Math.max(0, project.value - invoiced);

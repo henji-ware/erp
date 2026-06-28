@@ -5,7 +5,10 @@ import { PageHeader, EmptyState, Badge, StatCard } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
+import { ShareToggle } from "../components/ShareToggle";
+import { OwnerTag } from "../components/OwnerTag";
 import { parsePage, paginate } from "@/lib/pagination";
+import { getCurrentUser, isAdmin, crmScope, ownerNames } from "@/lib/auth";
 import SubmitButton from "../components/SubmitButton";
 import RentalStatusSelect from "./RentalStatusSelect";
 import { createRental, deleteRental } from "./actions";
@@ -18,18 +21,26 @@ export default async function RentalsPage({
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { q, page: pageParam } = await searchParams;
+  const user = await getCurrentUser();
+  const scope = crmScope(user);
+  const owners = await ownerNames();
   const where = q
     ? {
-        OR: [
-          { number: { contains: q } },
-          { customer: { name: { contains: q } } },
-          { product: { name: { contains: q } } },
+        AND: [
+          scope,
+          {
+            OR: [
+              { number: { contains: q } },
+              { customer: { name: { contains: q } } },
+              { product: { name: { contains: q } } },
+            ],
+          },
         ],
       }
-    : undefined;
+    : scope;
 
-  // KPIs sobre todas as locações ativas (independente da busca).
-  const activeRentals = await prisma.rental.findMany({ where: { status: "ACTIVE" } });
+  // KPIs sobre as locações ativas visíveis ao usuário.
+  const activeRentals = await prisma.rental.findMany({ where: { status: "ACTIVE", ...scope } });
   const monthlyRevenue = activeRentals.reduce((s, r) => s + r.monthlyRate * r.quantity, 0);
   const now = new Date();
   const overdue = activeRentals.filter((r) => r.expectedEnd && r.expectedEnd < now).length;
@@ -45,7 +56,7 @@ export default async function RentalsPage({
       take: pg.take,
       include: { customer: true, product: true },
     }),
-    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null, ...scope }, orderBy: { name: "asc" } }),
     prisma.product.findMany({
       where: { deletedAt: null, rentable: true },
       orderBy: { name: "asc" },
@@ -151,7 +162,10 @@ export default async function RentalsPage({
                     return (
                       <tr key={r.id} className="border-b border-slate-50 align-top last:border-0">
                         <td className="td">
-                          <p className="font-medium text-slate-800">{r.product.name}</p>
+                          <p className="font-medium text-slate-800">
+                            {r.product.name}
+                            {r.ownerId && <OwnerTag name={owners.get(r.ownerId)} />}
+                          </p>
                           <p className="text-xs text-slate-400">
                             {r.number} · {r.customer.name} · {r.quantity}x
                           </p>
@@ -184,6 +198,7 @@ export default async function RentalsPage({
                         </td>
                         <td className="td">
                           <div className="flex items-center justify-end gap-1">
+                            <ShareToggle entity="rental" id={r.id} shared={r.shared} canToggle={isAdmin(user) || r.ownerId === user?.id} />
                             <form action={deleteRental}>
                               <input type="hidden" name="id" value={r.id} />
                               <button className="btn-danger px-2 py-1 text-xs" title="Excluir">

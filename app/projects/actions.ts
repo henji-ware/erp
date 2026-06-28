@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { asEnum, PROJECT_TYPES, PROJECT_STATUSES, PROJECT_STATUS_LABELS } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function createProject(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
@@ -12,6 +13,7 @@ export async function createProject(formData: FormData) {
   if (!title || !customerId) return;
   const type = asEnum(PROJECT_TYPES, formData.get("type"), "ENGENHARIA");
 
+  const user = await getCurrentUser();
   const project = await prisma.project.create({
     data: {
       number: "PRJ-" + Date.now().toString(36).toUpperCase(),
@@ -25,6 +27,7 @@ export async function createProject(formData: FormData) {
       startDate: date(formData.get("startDate")),
       endDate: date(formData.get("endDate")),
       notes: str(formData.get("notes")),
+      ownerId: user?.id ?? null,
     },
   });
   await logAudit({ action: "CREATE", entity: "Projeto", entityId: project.id, summary: `Projeto ${project.number} criado` });
@@ -98,6 +101,7 @@ export async function invoiceProject(formData: FormData) {
       status: "PENDING",
       projectId,
       customerId: project.customerId,
+      ownerId: project.ownerId,
     },
   });
   await logAudit({ action: "CREATE", entity: "Projeto", entityId: projectId, summary: `Faturado ${description}` });

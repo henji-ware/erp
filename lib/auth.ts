@@ -38,11 +38,41 @@ export function isAdmin(user: { role: string } | null | undefined): boolean {
   return user?.role === "ADMIN";
 }
 
-// Filtro de "dono" para o escopo dos orçamentos: admin vê tudo (undefined),
-// usuário comum vê só os próprios (ownerId = ele).
-export function ownerScope(
+// Cláusula de visibilidade (CRM/vendas): admin vê tudo ({}); usuário comum vê
+// os próprios registros OU os marcados como compartilhados.
+// Use dentro de `where`: { deletedAt: null, ...crmScope(user) }.
+// Quando houver busca (outro OR), combine com AND: { AND: [crmScope(user), { OR: [...busca] }] }.
+export function crmScope(
   user: { id: number; role: string } | null | undefined,
-): { ownerId?: number } {
+): { OR?: ({ ownerId: number } | { shared: boolean })[] } {
   if (!user || user.role === "ADMIN") return {};
-  return { ownerId: user.id };
+  return { OR: [{ ownerId: user.id }, { shared: true }] };
+}
+
+// Alias mantido por compatibilidade.
+export const ownerScope = crmScope;
+
+// O usuário pode ver este registro? (admin, dono ou compartilhado)
+export function canSee(
+  user: { id: number; role: string } | null | undefined,
+  record: { ownerId: number | null; shared: boolean },
+): boolean {
+  if (isAdmin(user)) return true;
+  if (record.shared) return true;
+  return !!user && record.ownerId === user.id;
+}
+
+// O usuário pode editar/excluir? (admin ou dono — compartilhado não dá edição)
+export function canEdit(
+  user: { id: number; role: string } | null | undefined,
+  record: { ownerId: number | null },
+): boolean {
+  if (isAdmin(user)) return true;
+  return !!user && record.ownerId === user.id;
+}
+
+// Mapa id->nome dos usuários, para exibir "adicionado por" nos registros.
+export async function ownerNames(): Promise<Map<number, string>> {
+  const users = await prisma.user.findMany({ select: { id: true, name: true } });
+  return new Map(users.map((u) => [u.id, u.name] as const));
 }

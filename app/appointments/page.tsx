@@ -10,6 +10,9 @@ import {
 import { PageHeader, EmptyState, Badge } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
+import { ShareToggle } from "../components/ShareToggle";
+import { OwnerTag } from "../components/OwnerTag";
+import { getCurrentUser, isAdmin, crmScope, ownerNames } from "@/lib/auth";
 import SubmitButton from "../components/SubmitButton";
 import {
   createAppointment,
@@ -25,12 +28,16 @@ export default async function AppointmentsPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
+  const user = await getCurrentUser();
+  const scope = crmScope(user);
+  const owners = await ownerNames();
   const [appointments, customers, employees] = await Promise.all([
     prisma.appointment.findMany({
+      where: scope,
       orderBy: { startsAt: "asc" },
       include: { customer: true, employee: true },
     }),
-    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null, ...scope }, orderBy: { name: "asc" } }),
     prisma.employee.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
 
@@ -143,7 +150,10 @@ export default async function AppointmentsPage({
                         <span className="text-slate-400">
                           <Icon name={a.type === "VISIT" ? "customers" : "calendar"} size={15} />
                         </span>
-                        <p className="font-medium text-slate-800">{a.title}</p>
+                        <p className="font-medium text-slate-800">
+                          {a.title}
+                          {a.ownerId && <OwnerTag name={owners.get(a.ownerId)} />}
+                        </p>
                       </div>
                       <p className="mt-0.5 text-xs text-slate-400">
                         {APPOINTMENT_TYPE_LABELS[a.type]}
@@ -160,6 +170,7 @@ export default async function AppointmentsPage({
                     </td>
                     <td className="td">
                       <div className="flex items-center justify-end gap-1">
+                        <ShareToggle entity="appointment" id={a.id} shared={a.shared} canToggle={isAdmin(user) || a.ownerId === user?.id} />
                         {a.status === "SCHEDULED" && (
                           <>
                             <form action={setAppointmentStatus}>

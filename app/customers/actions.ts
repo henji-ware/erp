@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { getCurrentUser, canEdit } from "@/lib/auth";
 
 export async function createCustomer(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
 
+  const user = await getCurrentUser();
   const customer = await prisma.customer.create({
     data: {
       name,
@@ -17,6 +19,7 @@ export async function createCustomer(formData: FormData) {
       company: str(formData.get("company")),
       document: str(formData.get("document")),
       notes: str(formData.get("notes")),
+      ownerId: user?.id ?? null,
     },
   });
   await logAudit({ action: "CREATE", entity: "Cliente", entityId: customer.id, summary: `Cliente "${name}" criado` });
@@ -29,6 +32,8 @@ export async function updateCustomer(formData: FormData) {
   const id = Number(formData.get("id"));
   const name = String(formData.get("name") ?? "").trim();
   if (!id || !name) return;
+  const existing = await prisma.customer.findUnique({ where: { id }, select: { ownerId: true } });
+  if (!existing || !canEdit(await getCurrentUser(), existing)) return;
 
   await prisma.customer.update({
     where: { id },
@@ -56,6 +61,7 @@ export async function deleteCustomer(formData: FormData) {
   const c = await prisma.customer.findUnique({
     where: { id },
     select: {
+      ownerId: true,
       _count: {
         select: {
           orders: true,
@@ -69,6 +75,7 @@ export async function deleteCustomer(formData: FormData) {
     },
   });
   if (!c) return;
+  if (!canEdit(await getCurrentUser(), c)) return;
   const linked =
     c._count.orders +
     c._count.projects +

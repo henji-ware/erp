@@ -4,7 +4,10 @@ import { PageHeader, EmptyState } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
+import { ShareToggle } from "../components/ShareToggle";
+import { OwnerTag } from "../components/OwnerTag";
 import { parsePage, paginate } from "@/lib/pagination";
+import { getCurrentUser, isAdmin, crmScope, ownerNames } from "@/lib/auth";
 import OrderForm from "./OrderForm";
 import OrderStatusSelect from "./OrderStatusSelect";
 import { deleteOrder } from "./actions";
@@ -17,15 +20,23 @@ export default async function OrdersPage({
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { q, page: pageParam } = await searchParams;
+  const user = await getCurrentUser();
+  const scope = crmScope(user);
+  const owners = await ownerNames();
   const where = q
     ? {
-        OR: [
-          { number: { contains: q } },
-          { customer: { name: { contains: q } } },
-          { seller: { name: { contains: q } } },
+        AND: [
+          scope,
+          {
+            OR: [
+              { number: { contains: q } },
+              { customer: { name: { contains: q } } },
+              { seller: { name: { contains: q } } },
+            ],
+          },
         ],
       }
-    : undefined;
+    : scope;
 
   const total = await prisma.order.count({ where });
   const pg = paginate(total, parsePage(pageParam));
@@ -42,7 +53,7 @@ export default async function OrdersPage({
         items: { include: { product: true } },
       },
     }),
-    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null, ...scope }, orderBy: { name: "asc" } }),
     prisma.product.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
     prisma.employee.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
@@ -93,7 +104,10 @@ export default async function OrdersPage({
                 orders.map((o) => (
                   <tr key={o.id} className="border-b border-slate-50 align-top last:border-0">
                     <td className="td">
-                      <p className="font-medium text-slate-800">{o.number}</p>
+                      <p className="font-medium text-slate-800">
+                        {o.number}
+                        {o.ownerId && <OwnerTag name={owners.get(o.ownerId)} />}
+                      </p>
                       <p className="text-xs text-slate-400">{formatDate(o.createdAt)}</p>
                       <ul className="mt-1 space-y-0.5">
                         {o.items.map((it) => (
@@ -118,12 +132,15 @@ export default async function OrdersPage({
                       {formatCurrency(o.total)}
                     </td>
                     <td className="td text-right">
-                      <form action={deleteOrder}>
-                        <input type="hidden" name="id" value={o.id} />
-                        <button className="btn-danger px-3 py-1.5 text-xs" title="Excluir">
-                          <Icon name="trash" size={14} />
-                        </button>
-                      </form>
+                      <div className="flex items-center justify-end gap-1">
+                        <ShareToggle entity="order" id={o.id} shared={o.shared} canToggle={isAdmin(user) || o.ownerId === user?.id} />
+                        <form action={deleteOrder}>
+                          <input type="hidden" name="id" value={o.id} />
+                          <button className="btn-danger px-3 py-1.5 text-xs" title="Excluir">
+                            <Icon name="trash" size={14} />
+                          </button>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 ))
