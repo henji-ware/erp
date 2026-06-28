@@ -137,13 +137,14 @@ export default async function HrPage({
                 <th className="th">Cargo</th>
                 <th className="th text-right">Salário</th>
                 <th className="th text-center">Vendas</th>
+                <th className="th">Benefícios</th>
                 <th className="th"></th>
               </tr>
             </thead>
             <tbody>
               {employees.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={6}>
                     <EmptyState>Nenhum funcionário cadastrado.</EmptyState>
                   </td>
                 </tr>
@@ -191,6 +192,22 @@ export default async function HrPage({
                       )}
                     </td>
                     <td className="td text-center">{e._count.sales}</td>
+                    <td className="td">
+                      {e.benefits ? (
+                        <details className="group">
+                          <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-xs font-medium text-brand-600 hover:underline">
+                            <Icon name="plus" size={12} className="group-open:hidden" />
+                            <span className="group-open:hidden">Ver</span>
+                            <span className="hidden group-open:inline">Ocultar</span>
+                          </summary>
+                          <p className="mt-1 max-w-[220px] whitespace-pre-line text-xs text-slate-500">
+                            {e.benefits}
+                          </p>
+                        </details>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
                     <td className="td">
                       <div className="flex items-center justify-end gap-1">
                         <Link href={`/hr/${e.id}`} className="btn-ghost px-3 py-1.5 text-xs">
