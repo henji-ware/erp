@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import {
   formatCurrency,
   LEAD_STAGE_LABELS,
+  LEAD_LOSS_REASON_LABELS,
   PAYMENT_METHOD_LABELS,
 } from "@/lib/format";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { Icon } from "../components/icons";
 import {
   getReportData,
@@ -24,6 +27,7 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
+  if (!isAdmin(await getCurrentUser())) notFound();
   const sp = await searchParams;
   const range = parseRange(sp);
   const data = await getReportData(range);
@@ -130,6 +134,61 @@ export default async function ReportsPage({
             }))}
             formatValue={formatCurrency}
           />
+        </div>
+      </div>
+
+      {/* Análise de perdas (orçamentos perdidos por motivo) */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="card p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-semibold text-slate-800">Análise de perdas</h2>
+            <Badge
+              className={
+                data.winRate >= 50
+                  ? "bg-green-100 text-green-700"
+                  : "bg-amber-100 text-amber-700"
+              }
+            >
+              {data.winRate.toFixed(0)}% de conversão
+            </Badge>
+          </div>
+          {data.lostReasons.length === 0 ? (
+            <p className="py-6 text-center text-sm text-slate-400">
+              Nenhum orçamento perdido com motivo registrado.
+            </p>
+          ) : (
+            <HBarList
+              data={data.lostReasons.map((r) => ({
+                label: LEAD_LOSS_REASON_LABELS[r.reason],
+                value: r.value,
+                sub: `${r.count} orçamento(s)`,
+              }))}
+              formatValue={formatCurrency}
+            />
+          )}
+          <p className="mt-3 text-xs text-slate-400">
+            Total perdido: <strong className="text-red-600">{formatCurrency(data.lossSummary.value)}</strong>{" "}
+            em {data.lossSummary.count} orçamento(s)
+            {data.lossSummary.noReason > 0 && ` · ${data.lossSummary.noReason} sem motivo informado`}
+          </p>
+        </div>
+
+        <div className="card p-5">
+          <h2 className="mb-4 font-semibold text-slate-800">Comissões por vendedor</h2>
+          {data.commissions.length === 0 ? (
+            <p className="py-6 text-center text-sm text-slate-400">
+              Nenhuma comissão no período.
+            </p>
+          ) : (
+            <HBarList
+              data={data.commissions.map((c) => ({
+                label: c.name,
+                value: c.commission,
+                sub: `${c.commissionPct}% · ${formatCurrency(c.revenue)}`,
+              }))}
+              formatValue={formatCurrency}
+            />
+          )}
         </div>
       </div>
 

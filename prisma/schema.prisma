@@ -120,6 +120,26 @@ enum MaintenanceStatus {
   ENDED
 }
 
+enum UserRole {
+  ADMIN // Gustavo, Durval — veem e gerenciam tudo
+  USER // veem e editam só os próprios orçamentos
+}
+
+enum SellerCategory {
+  VENDEDOR
+  REPRESENTANTE
+  DISTRIBUIDOR
+  PARCEIRO
+}
+
+enum LeadLossReason {
+  PRAZO_ENTREGA
+  PRECO
+  PRODUTO
+  OUTRO_FORNECEDOR
+  OUTRO
+}
+
 // --------------------------- Acesso ----------------------------
 
 model User {
@@ -127,7 +147,16 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
+  role         UserRole @default(USER)
+  active       Boolean  @default(true)
   createdAt    DateTime @default(now())
+  leads        Lead[]   @relation("LeadOwner")
+}
+
+// Contador sequencial por chave (ex.: "2606" = orçamentos de jun/2026).
+model Counter {
+  key   String @id
+  value Int    @default(0)
 }
 
 // ----------------------- Log de auditoria ----------------------
@@ -158,8 +187,11 @@ model Employee {
   email        String?
   phone        String?
   contractType ContractType  @default(CLT)
+  category     SellerCategory? // vendedor, representante, distribuidor, parceiro
   salary       Float         @default(0)
   commissionPct Float        @default(0) // percentual de comissão sobre vendas
+  targetValue  Float?        // meta de faturamento (mensal)
+  targetQty    Int?          // meta de quantidade de vendas (mensal)
   benefits     String? // benefícios (VR, VT, plano de saúde…)
   hireDate     DateTime?
   active       Boolean       @default(true)
@@ -274,21 +306,27 @@ model Customer {
 
 // Funil de vendas / Orçamentos. stage: NEW | CONTACTED | PROPOSAL | WON | LOST
 model Lead {
-  id          Int          @id @default(autoincrement())
+  id          Int             @id @default(autoincrement())
+  number      String?         @unique // numeração sequencial: AAMMNN (ex.: 260601)
   name        String
   email       String?
   phone       String?
   document    String? // CPF/CNPJ
   source      String?
-  stage       LeadStage    @default(NEW)
-  value       Float        @default(0)
-  customer    Customer?    @relation(fields: [customerId], references: [id])
+  stage       LeadStage       @default(NEW)
+  value       Float           @default(0)
+  customer    Customer?       @relation(fields: [customerId], references: [id])
   customerId  Int?
+  owner       User?           @relation("LeadOwner", fields: [ownerId], references: [id])
+  ownerId     Int? // usuário que criou (para o escopo "vê só o seu")
+  lossReason  LeadLossReason? // motivo, quando marcado como Perdido
+  lossNote    String? // observação livre sobre a perda
   attachments Attachment[]
   deletedAt   DateTime? // soft delete (lixeira)
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime        @default(now())
 
   @@index([deletedAt])
+  @@index([ownerId])
 }
 
 // Anexo (proposta, ART, laudo, contrato em PDF/Word). Pode pertencer a um

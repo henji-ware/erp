@@ -21,12 +21,23 @@ const links: { href: string; label: string; icon: IconName }[] = [
   { href: "/suppliers", label: "Fornecedores", icon: "suppliers" },
   { href: "/hr", label: "RH / Equipe", icon: "hr" },
   { href: "/finance", label: "Financeiro", icon: "finance" },
-  { href: "/reports", label: "Relatórios", icon: "reports" },
-  { href: "/audit", label: "Auditoria", icon: "lock" },
   { href: "/trash", label: "Lixeira", icon: "trash" },
 ];
 
-export default function Sidebar({ userName }: { userName?: string }) {
+// Itens visíveis só para administradores (gestão e análise).
+const adminLinks: { href: string; label: string; icon: IconName }[] = [
+  { href: "/reports", label: "Relatórios", icon: "reports" },
+  { href: "/users", label: "Usuários", icon: "customers" },
+  { href: "/audit", label: "Auditoria", icon: "lock" },
+];
+
+export default function Sidebar({
+  userName,
+  isAdmin = false,
+}: {
+  userName?: string;
+  isAdmin?: boolean;
+}) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -42,6 +53,8 @@ export default function Sidebar({ userName }: { userName?: string }) {
       .slice(0, 2)
       .map((w) => w[0]?.toUpperCase() ?? "")
       .join("") || "U";
+
+  const navLinks = isAdmin ? [...links, ...adminLinks] : links;
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -85,7 +98,7 @@ export default function Sidebar({ userName }: { userName?: string }) {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
-        {links.map((link, i) => {
+        {navLinks.map((link, i) => {
           const active = isActive(link.href);
           return (
             <Link

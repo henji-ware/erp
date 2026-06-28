@@ -42,18 +42,18 @@ async function main() {
 
   // ---- Usuários de acesso (login) ----
   await prisma.user.create({
-    data: { name: "Vendedor Demo", email: "admin@example.test", passwordHash: hashPassword("[REMOVIDO_DO_HISTORICO]") },
+    data: { name: "Vendedor Demo", email: "admin@example.test", passwordHash: hashPassword("[REMOVIDO_DO_HISTORICO]"), role: "ADMIN" },
   });
   await prisma.user.create({
-    data: { name: "Representante Demo", email: "operador@example.test", passwordHash: hashPassword("[REMOVIDO_DO_HISTORICO]") },
+    data: { name: "Representante Demo", email: "operador@example.test", passwordHash: hashPassword("[REMOVIDO_DO_HISTORICO]"), role: "ADMIN" },
   });
 
   // ---- Equipe (RH) ----
   const gustavo = await prisma.employee.create({
-    data: { name: "Vendedor Demo", role: "Vendedor", department: "Comercial", email: "admin@example.test", phone: "(11) 98888-1111", contractType: "CLT", salary: 4200, commissionPct: 5, benefits: "VR, VT, plano de saúde", hireDate: addDays(-700), active: true },
+    data: { name: "Vendedor Demo", role: "Vendedor", department: "Comercial", category: "VENDEDOR", email: "admin@example.test", phone: "(11) 98888-1111", contractType: "CLT", salary: 4200, commissionPct: 5, targetValue: 50000, targetQty: 8, benefits: "VR, VT, plano de saúde", hireDate: addDays(-700), active: true },
   });
   const durval = await prisma.employee.create({
-    data: { name: "Representante Demo", role: "Vendedor", department: "Comercial", email: "operador@example.test", phone: "(11) 97777-2222", contractType: "PJ", salary: 4200, commissionPct: 8, benefits: "Vale-combustível", hireDate: addDays(-300), active: true },
+    data: { name: "Representante Demo", role: "Vendedor", department: "Comercial", category: "REPRESENTANTE", email: "operador@example.test", phone: "(11) 97777-2222", contractType: "PJ", salary: 4200, commissionPct: 8, targetValue: 60000, targetQty: 10, benefits: "Vale-combustível", hireDate: addDays(-300), active: true },
   });
 
   // ---- Clientes (referências reais do site) ----

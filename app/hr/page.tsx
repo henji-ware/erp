@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { formatCurrency } from "@/lib/format";
+import {
+  formatCurrency,
+  SELLER_CATEGORIES,
+  SELLER_CATEGORY_LABELS,
+} from "@/lib/format";
 import { PageHeader, EmptyState, Badge } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
@@ -59,6 +63,15 @@ export default async function HrPage({
                 <input name="department" className="input" placeholder="Comercial..." />
               </div>
             </div>
+            <div>
+              <label className="label">Categoria</label>
+              <select name="category" className="input" defaultValue="">
+                <option value="">— (sem categoria)</option>
+                {SELLER_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{SELLER_CATEGORY_LABELS[c]}</option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="label">E-mail</label>
@@ -80,6 +93,16 @@ export default async function HrPage({
               <div>
                 <label className="label">Comissão (%)</label>
                 <input name="commissionPct" type="number" step="0.1" min="0" className="input" placeholder="0" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="label">Meta de valor (R$/mês)</label>
+                <input name="targetValue" type="number" step="0.01" min="0" className="input" placeholder="opcional" />
+              </div>
+              <div>
+                <label className="label">Meta de qtde (vendas/mês)</label>
+                <input name="targetQty" type="number" min="0" className="input" placeholder="opcional" />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -146,9 +169,17 @@ export default async function HrPage({
                       {e.email && <p className="text-xs text-slate-400">{e.email}</p>}
                     </td>
                     <td className="td text-slate-600">
-                      {e.role ?? "—"}
-                      {e.department && (
-                        <span className="block text-xs text-slate-400">{e.department}</span>
+                      {e.category ? (
+                        <Badge className="bg-brand-50 text-brand-700">
+                          {SELLER_CATEGORY_LABELS[e.category]}
+                        </Badge>
+                      ) : (
+                        e.role ?? "—"
+                      )}
+                      {(e.role || e.department) && (
+                        <span className="block text-xs text-slate-400">
+                          {[e.category ? e.role : null, e.department].filter(Boolean).join(" · ")}
+                        </span>
                       )}
                     </td>
                     <td className="td text-right">

@@ -4,13 +4,15 @@ import {
   formatCurrency,
   LEAD_STAGES,
   LEAD_STAGE_LABELS,
+  LEAD_LOSS_REASON_LABELS,
 } from "@/lib/format";
 import { Icon } from "../components/icons";
-import { PageHeader } from "../components/ui";
+import { PageHeader, Badge } from "../components/ui";
 import { SearchBar } from "../components/SearchBar";
 import SubmitButton from "../components/SubmitButton";
 import StageSelect from "./StageSelect";
 import { createLead, convertLeadToCustomer, deleteLead } from "./actions";
+import { getCurrentUser, ownerScope, isAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +22,15 @@ export default async function LeadsPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
+  const user = await getCurrentUser();
   const leads = await prisma.lead.findMany({
     where: {
       deletedAt: null,
+      ...ownerScope(user),
       ...(q
         ? {
             OR: [
+              { number: { contains: q } },
               { name: { contains: q } },
               { email: { contains: q } },
               { document: { contains: q } },
@@ -45,8 +50,12 @@ export default async function LeadsPage({
     <div>
       <PageHeader
         title="Leads / Orçamentos"
-        subtitle="Funil de vendas. Anexe a proposta e converta em cliente ao ganhar."
-        action={<SearchBar placeholder="Buscar por nome, CPF/CNPJ..." defaultValue={q} />}
+        subtitle={
+          isAdmin(user)
+            ? "Funil de vendas — você vê os orçamentos de toda a equipe."
+            : "Funil de vendas — você vê apenas os seus orçamentos."
+        }
+        action={<SearchBar placeholder="Buscar por nº, nome, CPF/CNPJ..." defaultValue={q} />}
       />
 
       {/* Formulário de novo lead */}
@@ -104,12 +113,20 @@ export default async function LeadsPage({
             <div className="space-y-3">
               {byStage(stage).map((l) => (
                 <div key={l.id} className="card p-3">
+                  {l.number && (
+                    <p className="font-mono text-[11px] text-slate-400">Nº {l.number}</p>
+                  )}
                   <p className="font-medium text-slate-800">{l.name}</p>
                   <p className="text-sm font-semibold text-brand-600">
                     {formatCurrency(l.value)}
                   </p>
                   {l.source && (
                     <p className="mt-0.5 text-xs text-slate-400">via {l.source}</p>
+                  )}
+                  {l.stage === "LOST" && l.lossReason && (
+                    <Badge className="mt-1 bg-red-100 text-red-700">
+                      {LEAD_LOSS_REASON_LABELS[l.lossReason]}
+                    </Badge>
                   )}
 
                   <div className="mt-3 space-y-2">

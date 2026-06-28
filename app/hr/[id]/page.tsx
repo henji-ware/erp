@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { SELLER_CATEGORIES, SELLER_CATEGORY_LABELS } from "@/lib/format";
 import { PageHeader } from "../../components/ui";
 import SubmitButton from "../../components/SubmitButton";
 import { updateEmployee } from "../actions";
@@ -58,8 +59,30 @@ export default async function EditEmployeePage({
               </select>
             </div>
             <div>
+              <label className="label">Categoria</label>
+              <select name="category" defaultValue={e.category ?? ""} className="input">
+                <option value="">— (sem categoria)</option>
+                {SELLER_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{SELLER_CATEGORY_LABELS[c]}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <label className="label">Comissão (%)</label>
               <input name="commissionPct" type="number" step="0.1" min="0" defaultValue={e.commissionPct} className="input" />
+            </div>
+            <div></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Meta de valor (R$/mês)</label>
+              <input name="targetValue" type="number" step="0.01" min="0" defaultValue={e.targetValue ?? ""} className="input" placeholder="opcional" />
+            </div>
+            <div>
+              <label className="label">Meta de qtde (vendas/mês)</label>
+              <input name="targetQty" type="number" min="0" defaultValue={e.targetQty ?? ""} className="input" placeholder="opcional" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

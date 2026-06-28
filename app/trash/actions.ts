@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { TRASH_TTL_DAYS } from "@/lib/format";
 
 type Entity = "customer" | "product" | "supplier" | "project" | "lead";
 
@@ -39,6 +40,30 @@ export async function restoreItem(formData: FormData) {
   revalidatePath("/trash");
   revalidatePath(META[entity].path);
   revalidatePath("/");
+}
+
+// Remove definitivamente itens arquivados há mais de 30 dias. Chamado ao abrir
+// a Lixeira (limpeza automática) — best effort, ignora vínculos.
+export async function purgeExpiredTrash(): Promise<void> {
+  const cutoff = new Date(Date.now() - TRASH_TTL_DAYS * 86400000);
+  const where = { deletedAt: { lt: cutoff } };
+  try { await prisma.lead.deleteMany({ where }); } catch {}
+  try { await prisma.project.deleteMany({ where }); } catch {}
+  try { await prisma.customer.deleteMany({ where }); } catch {}
+  try { await prisma.product.deleteMany({ where }); } catch {}
+  try { await prisma.supplier.deleteMany({ where }); } catch {}
+}
+
+// Esvazia a lixeira inteira agora (todos os arquivados).
+export async function emptyTrash() {
+  const where = { deletedAt: { not: null } };
+  try { await prisma.lead.deleteMany({ where }); } catch {}
+  try { await prisma.project.deleteMany({ where }); } catch {}
+  try { await prisma.customer.deleteMany({ where }); } catch {}
+  try { await prisma.product.deleteMany({ where }); } catch {}
+  try { await prisma.supplier.deleteMany({ where }); } catch {}
+  await logAudit({ action: "DELETE", entity: "Lixeira", summary: "Lixeira esvaziada" });
+  revalidatePath("/trash");
 }
 
 // Exclui DEFINITIVAMENTE (sem volta).

@@ -1,11 +1,19 @@
 import { prisma } from "@/lib/prisma";
-import { formatDate } from "@/lib/format";
+import { formatDate, TRASH_TTL_DAYS } from "@/lib/format";
 import { PageHeader, EmptyState } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
-import { restoreItem, purgeItem } from "./actions";
+import SubmitButton from "../components/SubmitButton";
+import { restoreItem, purgeItem, emptyTrash, purgeExpiredTrash } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+// Quantos dias faltam até a remoção automática (TTL de 30 dias).
+function daysLeft(deletedAt: Date | null): number {
+  if (!deletedAt) return TRASH_TTL_DAYS;
+  const passed = Math.floor((Date.now() - deletedAt.getTime()) / 86400000);
+  return Math.max(0, TRASH_TTL_DAYS - passed);
+}
 
 export default async function TrashPage({
   searchParams,
@@ -13,6 +21,8 @@ export default async function TrashPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
+  // Limpeza automática: remove o que passou de 30 dias.
+  await purgeExpiredTrash();
   const archived = { deletedAt: { not: null } };
   const [customers, products, suppliers, projects, leads] = await Promise.all([
     prisma.customer.findMany({
@@ -51,8 +61,19 @@ export default async function TrashPage({
     <div>
       <PageHeader
         title="Lixeira"
-        subtitle="Itens arquivados — restaure ou exclua definitivamente"
-        action={<SearchBar placeholder="Buscar arquivados..." defaultValue={q} />}
+        subtitle={`Itens arquivados são removidos automaticamente após ${TRASH_TTL_DAYS} dias`}
+        action={
+          <div className="flex items-center gap-2">
+            <SearchBar placeholder="Buscar arquivados..." defaultValue={q} />
+            {totalItems > 0 && (
+              <form action={emptyTrash}>
+                <SubmitButton className="btn-danger">
+                  <Icon name="trash" size={14} /> Esvaziar
+                </SubmitButton>
+              </form>
+            )}
+          </div>
+        }
       />
 
       {totalItems === 0 ? (
@@ -79,7 +100,14 @@ export default async function TrashPage({
                           {it.sub && <p className="text-xs text-slate-400">{it.sub}</p>}
                         </td>
                         <td className="td text-xs text-slate-400">
-                          {it.deletedAt ? `arquivado ${formatDate(it.deletedAt)}` : ""}
+                          {it.deletedAt && (
+                            <>
+                              arquivado {formatDate(it.deletedAt)}
+                              <span className={`block ${daysLeft(it.deletedAt) <= 5 ? "text-red-500" : "text-slate-400"}`}>
+                                expira em {daysLeft(it.deletedAt)} dia(s)
+                              </span>
+                            </>
+                          )}
                         </td>
                         <td className="td">
                           <div className="flex items-center justify-end gap-1">

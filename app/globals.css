@@ -401,6 +401,35 @@ html.no-anim *::after {
     break-inside: avoid;
     box-shadow: none !important;
     border-color: #e2e8f0 !important;
+    margin-bottom: 4mm;
+  }
+  /* Tipografia do relatório impresso */
+  main h1 {
+    font-size: 18pt;
+    color: #0a1628;
+  }
+  main h2 {
+    font-size: 11.5pt;
+    color: #15365e;
+  }
+  /* Tabelas longas: cabeçalho se repete em cada página e linhas não cortam */
+  table {
+    break-inside: auto;
+    font-size: 9pt;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr {
+    break-inside: avoid;
+  }
+  .th {
+    background: #f1f5f9 !important;
+    color: #334155 !important;
+  }
+  /* KPIs sempre lado a lado e sem quebrar no meio */
+  .grid {
+    break-inside: avoid;
   }
   /* Rodapé ao fim do documento (sem position:fixed => nunca cobre conteúdo) */
   .report-footer {

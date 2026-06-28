@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/format";
 import { AUDIT_ACTION_LABELS, AUDIT_ACTION_COLORS } from "@/lib/audit";
+import { notFound } from "next/navigation";
 import { parsePage, paginate } from "@/lib/pagination";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { PageHeader, EmptyState, Badge } from "../components/ui";
 import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
@@ -13,6 +15,7 @@ export default async function AuditPage({
 }: {
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
+  if (!isAdmin(await getCurrentUser())) notFound();
   const sp = await searchParams;
   const q = sp.q;
   const page = parsePage(sp.page);

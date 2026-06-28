@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { LEAD_STAGES, LEAD_STAGE_LABELS } from "@/lib/format";
 import { PageHeader } from "../../components/ui";
 import SubmitButton from "../../components/SubmitButton";
 import { AttachmentsCard } from "../../components/AttachmentsCard";
+import LeadStageLossFields from "../LeadStageLossFields";
 import { updateLead } from "../actions";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -15,16 +16,21 @@ export default async function EditLeadPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const lead = await prisma.lead.findUnique({
-    where: { id: Number(id) },
-    include: { attachments: { orderBy: { createdAt: "desc" } } },
-  });
+  const [lead, user] = await Promise.all([
+    prisma.lead.findUnique({
+      where: { id: Number(id) },
+      include: { attachments: { orderBy: { createdAt: "desc" } } },
+    }),
+    getCurrentUser(),
+  ]);
   if (!lead) notFound();
+  // Usuário comum só acessa os próprios orçamentos.
+  if (!isAdmin(user) && lead.ownerId !== user?.id) notFound();
 
   return (
     <div className="max-w-4xl">
       <PageHeader
-        title="Orçamento"
+        title={lead.number ? `Orçamento ${lead.number}` : "Orçamento"}
         subtitle={lead.name}
         action={
           <Link href="/leads" className="btn-ghost">
@@ -63,22 +69,15 @@ export default async function EditLeadPage({
                 <input name="phone" defaultValue={lead.phone ?? ""} className="input" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label">Valor (R$)</label>
-                <input name="value" type="number" step="0.01" min="0" defaultValue={lead.value} className="input" />
-              </div>
-              <div>
-                <label className="label">Etapa</label>
-                <select name="stage" defaultValue={lead.stage} className="input">
-                  {LEAD_STAGES.map((s) => (
-                    <option key={s} value={s}>
-                      {LEAD_STAGE_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div>
+              <label className="label">Valor (R$)</label>
+              <input name="value" type="number" step="0.01" min="0" defaultValue={lead.value} className="input" />
             </div>
+            <LeadStageLossFields
+              stage={lead.stage}
+              lossReason={lead.lossReason}
+              lossNote={lead.lossNote}
+            />
             <div className="flex gap-2 pt-2">
               <SubmitButton>Salvar alterações</SubmitButton>
               <Link href="/leads" className="btn-ghost">

@@ -133,6 +133,50 @@ export const APPOINTMENT_STATUS_COLORS: Record<string, string> = {
   CANCELLED: "bg-red-100 text-red-700",
 };
 
+// Dias até a remoção automática de itens da Lixeira.
+export const TRASH_TTL_DAYS = 30;
+
+// ---- Acesso / usuários ----
+export const USER_ROLES = ["ADMIN", "USER"] as const;
+export const USER_ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Administrador",
+  USER: "Usuário",
+};
+export const USER_ROLE_COLORS: Record<string, string> = {
+  ADMIN: "bg-brand-100 text-brand-700",
+  USER: "bg-slate-100 text-slate-600",
+};
+
+// ---- Categorias de vendedor (RH) ----
+export const SELLER_CATEGORIES = [
+  "VENDEDOR",
+  "REPRESENTANTE",
+  "DISTRIBUIDOR",
+  "PARCEIRO",
+] as const;
+export const SELLER_CATEGORY_LABELS: Record<string, string> = {
+  VENDEDOR: "Vendedor",
+  REPRESENTANTE: "Representante",
+  DISTRIBUIDOR: "Distribuidor",
+  PARCEIRO: "Parceiro",
+};
+
+// ---- Motivo de perda de orçamento ----
+export const LEAD_LOSS_REASONS = [
+  "PRAZO_ENTREGA",
+  "PRECO",
+  "PRODUTO",
+  "OUTRO_FORNECEDOR",
+  "OUTRO",
+] as const;
+export const LEAD_LOSS_REASON_LABELS: Record<string, string> = {
+  PRAZO_ENTREGA: "Prazo de entrega",
+  PRECO: "Preço",
+  PRODUTO: "Produto",
+  OUTRO_FORNECEDOR: "Foi para outro fornecedor",
+  OUTRO: "Outro motivo",
+};
+
 // ---- Funil de leads ----
 export const LEAD_STAGES = [
   "NEW",

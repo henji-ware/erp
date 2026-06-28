@@ -163,6 +163,24 @@ export async function getReportData(range: Range) {
     };
   });
 
+  // Análise de perdas: motivos dos orçamentos marcados como "Perdido".
+  const LOSS_REASONS = ["PRAZO_ENTREGA", "PRECO", "PRODUTO", "OUTRO_FORNECEDOR", "OUTRO"];
+  const lostLeads = leads.filter((l) => l.stage === "LOST");
+  const lostReasons = LOSS_REASONS.map((reason) => {
+    const ls = lostLeads.filter((l) => l.lossReason === reason);
+    return { reason, count: ls.length, value: ls.reduce((s, l) => s + l.value, 0) };
+  }).filter((r) => r.count > 0);
+  const lossSummary = {
+    count: lostLeads.length,
+    value: lostLeads.reduce((s, l) => s + l.value, 0),
+    noReason: lostLeads.filter((l) => !l.lossReason).length,
+  };
+
+  // Taxa de conversão (ganhos / fechados).
+  const wonCount = leads.filter((l) => l.stage === "WON").length;
+  const closed = wonCount + lostLeads.length;
+  const winRate = closed > 0 ? (wonCount / closed) * 100 : 0;
+
   // Financeiro / fluxo de caixa (baseado em pagamentos, suporta parciais)
   const inRange = (d: Date) => d >= range.from && d <= range.to;
   let received = 0;
@@ -202,6 +220,9 @@ export async function getReportData(range: Range) {
     commissions,
     commissionTotal,
     funnel,
+    lostReasons,
+    lossSummary,
+    winRate,
     finance,
     paymentsByMethod,
   };

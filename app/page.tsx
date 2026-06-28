@@ -11,12 +11,15 @@ import {
 } from "@/lib/format";
 import { PageHeader, StatCard, Badge } from "./components/ui";
 import { Icon, type IconName } from "./components/icons";
+import { getCurrentUser, ownerScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const now = new Date();
   const in7 = new Date(now.getTime() + 7 * 86400000);
+  const user = await getCurrentUser();
+  const leadScope = ownerScope(user);
 
   const [
     customerCount,
@@ -37,12 +40,12 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     prisma.customer.count({ where: { deletedAt: null } }),
     prisma.product.findMany({ where: { deletedAt: null } }),
-    prisma.lead.findMany({ where: { deletedAt: null, stage: { notIn: ["WON", "LOST"] } } }),
+    prisma.lead.findMany({ where: { deletedAt: null, ...leadScope, stage: { notIn: ["WON", "LOST"] } } }),
     prisma.order.findMany({ where: { status: { not: "CANCELLED" } } }),
     prisma.transaction.findMany({ where: { type: "RECEIVABLE", status: { not: "PAID" } }, include: { payments: true } }),
     prisma.transaction.findMany({ where: { type: "PAYABLE", status: { not: "PAID" } }, include: { payments: true } }),
     prisma.order.findMany({ take: 5, orderBy: { createdAt: "desc" }, include: { customer: true } }),
-    prisma.lead.findMany({ where: { deletedAt: null }, take: 5, orderBy: { createdAt: "desc" } }),
+    prisma.lead.findMany({ where: { deletedAt: null, ...leadScope }, take: 5, orderBy: { createdAt: "desc" } }),
     prisma.appointment.findMany({
       where: { status: "SCHEDULED", startsAt: { gte: now } },
       take: 5,

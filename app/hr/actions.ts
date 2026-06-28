@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { SELLER_CATEGORIES } from "@/lib/format";
 
 export async function createEmployee(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -14,11 +15,14 @@ export async function createEmployee(formData: FormData) {
       name,
       role: str(formData.get("role")),
       department: str(formData.get("department")),
+      category: category(formData.get("category")),
       email: str(formData.get("email")),
       phone: str(formData.get("phone")),
       contractType: contract(formData.get("contractType")),
       salary: num(formData.get("salary")),
       commissionPct: num(formData.get("commissionPct")),
+      targetValue: optNum(formData.get("targetValue")),
+      targetQty: optInt(formData.get("targetQty")),
       benefits: str(formData.get("benefits")),
       hireDate: date(formData.get("hireDate")),
       active: true,
@@ -40,11 +44,14 @@ export async function updateEmployee(formData: FormData) {
       name,
       role: str(formData.get("role")),
       department: str(formData.get("department")),
+      category: category(formData.get("category")),
       email: str(formData.get("email")),
       phone: str(formData.get("phone")),
       contractType: contract(formData.get("contractType")),
       salary: num(formData.get("salary")),
       commissionPct: num(formData.get("commissionPct")),
+      targetValue: optNum(formData.get("targetValue")),
+      targetQty: optInt(formData.get("targetQty")),
       benefits: str(formData.get("benefits")),
       hireDate: date(formData.get("hireDate")),
       active: formData.get("active") === "on",
@@ -78,4 +85,22 @@ function date(v: FormDataEntryValue | null): Date | null {
 }
 function contract(v: FormDataEntryValue | null): "CLT" | "PJ" {
   return String(v ?? "") === "PJ" ? "PJ" : "CLT";
+}
+function category(v: FormDataEntryValue | null): (typeof SELLER_CATEGORIES)[number] | null {
+  const s = String(v ?? "").trim();
+  return SELLER_CATEGORIES.includes(s as (typeof SELLER_CATEGORIES)[number])
+    ? (s as (typeof SELLER_CATEGORIES)[number])
+    : null;
+}
+function optNum(v: FormDataEntryValue | null): number | null {
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  const n = parseFloat(s.replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+function optInt(v: FormDataEntryValue | null): number | null {
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : null;
 }

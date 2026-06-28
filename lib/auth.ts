@@ -28,6 +28,21 @@ export async function getCurrentUser() {
   if (!userId) return null;
   return prisma.user.findUnique({
     where: { id: Number(userId) },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, role: true, active: true },
   });
+}
+
+export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
+
+export function isAdmin(user: { role: string } | null | undefined): boolean {
+  return user?.role === "ADMIN";
+}
+
+// Filtro de "dono" para o escopo dos orçamentos: admin vê tudo (undefined),
+// usuário comum vê só os próprios (ownerId = ele).
+export function ownerScope(
+  user: { id: number; role: string } | null | undefined,
+): { ownerId?: number } {
+  if (!user || user.role === "ADMIN") return {};
+  return { ownerId: user.id };
 }
