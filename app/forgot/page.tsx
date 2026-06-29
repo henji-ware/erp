@@ -35,6 +35,12 @@ export default async function ForgotPage({
                 O envio de e-mail ainda não está configurado. Fale com um administrador.
               </p>
             )}
+            {error === "sendfail" && (
+              <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-700">
+                Não foi possível enviar o e-mail. Verifique a configuração de envio
+                (domínio/remetente) e tente de novo.
+              </p>
+            )}
             <div>
               <label className="label">E-mail</label>
               <div className="relative">

@@ -21,7 +21,7 @@ export async function requestReset(formData: FormData) {
   }
 
   const code = await createResetCode(user.id);
-  await sendEmail({
+  const ok = await sendEmail({
     to: email,
     subject: "Código para redefinir sua senha — DRR Projetos",
     html: emailLayout(
@@ -31,6 +31,10 @@ export async function requestReset(formData: FormData) {
        <p style="font-size:12px;color:#94a3b8;">Se você não solicitou, ignore este e-mail.</p>`,
     ),
   });
+
+  // Se o provedor recusou o envio (ex.: domínio não verificado no Resend),
+  // avisa em vez de mandar para a tela do código sem o e-mail ter saído.
+  if (!ok) redirect(`/forgot?error=sendfail&email=${encodeURIComponent(email)}`);
 
   redirect(`/reset?email=${encodeURIComponent(email)}`);
 }
