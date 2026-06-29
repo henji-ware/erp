@@ -143,14 +143,31 @@ enum LeadLossReason {
 // --------------------------- Acesso ----------------------------
 
 model User {
-  id           Int      @id @default(autoincrement())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         UserRole @default(USER)
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  leads        Lead[]   @relation("LeadOwner")
+  id            Int          @id @default(autoincrement())
+  name          String
+  email         String       @unique
+  passwordHash  String
+  role          UserRole     @default(USER)
+  active        Boolean      @default(true)
+  emailVerified Boolean      @default(true) // novos usuários nascem false até confirmar
+  createdAt     DateTime     @default(now())
+  leads         Lead[]       @relation("LeadOwner")
+  tokens        EmailToken[]
+}
+
+// Códigos enviados por e-mail. type: VERIFY (confirmar e-mail) | RESET (trocar senha)
+model EmailToken {
+  id        Int       @id @default(autoincrement())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  type      String
+  code      String // token do link (VERIFY) ou código de 6 dígitos (RESET)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, type])
+  @@index([code])
 }
 
 // Contador sequencial por chave (ex.: "2606" = orçamentos de jun/2026).

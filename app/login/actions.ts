@@ -14,6 +14,12 @@ export async function login(formData: FormData) {
   if (!user || !verifyPassword(password, user.passwordHash)) {
     redirect("/login?error=1");
   }
+  if (!user.active) {
+    redirect("/login?error=inactive");
+  }
+  if (!user.emailVerified) {
+    redirect("/login?error=verify");
+  }
 
   const token = await signToken(String(user.id));
   const store = await cookies();

@@ -6,6 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdmin, hashPassword } from "@/lib/auth";
 import { asEnum, USER_ROLES } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
+import { isEmailConfigured, sendEmail, emailLayout, emailButton } from "@/lib/email";
+import { createVerifyToken } from "@/lib/tokens";
+import { baseUrl } from "@/lib/url";
 
 async function requireAdmin(): Promise<boolean> {
   const user = await getCurrentUser();
@@ -23,6 +26,8 @@ export async function createUser(formData: FormData) {
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists) return;
 
+  // Se o envio de e-mail estiver configurado, exige verificação antes do 1º login.
+  const requireVerify = isEmailConfigured();
   const user = await prisma.user.create({
     data: {
       name,
@@ -30,9 +35,25 @@ export async function createUser(formData: FormData) {
       passwordHash: hashPassword(password),
       role: asEnum(USER_ROLES, formData.get("role"), "USER"),
       active: true,
+      emailVerified: !requireVerify,
     },
   });
   await logAudit({ action: "CREATE", entity: "Usuário", entityId: user.id, summary: `Usuário "${name}" criado` });
+
+  if (requireVerify) {
+    const token = await createVerifyToken(user.id);
+    const link = `${await baseUrl()}/verify?token=${token}`;
+    await sendEmail({
+      to: email,
+      subject: "Confirme seu e-mail — DRR Projetos",
+      html: emailLayout(
+        "Bem-vindo à DRR Projetos",
+        `<p>Olá ${name}, sua conta foi criada. Confirme seu e-mail para liberar o acesso ao sistema.</p>
+         ${emailButton("Confirmar e-mail", link)}
+         <p style="font-size:12px;color:#94a3b8;">Se o botão não funcionar, copie e cole no navegador:<br>${link}</p>`,
+      ),
+    });
+  }
 
   revalidatePath("/users");
 }

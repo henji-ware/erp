@@ -13,9 +13,9 @@ const features = [
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; reset?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, reset } = await searchParams;
 
   return (
     <div className="fixed inset-0 z-50 flex bg-slate-50">
@@ -77,9 +77,18 @@ export default async function LoginPage({
           </div>
 
           <form action={login} className="space-y-4">
+            {reset && (
+              <p className="animate-fade-in rounded-lg bg-green-500/10 px-3 py-2 text-sm text-green-600">
+                Senha alterada! Entre com a nova senha.
+              </p>
+            )}
             {error && (
               <p className="animate-fade-in rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600">
-                E-mail ou senha inválidos.
+                {error === "verify"
+                  ? "Confirme seu e-mail antes de entrar. Veja o link enviado para sua caixa de entrada."
+                  : error === "inactive"
+                    ? "Esta conta está inativa. Fale com um administrador."
+                    : "E-mail ou senha inválidos."}
               </p>
             )}
             <div>
@@ -119,6 +128,11 @@ export default async function LoginPage({
             >
               Entrar
             </button>
+            <p className="text-center text-sm">
+              <a href="/forgot" className="text-brand-600 hover:underline">
+                Esqueci minha senha
+              </a>
+            </p>
           </form>
         </div>
       </div>
