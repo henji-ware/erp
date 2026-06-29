@@ -6,26 +6,31 @@ import { hashPassword } from "@/lib/auth";
 import { createResetCode, consumeToken } from "@/lib/tokens";
 import { isEmailConfigured, sendEmail, emailLayout, emailCode } from "@/lib/email";
 
-// Pede o código de redefinição: envia para o e-mail (se existir e estiver ativo).
+// Pede o código de redefinição: só envia se o e-mail estiver cadastrado e ativo.
 export async function requestReset(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!email) redirect("/forgot");
 
   const user = await prisma.user.findUnique({ where: { email } });
-  // Não revela se o e-mail existe — sempre segue para a tela do código.
-  if (user && user.active && isEmailConfigured()) {
-    const code = await createResetCode(user.id);
-    await sendEmail({
-      to: email,
-      subject: "Código para redefinir sua senha — DRR Projetos",
-      html: emailLayout(
-        "Redefinir senha",
-        `<p>Use o código abaixo para criar uma nova senha. Ele expira em 15 minutos.</p>
-         ${emailCode(code)}
-         <p style="font-size:12px;color:#94a3b8;">Se você não solicitou, ignore este e-mail.</p>`,
-      ),
-    });
+  // Sistema interno: avisa quando o e-mail não está cadastrado.
+  if (!user || !user.active) {
+    redirect(`/forgot?error=notfound&email=${encodeURIComponent(email)}`);
   }
+  if (!isEmailConfigured()) {
+    redirect(`/forgot?error=noemail&email=${encodeURIComponent(email)}`);
+  }
+
+  const code = await createResetCode(user.id);
+  await sendEmail({
+    to: email,
+    subject: "Código para redefinir sua senha — DRR Projetos",
+    html: emailLayout(
+      "Redefinir senha",
+      `<p>Use o código abaixo para criar uma nova senha. Ele expira em 15 minutos.</p>
+       ${emailCode(code)}
+       <p style="font-size:12px;color:#94a3b8;">Se você não solicitou, ignore este e-mail.</p>`,
+    ),
+  });
 
   redirect(`/reset?email=${encodeURIComponent(email)}`);
 }
