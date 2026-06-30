@@ -101,6 +101,17 @@
 [data-theme="rose-pine"]   { --tint: #4a2f47; --accent: #c97f8a; --accent-strong: #b3656f; --accent-fg: 255 255 255; }
 [data-theme="caffeine"]    { --tint: #6f4e37; --accent: #8b5e3c; --accent-strong: #6f4e37; --accent-fg: 255 255 255; }
 
+/* Monocromático (futurista): o destaque acompanha o neutro mais forte, então
+   fica quase preto no claro e quase branco no escuro — invertendo com o modo. */
+[data-theme="mono"]        { --tint: #71717a; --accent: var(--n-900); --accent-strong: var(--n-800); --accent-fg: 255 255 255; }
+[data-mode="dark"][data-theme="mono"] { --accent-fg: 15 23 42; }
+@media (prefers-color-scheme: dark) {
+  [data-mode="system"][data-theme="mono"] { --accent-fg: 15 23 42; }
+}
+
+[data-theme="neon"]        { --tint: #3a1060; --accent: #e836c1; --accent-strong: #c41fa3; --accent-fg: 255 255 255; }
+[data-theme="rubi"]        { --tint: #4c0f1f; --accent: #e11d48; --accent-strong: #be123c; --accent-fg: 255 255 255; }
+
 body {
   @apply bg-slate-50 text-slate-800 antialiased;
 }

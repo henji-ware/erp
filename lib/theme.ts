@@ -22,6 +22,9 @@ export const THEMES: ThemeDef[] = [
   { id: "gruvbox", name: "Gruvbox", desc: "Laranja amadeirado.", accent: "#e8731a", accentSoft: "#f6a85a", tint: "#5a4a32" },
   { id: "rose-pine", name: "Rosé Pine", desc: "Rosa e ameixa.", accent: "#c97f8a", accentSoft: "#e6b3ba", tint: "#4a2f47" },
   { id: "caffeine", name: "Caffeine", desc: "Tons de café.", accent: "#8b5e3c", accentSoft: "#c19a78", tint: "#6f4e37" },
+  { id: "mono", name: "Monocromático", desc: "Futurista P&B — inverte com o modo.", accent: "#0f172a", accentSoft: "#cbd5e1", tint: "#71717a" },
+  { id: "neon", name: "Neon", desc: "Magenta elétrico, vibe cyber.", accent: "#e836c1", accentSoft: "#f48fde", tint: "#3a1060" },
+  { id: "rubi", name: "Rubi", desc: "Vermelho rubi elegante.", accent: "#e11d48", accentSoft: "#fb7185", tint: "#4c0f1f" },
 ];
 
 export const THEME_IDS = THEMES.map((t) => t.id);
