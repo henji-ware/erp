@@ -69,6 +69,12 @@ export async function updateUser(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const role = asEnum(USER_ROLES, formData.get("role"), "USER");
 
+  // E-mail já usado por OUTRO usuário? Não deixa duplicar (evita erro).
+  const emailOwner = await prisma.user.findUnique({ where: { email } });
+  if (emailOwner && emailOwner.id !== id) {
+    redirect(`/users/${id}?error=email`);
+  }
+
   // Não permite remover o último admin (evita travar o sistema).
   if (role !== "ADMIN") {
     const current = await prisma.user.findUnique({ where: { id } });
@@ -85,6 +91,7 @@ export async function updateUser(formData: FormData) {
       email,
       role,
       active: formData.get("active") === "on",
+      emailVerified: formData.get("emailVerified") === "on",
       ...(password.length >= 4 ? { passwordHash: hashPassword(password) } : {}),
     },
   });

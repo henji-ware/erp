@@ -11,13 +11,16 @@ export const dynamic = "force-dynamic";
 
 export default async function EditUserPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const me = await getCurrentUser();
   if (!isAdmin(me)) notFound();
 
   const { id } = await params;
+  const { error } = await searchParams;
   const user = await prisma.user.findUnique({ where: { id: Number(id) } });
   if (!user) notFound();
 
@@ -28,6 +31,11 @@ export default async function EditUserPage({
       <div className="card p-6">
         <form action={updateUser} className="space-y-3">
           <input type="hidden" name="id" value={user.id} />
+          {error === "email" && (
+            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600">
+              Este e-mail já está em uso por outro usuário.
+            </p>
+          )}
           <div>
             <label className="label">Nome *</label>
             <input name="name" required defaultValue={user.name} className="input" />
@@ -36,21 +44,23 @@ export default async function EditUserPage({
             <label className="label">E-mail *</label>
             <input name="email" type="email" required defaultValue={user.email} className="input" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Papel</label>
-              <select name="role" defaultValue={user.role} className="input">
-                {USER_ROLES.map((r) => (
-                  <option key={r} value={r}>{USER_ROLE_LABELS[r]}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-end pb-2">
-              <label className="flex items-center gap-2 text-sm text-slate-600">
-                <input type="checkbox" name="active" defaultChecked={user.active} className="h-4 w-4" />
-                Ativo
-              </label>
-            </div>
+          <div>
+            <label className="label">Papel</label>
+            <select name="role" defaultValue={user.role} className="input">
+              {USER_ROLES.map((r) => (
+                <option key={r} value={r}>{USER_ROLE_LABELS[r]}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-wrap gap-6">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" name="active" defaultChecked={user.active} className="h-4 w-4" />
+              Ativo
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" name="emailVerified" defaultChecked={user.emailVerified} className="h-4 w-4" />
+              E-mail verificado (libera o login)
+            </label>
           </div>
           <div>
             <label className="label">Nova senha (deixe em branco para manter)</label>
