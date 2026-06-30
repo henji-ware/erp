@@ -28,9 +28,45 @@
   --n-surface: #ffffff;
 }
 
-/* ---- MODO: base neutra ESCURA ---- */
+/* ---- MODO: base neutra ESCURA ----
+   Base quase-preta e neutra: o --tint de cada tema é quem colore o fundo,
+   então cada tema fica com um escuro que "combina" com sua cor (verde no Sage,
+   roxo no Catppuccin, etc.). O DRR é fixado no azul-marinho mais abaixo. */
 [data-mode="dark"] {
   color-scheme: dark;
+  --n-50: #0a0a0a;
+  --n-100: #161616;
+  --n-200: #232323;
+  --n-300: #333333;
+  --n-400: #6e6e6e;
+  --n-500: #8c8c8c;
+  --n-600: #ababab;
+  --n-700: #cccccc;
+  --n-800: #e6e6e6;
+  --n-900: #fafafa;
+  --n-surface: #0e0e0e;
+}
+
+/* ---- "Sistema": segue a preferência do SO ---- */
+@media (prefers-color-scheme: dark) {
+  [data-mode="system"] {
+    color-scheme: dark;
+    --n-50: #0a0a0a;
+    --n-100: #161616;
+    --n-200: #232323;
+    --n-300: #333333;
+    --n-400: #6e6e6e;
+    --n-500: #8c8c8c;
+    --n-600: #ababab;
+    --n-700: #cccccc;
+    --n-800: #e6e6e6;
+    --n-900: #fafafa;
+    --n-surface: #0e0e0e;
+  }
+}
+
+/* DRR mantém o azul-marinho original no escuro (pedido para ficar como estava). */
+[data-mode="dark"][data-theme="drr"] {
   --n-50: #0f172a;
   --n-100: #141d31;
   --n-200: #212d44;
@@ -43,11 +79,8 @@
   --n-900: #f4f7fa;
   --n-surface: #182238;
 }
-
-/* ---- "Sistema": segue a preferência do SO ---- */
 @media (prefers-color-scheme: dark) {
-  [data-mode="system"] {
-    color-scheme: dark;
+  [data-mode="system"][data-theme="drr"] {
     --n-50: #0f172a;
     --n-100: #141d31;
     --n-200: #212d44;
@@ -111,42 +144,6 @@
 
 [data-theme="neon"]        { --tint: #3a1060; --accent: #e836c1; --accent-strong: #c41fa3; --accent-fg: 255 255 255; }
 [data-theme="rubi"]        { --tint: #4c0f1f; --accent: #e11d48; --accent-strong: #be123c; --accent-fg: 255 255 255; }
-
-/* Fundo PRETO (em vez do azul-marinho padrão) nos temas que combinam:
-   troca a escala neutra escura por uma grayscale quase-preta. O tint de cada
-   tema ainda dá um leve toque (roxo no Neon, vinho no Rubi). */
-[data-mode="dark"][data-theme="mono"],
-[data-mode="dark"][data-theme="neon"],
-[data-mode="dark"][data-theme="rubi"] {
-  --n-50: #0a0a0a;
-  --n-100: #161616;
-  --n-200: #232323;
-  --n-300: #333333;
-  --n-400: #6e6e6e;
-  --n-500: #8c8c8c;
-  --n-600: #ababab;
-  --n-700: #cccccc;
-  --n-800: #e6e6e6;
-  --n-900: #fafafa;
-  --n-surface: #0e0e0e;
-}
-@media (prefers-color-scheme: dark) {
-  [data-mode="system"][data-theme="mono"],
-  [data-mode="system"][data-theme="neon"],
-  [data-mode="system"][data-theme="rubi"] {
-    --n-50: #0a0a0a;
-    --n-100: #161616;
-    --n-200: #232323;
-    --n-300: #333333;
-    --n-400: #6e6e6e;
-    --n-500: #8c8c8c;
-    --n-600: #ababab;
-    --n-700: #cccccc;
-    --n-800: #e6e6e6;
-    --n-900: #fafafa;
-    --n-surface: #0e0e0e;
-  }
-}
 
 body {
   @apply bg-slate-50 text-slate-800 antialiased;

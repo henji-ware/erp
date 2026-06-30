@@ -51,7 +51,7 @@ export function isValidMode(id: string | undefined | null): boolean {
 // Cores neutras das miniaturas (por modo) — usadas no seletor de temas.
 export const SWATCH_NEUTRAL = {
   light: { panel: "#ffffff", bar: "#cbd5e1" },
-  dark: { panel: "#182238", bar: "#5b6b85" },
+  dark: { panel: "#0e0e0e", bar: "#4d4d4d" },
 };
 
 export const THEME_COOKIE = "theme";
