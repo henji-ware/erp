@@ -74,7 +74,7 @@ export default async function LeadsPage({
       <div className="card mb-6 p-5">
         <form
           action={createLead}
-          className="grid grid-cols-1 gap-3 md:grid-cols-6"
+          className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4"
         >
           <div>
             <label className="label">Nome *</label>
@@ -105,12 +105,12 @@ export default async function LeadsPage({
             <label className="label">Origem</label>
             <input name="source" className="input" placeholder="Site, indicação..." />
           </div>
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <label className="label">Valor (R$)</label>
-              <input name="value" type="number" step="0.01" min="0" className="input" />
-            </div>
-            <SubmitButton>Adicionar</SubmitButton>
+          <div>
+            <label className="label">Valor (R$)</label>
+            <input name="value" type="number" step="0.01" min="0" className="input" />
+          </div>
+          <div className="flex items-end">
+            <SubmitButton className="btn-primary w-full xl:w-auto">Adicionar</SubmitButton>
           </div>
         </form>
       </div>
