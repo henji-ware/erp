@@ -69,7 +69,7 @@ export async function uploadAttachment(formData: FormData) {
       // Nuvem: salva no Vercel Blob.
       const { put } = await import("@vercel/blob");
       const blob = await put(`anexos/${storedName}`, file, {
-        access: "public",
+        access: "private",
         contentType: file.type || "application/octet-stream",
         token: blobToken(),
       });

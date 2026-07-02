@@ -14,7 +14,7 @@ export async function GET() {
     try {
       const { put, del } = await import("@vercel/blob");
       const blob = await put("diagnostico/ping.txt", "ok", {
-        access: "public",
+        access: "private",
         token,
         addRandomSuffix: true,
       });
@@ -52,6 +52,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       request,
       token,
       onBeforeGenerateToken: async () => ({
+        access: "private", // o store é privado: arquivos só saem pelo app (autenticado)
         allowedContentTypes: [
           "application/pdf",
           "application/msword",

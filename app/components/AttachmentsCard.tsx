@@ -76,7 +76,7 @@ export function AttachmentsCard({
       // Nome aleatório no storage: evita problemas com acentos/espaços.
       const ext = file.name.match(/\.(pdf|docx?|PDF|DOCX?)$/)?.[0].toLowerCase() ?? ".pdf";
       const blob = await upload(`anexos/${crypto.randomUUID()}${ext}`, file, {
-        access: "public",
+        access: "private",
         handleUploadUrl: "/api/attachments/upload",
       });
       await registerClientUpload({
