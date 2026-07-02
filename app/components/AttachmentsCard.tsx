@@ -73,7 +73,9 @@ export function AttachmentsCard({
     setMsg(null);
     try {
       // Caminho principal: navegador → Blob (sem passar pelo servidor).
-      const blob = await upload(`anexos/${file.name}`, file, {
+      // Nome aleatório no storage: evita problemas com acentos/espaços.
+      const ext = file.name.match(/\.(pdf|docx?|PDF|DOCX?)$/)?.[0].toLowerCase() ?? ".pdf";
+      const blob = await upload(`anexos/${crypto.randomUUID()}${ext}`, file, {
         access: "public",
         handleUploadUrl: "/api/attachments/upload",
       });
@@ -87,7 +89,8 @@ export function AttachmentsCard({
       });
       if (fileRef.current) fileRef.current.value = "";
       router.refresh();
-    } catch {
+    } catch (err) {
+      console.error("[anexo] upload direto falhou:", err);
       // Fallback (dev local sem Blob): envia via servidor.
       try {
         const fd = new FormData();
@@ -97,8 +100,10 @@ export function AttachmentsCard({
         await uploadAttachment(fd);
         if (fileRef.current) fileRef.current.value = "";
         router.refresh();
-      } catch {
-        setMsg("Falha ao enviar o arquivo. Tente novamente.");
+      } catch (err2) {
+        console.error("[anexo] fallback via servidor falhou:", err2);
+        const detail = err instanceof Error ? err.message : String(err);
+        setMsg(`Falha ao enviar o arquivo. Detalhe: ${detail}`);
       }
     } finally {
       setBusy(false);
