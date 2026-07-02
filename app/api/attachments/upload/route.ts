@@ -2,6 +2,19 @@ import { NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { blobToken } from "@/lib/blob";
 
+// Diagnóstico (não expõe o valor do token): abre no navegador logado e mostra
+// se o servidor enxerga o token do Blob e sob qual nome de variável.
+export async function GET() {
+  const names = Object.keys(process.env).filter((k) => k.endsWith("_READ_WRITE_TOKEN"));
+  const token = blobToken();
+  return NextResponse.json({
+    blobConfigurado: !!token,
+    variaveisEncontradas: names,
+    formatoValido: token ? token.startsWith("vercel_blob_rw_") : false,
+    tamanhoDoToken: token ? token.length : 0,
+  });
+}
+
 // Autoriza uploads direto do navegador para o Vercel Blob (client upload).
 // Assim o arquivo não passa pelo servidor e escapa do limite de ~4,5 MB
 // por requisição da Vercel. Protegido pelo middleware (exige sessão).
