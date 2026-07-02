@@ -41,6 +41,7 @@ export default async function ProjectsPage({
               OR: [
                 { title: { contains: q } },
                 { number: { contains: q } },
+                { refCode: { contains: q } },
                 { location: { contains: q } },
                 { customer: { name: { contains: q } } },
               ],
@@ -65,7 +66,7 @@ export default async function ProjectsPage({
   const backlog = openGroups.reduce((s, g) => s + (g._sum.value ?? 0), 0);
 
   const pg = paginate(total, parsePage(pageParam));
-  const [projects, customers, employees] = await Promise.all([
+  const [projects, customers, employees, budgets] = await Promise.all([
     prisma.project.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -75,6 +76,11 @@ export default async function ProjectsPage({
     }),
     prisma.customer.findMany({ where: { deletedAt: null, ...scope }, orderBy: { name: "asc" } }),
     prisma.employee.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.lead.findMany({
+      where: { deletedAt: null, number: { not: null }, ...scope },
+      orderBy: { createdAt: "desc" },
+      select: { number: true, name: true },
+    }),
   ]);
 
   return (
@@ -134,6 +140,17 @@ export default async function ProjectsPage({
               </select>
             </div>
             <div>
+              <label className="label">Orçamento de origem (código)</label>
+              <select name="refCode" className="input" defaultValue="">
+                <option value="">—</option>
+                {budgets.map((b) => (
+                  <option key={b.number} value={b.number!}>
+                    {b.number} · {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="label">Local / Endereço</label>
               <input name="location" className="input" placeholder="Cidade / CD do cliente" />
             </div>
@@ -185,6 +202,7 @@ export default async function ProjectsPage({
                       </p>
                       <p className="text-xs text-slate-400">
                         {p.number} · {p.customer.name}
+                        {p.refCode ? ` · Orç. ${p.refCode}` : ""}
                         {p.responsible ? ` · ${p.responsible.name}` : ""}
                       </p>
                       {(p.location || p.startDate) && (

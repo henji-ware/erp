@@ -26,6 +26,7 @@ export async function createProject(formData: FormData) {
       location: str(formData.get("location")),
       startDate: date(formData.get("startDate")),
       endDate: date(formData.get("endDate")),
+      refCode: str(formData.get("refCode")),
       notes: str(formData.get("notes")),
       ownerId: user?.id ?? null,
     },

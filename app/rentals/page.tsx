@@ -31,6 +31,7 @@ export default async function RentalsPage({
           {
             OR: [
               { number: { contains: q } },
+              { refCode: { contains: q } },
               { customer: { name: { contains: q } } },
               { product: { name: { contains: q } } },
             ],
@@ -62,6 +63,12 @@ export default async function RentalsPage({
       orderBy: { name: "asc" },
     }),
   ]);
+
+  const budgets = await prisma.lead.findMany({
+    where: { deletedAt: null, number: { not: null }, ...scope },
+    orderBy: { createdAt: "desc" },
+    select: { number: true, name: true },
+  });
 
   return (
     <div>
@@ -128,6 +135,17 @@ export default async function RentalsPage({
                 </div>
               </div>
               <div>
+                <label className="label">Orçamento de origem (código)</label>
+                <select name="refCode" className="input" defaultValue="">
+                  <option value="">—</option>
+                  {budgets.map((b) => (
+                    <option key={b.number} value={b.number!}>
+                      {b.number} · {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="label">Endereço de entrega</label>
                 <input name="deliveryAddress" className="input" placeholder="Rua, nº, bairro, cidade - UF" />
               </div>
@@ -172,6 +190,7 @@ export default async function RentalsPage({
                           </p>
                           <p className="text-xs text-slate-400">
                             {r.number} · {r.customer.name} · {r.quantity}x
+                            {r.refCode ? ` · Orç. ${r.refCode}` : ""}
                           </p>
                           {r.deliveryAddress && (
                             <p className="text-xs text-slate-400">Entrega: {r.deliveryAddress}</p>

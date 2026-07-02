@@ -38,6 +38,7 @@ export default async function InspectionsPage({
               { location: { contains: q } },
               { engineer: { contains: q } },
               { artNumber: { contains: q } },
+              { refCode: { contains: q } },
               { customer: { name: { contains: q } } },
             ],
           },
@@ -46,7 +47,7 @@ export default async function InspectionsPage({
     : scope;
 
   // Cards calculados sobre as inspeções visíveis ao usuário.
-  const [scheduled, reports, critical, totalAll, totalFiltered, customers] =
+  const [scheduled, reports, critical, totalAll, totalFiltered, customers, budgets] =
     await Promise.all([
       prisma.inspection.count({ where: { status: "AGENDADA", ...scope } }),
       prisma.inspection.count({ where: { status: "LAUDO_EMITIDO", ...scope } }),
@@ -54,6 +55,11 @@ export default async function InspectionsPage({
       prisma.inspection.count({ where: scope }),
       prisma.inspection.count({ where: listWhere }),
       prisma.customer.findMany({ where: { deletedAt: null, ...scope }, orderBy: { name: "asc" } }),
+      prisma.lead.findMany({
+        where: { deletedAt: null, number: { not: null }, ...scope },
+        orderBy: { createdAt: "desc" },
+        select: { number: true, name: true },
+      }),
     ]);
 
   const pg = paginate(totalFiltered, parsePage(pageParam));
@@ -122,6 +128,17 @@ export default async function InspectionsPage({
               </select>
             </div>
             <div>
+              <label className="label">Orçamento de origem (código)</label>
+              <select name="refCode" className="input" defaultValue="">
+                <option value="">—</option>
+                {budgets.map((b) => (
+                  <option key={b.number} value={b.number!}>
+                    {b.number} · {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="label">Achados / Observações</label>
               <textarea name="findings" rows={2} className="input" />
             </div>
@@ -158,6 +175,7 @@ export default async function InspectionsPage({
                         {i.ownerId && <OwnerTag name={owners.get(i.ownerId)} />}
                       </p>
                       <p className="text-xs text-slate-400">
+                        {i.refCode ? `Orç. ${i.refCode} · ` : ""}
                         {i.location ?? "—"}
                         {i.engineer ? ` · ${i.engineer}` : ""}
                         {i.artNumber ? ` · ART ${i.artNumber}` : ""}

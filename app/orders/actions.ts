@@ -49,6 +49,7 @@ export async function createOrder(formData: FormData) {
       status: "DRAFT",
       total,
       deliveryAddress,
+      refCode: String(formData.get("refCode") ?? "").trim() || null,
       items: { create: items },
       ownerId: user?.id ?? null,
     },

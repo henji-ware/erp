@@ -23,6 +23,7 @@ export async function createInspection(formData: FormData) {
       artNumber: str(formData.get("artNumber")),
       riskLevel: risk(formData.get("riskLevel")),
       findings: str(formData.get("findings")),
+      refCode: str(formData.get("refCode")),
       ownerId: user?.id ?? null,
     },
   });

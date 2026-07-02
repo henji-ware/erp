@@ -44,6 +44,7 @@ export async function createLead(formData: FormData) {
       source: str(formData.get("source")),
       value: num(formData.get("value")),
       stage: "NEW",
+      customerId: Number(formData.get("customerId")) || null,
       ownerId: user?.id ?? null,
     },
   });
@@ -78,6 +79,7 @@ export async function updateLead(formData: FormData) {
       source: str(formData.get("source")),
       value: num(formData.get("value")),
       stage,
+      customerId: Number(formData.get("customerId")) || null,
       lossReason,
       lossNote: isLost ? str(formData.get("lossNote")) : null,
     },

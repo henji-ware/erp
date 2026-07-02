@@ -30,6 +30,7 @@ export default async function OrdersPage({
           {
             OR: [
               { number: { contains: q } },
+              { refCode: { contains: q } },
               { customer: { name: { contains: q } } },
               { seller: { name: { contains: q } } },
             ],
@@ -58,6 +59,12 @@ export default async function OrdersPage({
     prisma.employee.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
 
+  const budgets = await prisma.lead.findMany({
+    where: { deletedAt: null, number: { not: null }, ...scope },
+    orderBy: { createdAt: "desc" },
+    select: { number: true, name: true },
+  });
+
   return (
     <div>
       <PageHeader
@@ -71,6 +78,7 @@ export default async function OrdersPage({
           <OrderForm
             customers={customers.map((c) => ({ id: c.id, name: c.name }))}
             sellers={employees.map((e) => ({ id: e.id, name: e.name }))}
+            budgets={budgets.map((b) => ({ number: b.number!, name: b.name }))}
             products={products.map((p) => ({
               id: p.id,
               name: p.name,
@@ -108,7 +116,10 @@ export default async function OrdersPage({
                         {o.number}
                         {o.ownerId && <OwnerTag name={owners.get(o.ownerId)} />}
                       </p>
-                      <p className="text-xs text-slate-400">{formatDate(o.createdAt)}</p>
+                      <p className="text-xs text-slate-400">
+                        {formatDate(o.createdAt)}
+                        {o.refCode ? ` · Orç. ${o.refCode}` : ""}
+                      </p>
                       <ul className="mt-1 space-y-0.5">
                         {o.items.map((it) => (
                           <li key={it.id} className="text-xs text-slate-400">

@@ -27,6 +27,10 @@ export default async function EditLeadPage({
     getCurrentUser(),
   ]);
   if (!lead) notFound();
+  const customers = await prisma.customer.findMany({
+    where: { deletedAt: null },
+    orderBy: { name: "asc" },
+  });
   // Usuário comum só acessa os próprios orçamentos (ou compartilhados).
   if (!canSee(user, lead)) notFound();
 
@@ -51,6 +55,15 @@ export default async function EditLeadPage({
             <div>
               <label className="label">Nome *</label>
               <input name="name" required defaultValue={lead.name} className="input" />
+            </div>
+            <div>
+              <label className="label">Cliente vinculado</label>
+              <select name="customerId" defaultValue={lead.customerId ?? ""} className="input">
+                <option value="">—</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

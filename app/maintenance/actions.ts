@@ -25,6 +25,7 @@ export async function createMaintenance(formData: FormData) {
       value: num(formData.get("value")),
       nextVisit: date(formData.get("nextVisit")),
       status: "ACTIVE",
+      refCode: str(formData.get("refCode")),
       notes: str(formData.get("notes")),
       ownerId: user?.id ?? null,
     },

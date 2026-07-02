@@ -24,6 +24,7 @@ export async function createRental(formData: FormData) {
       expectedEnd: date(formData.get("expectedEnd")),
       status: "ACTIVE",
       deliveryAddress: str(formData.get("deliveryAddress")),
+      refCode: str(formData.get("refCode")),
       notes: str(formData.get("notes")),
       ownerId: user?.id ?? null,
     },

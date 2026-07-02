@@ -27,28 +27,32 @@ export default async function LeadsPage({
   const user = await getCurrentUser();
   const scope = crmScope(user);
   const owners = await ownerNames();
-  const leads = await prisma.lead.findMany({
-    where: {
-      deletedAt: null,
-      ...(q
-        ? {
-            AND: [
-              scope,
-              {
-                OR: [
-                  { number: { contains: q } },
-                  { name: { contains: q } },
-                  { email: { contains: q } },
-                  { document: { contains: q } },
-                  { source: { contains: q } },
-                ],
-              },
-            ],
-          }
-        : scope),
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [leads, customers] = await Promise.all([
+    prisma.lead.findMany({
+      where: {
+        deletedAt: null,
+        ...(q
+          ? {
+              AND: [
+                scope,
+                {
+                  OR: [
+                    { number: { contains: q } },
+                    { name: { contains: q } },
+                    { email: { contains: q } },
+                    { document: { contains: q } },
+                    { source: { contains: q } },
+                  ],
+                },
+              ],
+            }
+          : scope),
+      },
+      orderBy: { createdAt: "desc" },
+      include: { customer: true },
+    }),
+    prisma.customer.findMany({ where: { deletedAt: null, ...scope }, orderBy: { name: "asc" } }),
+  ]);
 
   const byStage = (stage: string) => leads.filter((l) => l.stage === stage);
   const stageTotal = (stage: string) =>
@@ -75,6 +79,15 @@ export default async function LeadsPage({
           <div>
             <label className="label">Nome *</label>
             <input name="name" required className="input" />
+          </div>
+          <div>
+            <label className="label">Cliente (se já cadastrado)</label>
+            <select name="customerId" className="input" defaultValue="">
+              <option value="">—</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="label">CPF / CNPJ</label>
@@ -128,6 +141,9 @@ export default async function LeadsPage({
                   <p className="text-sm font-semibold text-brand-600">
                     {formatCurrency(l.value)}
                   </p>
+                  {l.customer && (
+                    <p className="mt-0.5 text-xs text-slate-500">Cliente: {l.customer.name}</p>
+                  )}
                   {l.source && (
                     <p className="mt-0.5 text-xs text-slate-400">via {l.source}</p>
                   )}

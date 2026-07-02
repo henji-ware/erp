@@ -7,6 +7,7 @@ import { createOrder } from "./actions";
 
 type Customer = { id: number; name: string };
 type Seller = { id: number; name: string };
+type Budget = { number: string; name: string };
 type Product = { id: number; name: string; price: number; stock: number; kind: string };
 
 let rowSeq = 0;
@@ -15,10 +16,12 @@ export default function OrderForm({
   customers,
   products,
   sellers,
+  budgets = [],
 }: {
   customers: Customer[];
   products: Product[];
   sellers: Seller[];
+  budgets?: Budget[];
 }) {
   const [rows, setRows] = useState<{ key: number; productId: string; quantity: number }[]>(
     [{ key: rowSeq++, productId: "", quantity: 1 }],
@@ -75,6 +78,17 @@ export default function OrderForm({
                 {sellers.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="label">Orçamento de origem (código)</label>
+              <select name="refCode" className="input" defaultValue="">
+                <option value="">—</option>
+                {budgets.map((b) => (
+                  <option key={b.number} value={b.number}>
+                    {b.number} · {b.name}
                   </option>
                 ))}
               </select>

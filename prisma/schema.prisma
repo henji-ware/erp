@@ -239,6 +239,7 @@ model Project {
   location      String?
   startDate     DateTime?
   endDate       DateTime?
+  refCode       String? // nº do orçamento de origem (ex.: 260601)
   notes         String?
   ownerId       Int? // usuário que criou (escopo por dono)
   shared        Boolean       @default(false)
@@ -265,6 +266,7 @@ model Inspection {
   engineer    String? // engenheiro responsável
   artNumber   String? // número da ART
   findings    String?
+  refCode     String? // nº do orçamento de origem
   ownerId     Int? // usuário que criou (escopo por dono)
   shared      Boolean          @default(false)
   createdAt   DateTime         @default(now())
@@ -421,6 +423,7 @@ model Order {
   status       OrderStatus   @default(DRAFT)
   total        Float         @default(0)
   deliveryAddress String? // endereço de entrega (produtos e serviços)
+  refCode      String? // nº do orçamento de origem
   ownerId      Int? // usuário que criou (escopo por dono)
   shared       Boolean       @default(false)
   createdAt    DateTime      @default(now())
@@ -494,6 +497,7 @@ model Rental {
   returnedAt  DateTime? // devolução efetiva
   status      RentalStatus @default(ACTIVE)
   deliveryAddress String? // endereço de entrega do equipamento
+  refCode     String? // nº do orçamento de origem
   notes       String?
   ownerId     Int? // usuário que criou (escopo por dono)
   shared      Boolean      @default(false)
@@ -515,6 +519,7 @@ model MaintenanceContract {
   value      Float                @default(0) // valor por visita
   nextVisit  DateTime?
   status     MaintenanceStatus    @default(ACTIVE)
+  refCode    String? // nº do orçamento de origem
   notes      String?
   ownerId    Int? // usuário que criou (escopo por dono)
   shared     Boolean              @default(false)
