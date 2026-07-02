@@ -19,11 +19,9 @@ export async function GET(
 
   try {
     if (att.url) {
-      // Nuvem: busca o arquivo no Vercel Blob e repassa (mantém o nome original).
-      const resp = await fetch(att.url);
-      if (!resp.ok) return new Response("Arquivo ausente", { status: 404 });
-      const buf = Buffer.from(await resp.arrayBuffer());
-      return new Response(new Uint8Array(buf), { headers });
+      // Nuvem: redireciona direto para o Vercel Blob (evita repassar arquivos
+      // grandes pelo servidor, que tem limite de resposta).
+      return Response.redirect(att.url, 302);
     }
     // Local: lê do disco.
     const buf = await readFile(path.join(process.cwd(), "uploads", att.storedName));

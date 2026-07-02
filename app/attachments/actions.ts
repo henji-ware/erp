@@ -105,6 +105,42 @@ export async function uploadAttachment(formData: FormData) {
   revalidatePath(`${cfg.path}/${owner.id}`);
 }
 
+// Registra no banco um arquivo já enviado direto do navegador para o Blob
+// (client upload). Chamado pelo AttachmentsCard após o upload concluir.
+export async function registerClientUpload(input: {
+  ownerType: string;
+  ownerId: number;
+  fileName: string;
+  url: string;
+  mimeType: string;
+  size: number;
+}) {
+  const type = input.ownerType as OwnerType;
+  const cfg = OWNER[type];
+  const id = Number(input.ownerId);
+  if (!cfg || !id || !input.url || !input.fileName) return;
+
+  await prisma.attachment.create({
+    data: {
+      [cfg.field]: id,
+      fileName: input.fileName,
+      storedName: input.url.split("/").pop() ?? input.fileName,
+      url: input.url,
+      mimeType: input.mimeType || "application/octet-stream",
+      size: Math.max(0, Math.floor(input.size)),
+    },
+  });
+
+  await logAudit({
+    action: "CREATE",
+    entity: cfg.entity,
+    entityId: id,
+    summary: `Anexou "${input.fileName}"`,
+  });
+
+  revalidatePath(`${cfg.path}/${id}`);
+}
+
 export async function deleteAttachment(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;

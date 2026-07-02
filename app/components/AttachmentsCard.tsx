@@ -1,7 +1,15 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { upload } from "@vercel/blob/client";
 import { formatDate } from "@/lib/format";
 import { Icon } from "./icons";
-import SubmitButton from "./SubmitButton";
-import { uploadAttachment, deleteAttachment } from "../attachments/actions";
+import {
+  uploadAttachment,
+  deleteAttachment,
+  registerClientUpload,
+} from "../attachments/actions";
 
 type AttachmentItem = {
   id: number;
@@ -10,6 +18,8 @@ type AttachmentItem = {
   createdAt: Date;
 };
 
+const MAX_SIZE = 100 * 1024 * 1024; // 100 MB (upload direto para o Blob)
+
 function fmtSize(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
@@ -17,12 +27,14 @@ function fmtSize(n: number): string {
 }
 
 // Card de anexos (PDF/Word) reutilizável: orçamentos, projetos e inspeções.
+// O arquivo sobe direto do navegador para o Vercel Blob (suporta até 100 MB);
+// sem Blob configurado (dev local), cai no envio via servidor (disco).
 export function AttachmentsCard({
   ownerType,
   ownerId,
   attachments,
   title = "Anexos",
-  hint = "Anexe documentos (PDF ou Word). Qualquer usuário logado pode baixá-los.",
+  hint = "Anexe documentos (PDF ou Word, até 100 MB).",
   error,
 }: {
   ownerType: "lead" | "project" | "inspection";
@@ -32,36 +44,88 @@ export function AttachmentsCard({
   hint?: string;
   error?: string;
 }) {
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(
+    error === "noblob"
+      ? "O armazenamento de arquivos não está configurado (Vercel Blob)."
+      : error === "fail"
+        ? "Falha ao enviar o arquivo. Tente novamente."
+        : null,
+  );
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const file = fileRef.current?.files?.[0];
+    if (!file || busy) return;
+
+    if (!/\.(pdf|doc|docx)$/i.test(file.name)) {
+      setMsg("Só PDF ou Word (.pdf, .doc, .docx).");
+      return;
+    }
+    if (file.size > MAX_SIZE) {
+      setMsg(`Arquivo muito grande (${fmtSize(file.size)}). O limite é 100 MB.`);
+      return;
+    }
+
+    setBusy(true);
+    setMsg(null);
+    try {
+      // Caminho principal: navegador → Blob (sem passar pelo servidor).
+      const blob = await upload(`anexos/${file.name}`, file, {
+        access: "public",
+        handleUploadUrl: "/api/attachments/upload",
+      });
+      await registerClientUpload({
+        ownerType,
+        ownerId,
+        fileName: file.name,
+        url: blob.url,
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+      });
+      if (fileRef.current) fileRef.current.value = "";
+      router.refresh();
+    } catch {
+      // Fallback (dev local sem Blob): envia via servidor.
+      try {
+        const fd = new FormData();
+        fd.set("ownerType", ownerType);
+        fd.set("ownerId", String(ownerId));
+        fd.set("file", file);
+        await uploadAttachment(fd);
+        if (fileRef.current) fileRef.current.value = "";
+        router.refresh();
+      } catch {
+        setMsg("Falha ao enviar o arquivo. Tente novamente.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="card p-6">
       <h2 className="mb-1 font-semibold text-slate-800">{title}</h2>
       <p className="mb-4 text-xs text-slate-400">{hint}</p>
 
-      {error === "noblob" && (
-        <p className="mb-4 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-          O armazenamento de arquivos não está configurado. Na Vercel, crie um
-          Blob Store (Storage → Create → Blob) e conecte ao projeto.
-        </p>
-      )}
-      {error === "fail" && (
-        <p className="mb-4 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-600">
-          Falha ao enviar o arquivo. Tente novamente (limite de 20 MB, PDF ou Word).
-        </p>
+      {msg && (
+        <p className="mb-4 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-600">{msg}</p>
       )}
 
-      <form action={uploadAttachment} className="mb-5 space-y-3 rounded-lg border border-slate-200 p-4">
-        <input type="hidden" name="ownerType" value={ownerType} />
-        <input type="hidden" name="ownerId" value={ownerId} />
+      <form onSubmit={handleSubmit} className="mb-5 space-y-3 rounded-lg border border-slate-200 p-4">
         <input
+          ref={fileRef}
           type="file"
           name="file"
           required
           accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100"
         />
-        <SubmitButton>
-          <Icon name="download" size={15} /> Anexar arquivo
-        </SubmitButton>
+        <button type="submit" disabled={busy} className="btn-primary">
+          <Icon name="download" size={15} /> {busy ? "Enviando..." : "Anexar arquivo"}
+        </button>
       </form>
 
       {attachments.length === 0 ? (
