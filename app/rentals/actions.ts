@@ -23,6 +23,7 @@ export async function createRental(formData: FormData) {
       startDate: new Date(startRaw),
       expectedEnd: date(formData.get("expectedEnd")),
       status: "ACTIVE",
+      deliveryAddress: str(formData.get("deliveryAddress")),
       notes: str(formData.get("notes")),
       ownerId: user?.id ?? null,
     },

@@ -128,6 +128,10 @@ export default async function RentalsPage({
                 </div>
               </div>
               <div>
+                <label className="label">Endereço de entrega</label>
+                <input name="deliveryAddress" className="input" placeholder="Rua, nº, bairro, cidade - UF" />
+              </div>
+              <div>
                 <label className="label">Observações</label>
                 <textarea name="notes" rows={2} className="input" />
               </div>
@@ -169,6 +173,9 @@ export default async function RentalsPage({
                           <p className="text-xs text-slate-400">
                             {r.number} · {r.customer.name} · {r.quantity}x
                           </p>
+                          {r.deliveryAddress && (
+                            <p className="text-xs text-slate-400">Entrega: {r.deliveryAddress}</p>
+                          )}
                         </td>
                         <td className="td text-slate-600">
                           {formatDate(r.startDate)}

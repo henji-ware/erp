@@ -151,6 +151,10 @@ export default async function EditCustomerPage({
               <input name="document" defaultValue={customer.document ?? ""} className="input" />
             </div>
             <div>
+              <label className="label">Endereço</label>
+              <input name="address" defaultValue={customer.address ?? ""} className="input" placeholder="Rua, nº, bairro, cidade - UF" />
+            </div>
+            <div>
               <label className="label">Observações</label>
               <textarea name="notes" rows={3} defaultValue={customer.notes ?? ""} className="input" />
             </div>

@@ -127,6 +127,9 @@ enum UserRole {
 
 enum SellerCategory {
   VENDEDOR
+  ASSISTENTE_VENDAS
+  AUXILIAR_VENDAS
+  GERENTE_VENDAS
   REPRESENTANTE
   DISTRIBUIDOR
   PARCEIRO
@@ -317,6 +320,7 @@ model Customer {
   phone                String?
   company              String?
   document             String? // CPF/CNPJ
+  address              String? // endereço completo
   notes                String?
   ownerId              Int? // usuário que criou (escopo por dono)
   shared               Boolean               @default(false) // visível a todos os usuários
@@ -416,6 +420,7 @@ model Order {
   sellerId     Int?
   status       OrderStatus   @default(DRAFT)
   total        Float         @default(0)
+  deliveryAddress String? // endereço de entrega (produtos e serviços)
   ownerId      Int? // usuário que criou (escopo por dono)
   shared       Boolean       @default(false)
   createdAt    DateTime      @default(now())
@@ -488,6 +493,7 @@ model Rental {
   expectedEnd DateTime? // devolução prevista
   returnedAt  DateTime? // devolução efetiva
   status      RentalStatus @default(ACTIVE)
+  deliveryAddress String? // endereço de entrega do equipamento
   notes       String?
   ownerId     Int? // usuário que criou (escopo por dono)
   shared      Boolean      @default(false)

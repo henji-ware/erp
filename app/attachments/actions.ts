@@ -4,6 +4,7 @@ import { mkdir, writeFile, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 
@@ -52,24 +53,37 @@ export async function uploadAttachment(formData: FormData) {
     (lowerName.endsWith(".docx") ? ".docx" : lowerName.endsWith(".doc") ? ".doc" : ".pdf");
   const storedName = `${randomUUID()}${ext}`;
 
-  let url: string | null = null;
+  const cfgOwner = OWNER[owner.type];
 
-  if (useBlob()) {
-    // Nuvem: salva no Vercel Blob.
-    const { put } = await import("@vercel/blob");
-    const blob = await put(`anexos/${storedName}`, file, {
-      access: "public",
-      contentType: file.type || "application/octet-stream",
-    });
-    url = blob.url;
-  } else {
-    // Local: salva em disco.
-    await mkdir(UPLOAD_DIR, { recursive: true });
-    const bytes = Buffer.from(await file.arrayBuffer());
-    await writeFile(path.join(UPLOAD_DIR, storedName), bytes);
+  // Em produção (Vercel) o disco é somente leitura: sem o Blob configurado,
+  // o upload não tem onde salvar — avisa em vez de quebrar.
+  if (!useBlob() && process.env.VERCEL) {
+    redirect(`${cfgOwner.path}/${owner.id}?attach=noblob`);
   }
 
-  const cfg = OWNER[owner.type];
+  let url: string | null = null;
+
+  try {
+    if (useBlob()) {
+      // Nuvem: salva no Vercel Blob.
+      const { put } = await import("@vercel/blob");
+      const blob = await put(`anexos/${storedName}`, file, {
+        access: "public",
+        contentType: file.type || "application/octet-stream",
+      });
+      url = blob.url;
+    } else {
+      // Local: salva em disco.
+      await mkdir(UPLOAD_DIR, { recursive: true });
+      const bytes = Buffer.from(await file.arrayBuffer());
+      await writeFile(path.join(UPLOAD_DIR, storedName), bytes);
+    }
+  } catch (e) {
+    console.error("[attachments] falha no upload:", e);
+    redirect(`${cfgOwner.path}/${owner.id}?attach=fail`);
+  }
+
+  const cfg = cfgOwner;
   await prisma.attachment.create({
     data: {
       [cfg.field]: owner.id,

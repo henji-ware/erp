@@ -23,10 +23,13 @@ const d = (date: Date | null) => (date ? date.toISOString().slice(0, 10) : "");
 
 export default async function EditProjectPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ attach?: string }>;
 }) {
   const { id } = await params;
+  const { attach } = await searchParams;
   const user = await getCurrentUser();
   const [project, customers, employees] = await Promise.all([
     prisma.project.findUnique({
@@ -130,6 +133,7 @@ export default async function EditProjectPage({
           attachments={project.attachments}
           title="Documentos do projeto"
           hint="Contratos, ARTs, plantas, relatórios (PDF ou Word)."
+          error={attach}
         />
       </div>
 

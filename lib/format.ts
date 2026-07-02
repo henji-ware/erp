@@ -150,12 +150,18 @@ export const USER_ROLE_COLORS: Record<string, string> = {
 // ---- Categorias de vendedor (RH) ----
 export const SELLER_CATEGORIES = [
   "VENDEDOR",
+  "ASSISTENTE_VENDAS",
+  "AUXILIAR_VENDAS",
+  "GERENTE_VENDAS",
   "REPRESENTANTE",
   "DISTRIBUIDOR",
   "PARCEIRO",
 ] as const;
 export const SELLER_CATEGORY_LABELS: Record<string, string> = {
   VENDEDOR: "Vendedor",
+  ASSISTENTE_VENDAS: "Assistente de vendas",
+  AUXILIAR_VENDAS: "Auxiliar de vendas",
+  GERENTE_VENDAS: "Gerente de vendas",
   REPRESENTANTE: "Representante",
   DISTRIBUIDOR: "Distribuidor",
   PARCEIRO: "Parceiro",
@@ -187,10 +193,10 @@ export const LEAD_STAGES = [
 ] as const;
 
 export const LEAD_STAGE_LABELS: Record<string, string> = {
-  NEW: "Novo",
-  CONTACTED: "Contatado",
+  NEW: "Novo contato",
+  CONTACTED: "Cliente",
   PROPOSAL: "Proposta",
-  WON: "Ganho",
+  WON: "Vendido",
   LOST: "Perdido",
 };
 

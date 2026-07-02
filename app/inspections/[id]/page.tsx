@@ -21,10 +21,13 @@ function toLocalInput(date: Date): string {
 
 export default async function EditInspectionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ attach?: string }>;
 }) {
   const { id } = await params;
+  const { attach } = await searchParams;
   const user = await getCurrentUser();
   const [insp, customers] = await Promise.all([
     prisma.inspection.findUnique({
@@ -104,6 +107,7 @@ export default async function EditInspectionPage({
           attachments={insp.attachments}
           title="Laudos e documentos"
           hint="Laudo técnico, ART, fotos em PDF, relatórios (PDF ou Word)."
+          error={attach}
         />
       </div>
     </div>

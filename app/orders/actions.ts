@@ -39,6 +39,8 @@ export async function createOrder(formData: FormData) {
   const sellerId = Number(formData.get("sellerId")) || null;
   const user = await getCurrentUser();
 
+  const deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim() || null;
+
   const order = await prisma.order.create({
     data: {
       number: "PED-" + Date.now().toString(36).toUpperCase(),
@@ -46,6 +48,7 @@ export async function createOrder(formData: FormData) {
       sellerId,
       status: "DRAFT",
       total,
+      deliveryAddress,
       items: { create: items },
       ownerId: user?.id ?? null,
     },

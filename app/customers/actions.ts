@@ -18,6 +18,7 @@ export async function createCustomer(formData: FormData) {
       phone: str(formData.get("phone")),
       company: str(formData.get("company")),
       document: str(formData.get("document")),
+      address: str(formData.get("address")),
       notes: str(formData.get("notes")),
       ownerId: user?.id ?? null,
     },
@@ -43,6 +44,7 @@ export async function updateCustomer(formData: FormData) {
       phone: str(formData.get("phone")),
       company: str(formData.get("company")),
       document: str(formData.get("document")),
+      address: str(formData.get("address")),
       notes: str(formData.get("notes")),
     },
   });

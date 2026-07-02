@@ -23,17 +23,31 @@ export function AttachmentsCard({
   attachments,
   title = "Anexos",
   hint = "Anexe documentos (PDF ou Word). Qualquer usuário logado pode baixá-los.",
+  error,
 }: {
   ownerType: "lead" | "project" | "inspection";
   ownerId: number;
   attachments: AttachmentItem[];
   title?: string;
   hint?: string;
+  error?: string;
 }) {
   return (
     <div className="card p-6">
       <h2 className="mb-1 font-semibold text-slate-800">{title}</h2>
       <p className="mb-4 text-xs text-slate-400">{hint}</p>
+
+      {error === "noblob" && (
+        <p className="mb-4 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+          O armazenamento de arquivos não está configurado. Na Vercel, crie um
+          Blob Store (Storage → Create → Blob) e conecte ao projeto.
+        </p>
+      )}
+      {error === "fail" && (
+        <p className="mb-4 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-600">
+          Falha ao enviar o arquivo. Tente novamente (limite de 20 MB, PDF ou Word).
+        </p>
+      )}
 
       <form action={uploadAttachment} className="mb-5 space-y-3 rounded-lg border border-slate-200 p-4">
         <input type="hidden" name="ownerType" value={ownerType} />

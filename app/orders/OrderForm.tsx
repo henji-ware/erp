@@ -80,6 +80,14 @@ export default function OrderForm({
               </select>
             </div>
             <div className="md:col-span-2">
+              <label className="label">Endereço de entrega</label>
+              <input
+                name="deliveryAddress"
+                className="input"
+                placeholder="Rua, nº, bairro, cidade - UF (onde entregar/executar)"
+              />
+            </div>
+            <div className="md:col-span-2">
               <label className="label">Situação inicial</label>
               <select name="status" className="input" defaultValue="DRAFT">
                 <option value="DRAFT">Rascunho (não mexe no estoque)</option>

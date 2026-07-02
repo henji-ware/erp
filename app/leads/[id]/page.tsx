@@ -12,10 +12,13 @@ export const dynamic = "force-dynamic";
 
 export default async function EditLeadPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ attach?: string }>;
 }) {
   const { id } = await params;
+  const { attach } = await searchParams;
   const [lead, user] = await Promise.all([
     prisma.lead.findUnique({
       where: { id: Number(id) },
@@ -94,6 +97,7 @@ export default async function EditLeadPage({
           attachments={lead.attachments}
           title="Proposta / Anexos"
           hint="Anexe a proposta (PDF ou Word). Qualquer usuário logado pode baixá-la."
+          error={attach}
         />
       </div>
     </div>

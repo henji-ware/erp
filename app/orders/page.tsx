@@ -124,6 +124,11 @@ export default async function OrdersPage({
                           Vend.: {o.seller.name}
                         </span>
                       )}
+                      {o.deliveryAddress && (
+                        <span className="block text-xs text-slate-400">
+                          Entrega: {o.deliveryAddress}
+                        </span>
+                      )}
                     </td>
                     <td className="td">
                       <OrderStatusSelect id={o.id} status={o.status} />
