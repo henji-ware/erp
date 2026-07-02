@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { blobToken } from "@/lib/blob";
 
 // Pasta de uploads local (fora de /public => só baixa via rota autenticada).
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
@@ -28,7 +29,7 @@ const OWNER: Record<OwnerType, { field: "leadId" | "projectId" | "inspectionId";
 };
 
 function useBlob() {
-  return !!process.env.BLOB_READ_WRITE_TOKEN;
+  return !!blobToken();
 }
 
 function parseOwner(formData: FormData): { type: OwnerType; id: number } | null {
@@ -70,6 +71,7 @@ export async function uploadAttachment(formData: FormData) {
       const blob = await put(`anexos/${storedName}`, file, {
         access: "public",
         contentType: file.type || "application/octet-stream",
+        token: blobToken(),
       });
       url = blob.url;
     } else {
@@ -152,7 +154,7 @@ export async function deleteAttachment(formData: FormData) {
   try {
     if (att.url) {
       const { del } = await import("@vercel/blob");
-      await del(att.url);
+      await del(att.url, { token: blobToken() });
     } else {
       await unlink(path.join(UPLOAD_DIR, att.storedName));
     }

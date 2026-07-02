@@ -101,6 +101,8 @@ export function AttachmentsCard({
         if (fileRef.current) fileRef.current.value = "";
         router.refresh();
       } catch (err2) {
+        // Redirecionamentos do Next (ex.: ?attach=noblob) devem navegar, não virar erro.
+        if ((err2 as { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) throw err2;
         console.error("[anexo] fallback via servidor falhou:", err2);
         const detail = err instanceof Error ? err.message : String(err);
         setMsg(`Falha ao enviar o arquivo. Detalhe: ${detail}`);

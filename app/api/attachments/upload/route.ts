@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { blobToken } from "@/lib/blob";
 
 // Autoriza uploads direto do navegador para o Vercel Blob (client upload).
 // Assim o arquivo não passa pelo servidor e escapa do limite de ~4,5 MB
@@ -7,9 +8,17 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 export async function POST(request: Request): Promise<NextResponse> {
   const body = (await request.json()) as HandleUploadBody;
   try {
+    const token = blobToken();
+    if (!token) {
+      return NextResponse.json(
+        { error: "Vercel Blob não configurado (nenhum *_READ_WRITE_TOKEN no ambiente)" },
+        { status: 400 },
+      );
+    }
     const jsonResponse = await handleUpload({
       body,
       request,
+      token,
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: [
           "application/pdf",
