@@ -44,10 +44,10 @@ export async function GET(req: NextRequest) {
   const until = new Date(now.getTime() + ALERT_DAYS * 86400000);
 
   const [txs, inspections, maint, rentals, users] = await Promise.all([
-    prisma.transaction.findMany({ where: { status: { not: "PAID" }, dueDate: { lte: until } } }),
-    prisma.inspection.findMany({ where: { status: "AGENDADA", scheduledAt: { lte: until } }, include: { customer: true } }),
-    prisma.maintenanceContract.findMany({ where: { status: "ACTIVE", nextVisit: { lte: until } }, include: { customer: true } }),
-    prisma.rental.findMany({ where: { status: "ACTIVE", expectedEnd: { lte: until } }, include: { customer: true, product: true } }),
+    prisma.transaction.findMany({ where: { deletedAt: null, status: { not: "PAID" }, dueDate: { lte: until } } }),
+    prisma.inspection.findMany({ where: { deletedAt: null, status: "AGENDADA", scheduledAt: { lte: until } }, include: { customer: true } }),
+    prisma.maintenanceContract.findMany({ where: { deletedAt: null, status: "ACTIVE", nextVisit: { lte: until } }, include: { customer: true } }),
+    prisma.rental.findMany({ where: { deletedAt: null, status: "ACTIVE", expectedEnd: { lte: until } }, include: { customer: true, product: true } }),
     prisma.user.findMany({ where: { active: true } }),
   ]);
 

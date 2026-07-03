@@ -33,7 +33,7 @@ export default async function AppointmentsPage({
   const owners = await ownerNames();
   const [appointments, customers, employees] = await Promise.all([
     prisma.appointment.findMany({
-      where: scope,
+      where: { deletedAt: null, ...scope },
       orderBy: { startsAt: "asc" },
       include: { customer: true, employee: true },
     }),

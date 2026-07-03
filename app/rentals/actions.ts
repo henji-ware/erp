@@ -56,8 +56,8 @@ export async function setRentalStatus(formData: FormData) {
 export async function deleteRental(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
-  await prisma.rental.delete({ where: { id } });
-  await logAudit({ action: "DELETE", entity: "Locação", entityId: id, summary: "Locação excluída" });
+  await prisma.rental.update({ where: { id }, data: { deletedAt: new Date() } });
+  await logAudit({ action: "DELETE", entity: "Locação", entityId: id, summary: "Locação arquivada" });
   revalidatePath("/rentals");
   revalidatePath("/");
 }

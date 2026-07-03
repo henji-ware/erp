@@ -36,7 +36,7 @@ export default async function FinancePage({
   const owners = await ownerNames();
   const [transactions, customers, suppliers] = await Promise.all([
     prisma.transaction.findMany({
-      where: scope,
+      where: { deletedAt: null, ...scope },
       orderBy: { dueDate: "asc" },
       include: { customer: true, supplier: true, payments: true },
     }),

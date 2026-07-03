@@ -29,24 +29,27 @@ export default async function MaintenancePage({
   const user = await getCurrentUser();
   const scope = crmScope(user);
   const owners = await ownerNames();
-  const where = q
-    ? {
-        AND: [
-          scope,
-          {
-            OR: [
-              { title: { contains: q } },
-              { refCode: { contains: q } },
-              { customer: { name: { contains: q } } },
-            ],
-          },
-        ],
-      }
-    : scope;
+  const where = {
+    deletedAt: null,
+    ...(q
+      ? {
+          AND: [
+            scope,
+            {
+              OR: [
+                { title: { contains: q } },
+                { refCode: { contains: q } },
+                { customer: { name: { contains: q } } },
+              ],
+            },
+          ],
+        }
+      : scope),
+  };
 
   // KPIs sobre contratos ativos visíveis ao usuário.
   const activeContracts = await prisma.maintenanceContract.findMany({
-    where: { status: "ACTIVE", ...scope },
+    where: { deletedAt: null, status: "ACTIVE", ...scope },
   });
   const recurringValue = activeContracts.reduce((s, c) => s + c.value, 0);
   const now = new Date();

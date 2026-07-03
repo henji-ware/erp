@@ -64,7 +64,7 @@ export async function getReportData(range: Range) {
       },
     }),
     prisma.lead.findMany({ where: { deletedAt: null } }),
-    prisma.transaction.findMany({ include: { payments: true } }),
+    prisma.transaction.findMany({ where: { deletedAt: null }, include: { payments: true } }),
   ]);
 
   // KPIs

@@ -75,8 +75,8 @@ export async function setInspectionStatus(formData: FormData) {
 export async function deleteInspection(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
-  await prisma.inspection.delete({ where: { id } });
-  await logAudit({ action: "DELETE", entity: "Inspeção", entityId: id, summary: "Inspeção excluída" });
+  await prisma.inspection.update({ where: { id }, data: { deletedAt: new Date() } });
+  await logAudit({ action: "DELETE", entity: "Inspeção", entityId: id, summary: "Inspeção arquivada" });
   revalidatePath("/inspections");
   revalidatePath("/");
 }

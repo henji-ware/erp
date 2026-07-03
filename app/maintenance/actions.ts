@@ -70,8 +70,8 @@ export async function completeVisit(formData: FormData) {
 export async function deleteMaintenance(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
-  await prisma.maintenanceContract.delete({ where: { id } });
-  await logAudit({ action: "DELETE", entity: "Manutenção", entityId: id, summary: "Contrato excluído" });
+  await prisma.maintenanceContract.update({ where: { id }, data: { deletedAt: new Date() } });
+  await logAudit({ action: "DELETE", entity: "Manutenção", entityId: id, summary: "Contrato arquivado" });
   revalidatePath("/maintenance");
   revalidatePath("/");
 }

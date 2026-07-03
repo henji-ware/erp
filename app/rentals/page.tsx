@@ -24,24 +24,29 @@ export default async function RentalsPage({
   const user = await getCurrentUser();
   const scope = crmScope(user);
   const owners = await ownerNames();
-  const where = q
-    ? {
-        AND: [
-          scope,
-          {
-            OR: [
-              { number: { contains: q } },
-              { refCode: { contains: q } },
-              { customer: { name: { contains: q } } },
-              { product: { name: { contains: q } } },
-            ],
-          },
-        ],
-      }
-    : scope;
+  const where = {
+    deletedAt: null,
+    ...(q
+      ? {
+          AND: [
+            scope,
+            {
+              OR: [
+                { number: { contains: q } },
+                { refCode: { contains: q } },
+                { customer: { name: { contains: q } } },
+                { product: { name: { contains: q } } },
+              ],
+            },
+          ],
+        }
+      : scope),
+  };
 
   // KPIs sobre as locações ativas visíveis ao usuário.
-  const activeRentals = await prisma.rental.findMany({ where: { status: "ACTIVE", ...scope } });
+  const activeRentals = await prisma.rental.findMany({
+    where: { deletedAt: null, status: "ACTIVE", ...scope },
+  });
   const monthlyRevenue = activeRentals.reduce((s, r) => s + r.monthlyRate * r.quantity, 0);
   const now = new Date();
   const overdue = activeRentals.filter((r) => r.expectedEnd && r.expectedEnd < now).length;

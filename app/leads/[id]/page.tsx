@@ -6,7 +6,7 @@ import SubmitButton from "../../components/SubmitButton";
 import { AttachmentsCard } from "../../components/AttachmentsCard";
 import LeadStageLossFields from "../LeadStageLossFields";
 import { updateLead } from "../actions";
-import { getCurrentUser, canSee } from "@/lib/auth";
+import { getCurrentUser, canSee, crmScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,7 @@ export default async function EditLeadPage({
   ]);
   if (!lead) notFound();
   const customers = await prisma.customer.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, ...crmScope(user) },
     orderBy: { name: "asc" },
   });
   // Usuário comum só acessa os próprios orçamentos (ou compartilhados).

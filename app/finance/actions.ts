@@ -128,8 +128,9 @@ export async function deletePayment(formData: FormData) {
 export async function deleteTransaction(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
-  await prisma.transaction.delete({ where: { id } }); // pagamentos em cascata
-  await logAudit({ action: "DELETE", entity: "Financeiro", entityId: id, summary: "Lançamento excluído" });
+  // Soft delete: vai para a Lixeira (recuperável); pagamentos são preservados.
+  await prisma.transaction.update({ where: { id }, data: { deletedAt: new Date() } });
+  await logAudit({ action: "DELETE", entity: "Financeiro", entityId: id, summary: "Lançamento arquivado" });
   revalidatePath("/finance");
   revalidatePath("/");
 }

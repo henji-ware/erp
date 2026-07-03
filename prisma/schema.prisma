@@ -269,10 +269,12 @@ model Inspection {
   refCode     String? // nº do orçamento de origem
   ownerId     Int? // usuário que criou (escopo por dono)
   shared      Boolean          @default(false)
+  deletedAt   DateTime? // soft delete (lixeira)
   createdAt   DateTime         @default(now())
   attachments Attachment[]
 
   @@index([ownerId])
+  @@index([deletedAt])
 }
 
 // ------------------------ Agendamentos -------------------------
@@ -292,9 +294,11 @@ model Appointment {
   employeeId Int?
   ownerId    Int? // usuário que criou (escopo por dono)
   shared     Boolean   @default(false)
+  deletedAt  DateTime? // soft delete (lixeira)
   createdAt  DateTime  @default(now())
 
   @@index([ownerId])
+  @@index([deletedAt])
 }
 
 // ------------------------- Fornecedores ------------------------
@@ -463,10 +467,12 @@ model Transaction {
   supplierId  Int?
   ownerId     Int? // usuário que criou (escopo por dono)
   shared      Boolean           @default(false)
+  deletedAt   DateTime? // soft delete (lixeira)
   payments    Payment[]
   createdAt   DateTime          @default(now())
 
   @@index([ownerId])
+  @@index([deletedAt])
 }
 
 // Pagamentos podem ser parciais. method: CARD_CREDIT | CARD_DEBIT | PIX | BOLETO | CASH
@@ -501,10 +507,12 @@ model Rental {
   notes       String?
   ownerId     Int? // usuário que criou (escopo por dono)
   shared      Boolean      @default(false)
+  deletedAt   DateTime? // soft delete (lixeira)
   createdAt   DateTime     @default(now())
 
   @@index([status])
   @@index([ownerId])
+  @@index([deletedAt])
 }
 
 // ------------------- Contratos de manutenção -------------------
@@ -523,8 +531,10 @@ model MaintenanceContract {
   notes      String?
   ownerId    Int? // usuário que criou (escopo por dono)
   shared     Boolean              @default(false)
+  deletedAt  DateTime? // soft delete (lixeira)
   createdAt  DateTime             @default(now())
 
   @@index([status])
   @@index([ownerId])
+  @@index([deletedAt])
 }

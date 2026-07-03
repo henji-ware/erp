@@ -29,30 +29,33 @@ export default async function InspectionsPage({
   const user = await getCurrentUser();
   const scope = crmScope(user);
   const owners = await ownerNames();
-  const listWhere = q
-    ? {
-        AND: [
-          scope,
-          {
-            OR: [
-              { location: { contains: q } },
-              { engineer: { contains: q } },
-              { artNumber: { contains: q } },
-              { refCode: { contains: q } },
-              { customer: { name: { contains: q } } },
-            ],
-          },
-        ],
-      }
-    : scope;
+  const listWhere = {
+    deletedAt: null,
+    ...(q
+      ? {
+          AND: [
+            scope,
+            {
+              OR: [
+                { location: { contains: q } },
+                { engineer: { contains: q } },
+                { artNumber: { contains: q } },
+                { refCode: { contains: q } },
+                { customer: { name: { contains: q } } },
+              ],
+            },
+          ],
+        }
+      : scope),
+  };
 
   // Cards calculados sobre as inspeções visíveis ao usuário.
   const [scheduled, reports, critical, totalAll, totalFiltered, customers, budgets] =
     await Promise.all([
-      prisma.inspection.count({ where: { status: "AGENDADA", ...scope } }),
-      prisma.inspection.count({ where: { status: "LAUDO_EMITIDO", ...scope } }),
-      prisma.inspection.count({ where: { riskLevel: "VERMELHO", ...scope } }),
-      prisma.inspection.count({ where: scope }),
+      prisma.inspection.count({ where: { deletedAt: null, status: "AGENDADA", ...scope } }),
+      prisma.inspection.count({ where: { deletedAt: null, status: "LAUDO_EMITIDO", ...scope } }),
+      prisma.inspection.count({ where: { deletedAt: null, riskLevel: "VERMELHO", ...scope } }),
+      prisma.inspection.count({ where: { deletedAt: null, ...scope } }),
       prisma.inspection.count({ where: listWhere }),
       prisma.customer.findMany({ where: { deletedAt: null, ...scope }, orderBy: { name: "asc" } }),
       prisma.lead.findMany({

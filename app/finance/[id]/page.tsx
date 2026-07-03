@@ -38,7 +38,7 @@ export default async function TransactionDetailPage({
     prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
     prisma.supplier.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
   ]);
-  if (!tx) notFound();
+  if (!tx || tx.deletedAt) notFound();
 
   const paid = paidAmount(tx);
   const left = remaining(tx);

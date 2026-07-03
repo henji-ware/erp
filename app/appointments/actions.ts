@@ -73,8 +73,8 @@ export async function setAppointmentStatus(formData: FormData) {
 export async function deleteAppointment(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
-  await prisma.appointment.delete({ where: { id } });
-  await logAudit({ action: "DELETE", entity: "Agendamento", entityId: id, summary: "Agendamento excluído" });
+  await prisma.appointment.update({ where: { id }, data: { deletedAt: new Date() } });
+  await logAudit({ action: "DELETE", entity: "Agendamento", entityId: id, summary: "Agendamento arquivado" });
   revalidatePath("/appointments");
   revalidatePath("/");
 }

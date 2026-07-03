@@ -40,13 +40,13 @@ export default async function EditCustomerPage({
     where: { id: Number(id) },
     include: {
       orders: true,
-      projects: true,
-      inspections: true,
-      leads: true,
-      transactions: true,
-      appointments: true,
-      rentals: { include: { product: true } },
-      maintenanceContracts: true,
+      projects: { where: { deletedAt: null } },
+      inspections: { where: { deletedAt: null } },
+      leads: { where: { deletedAt: null } },
+      transactions: { where: { deletedAt: null } },
+      appointments: { where: { deletedAt: null } },
+      rentals: { where: { deletedAt: null }, include: { product: true } },
+      maintenanceContracts: { where: { deletedAt: null } },
     },
   });
   if (!customer) notFound();

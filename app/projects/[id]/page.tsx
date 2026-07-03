@@ -36,7 +36,7 @@ export default async function EditProjectPage({
       where: { id: Number(id) },
       include: {
         attachments: { orderBy: { createdAt: "desc" } },
-        transactions: { orderBy: { dueDate: "asc" } },
+        transactions: { where: { deletedAt: null }, orderBy: { dueDate: "asc" } },
       },
     }),
     prisma.customer.findMany({ where: { deletedAt: null, ...crmScope(user) }, orderBy: { name: "asc" } }),
