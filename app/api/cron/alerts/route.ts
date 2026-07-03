@@ -5,16 +5,30 @@ import { formatCurrency, formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-// Avisa quando algo vence nos próximos dias (ou já venceu).
+// Avisa faltando 3, 2 e 1 dia, no dia do vencimento e enquanto estiver vencido.
 const ALERT_DAYS = 3;
 
 type Item = {
   ownerId: number | null;
-  kind: string;
+  section: "Financeiro" | "Inspeções" | "Manutenção" | "Locações";
   label: string;
   date: Date;
-  overdue: boolean;
 };
+
+// "faltam 3 dias" / "falta 1 dia" / "vence HOJE" / "venceu há X dia(s)"
+function dayLabel(date: Date, now: Date): { text: string; color: string } {
+  const d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const d1 = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const days = Math.round((d1.getTime() - d0.getTime()) / 86400000);
+  if (days < 0)
+    return {
+      text: `venceu ${formatDate(date)} — há ${-days} dia${-days > 1 ? "s" : ""}`,
+      color: "#dc2626",
+    };
+  if (days === 0) return { text: "vence HOJE", color: "#dc2626" };
+  if (days === 1) return { text: `falta 1 dia (${formatDate(date)})`, color: "#d97706" };
+  return { text: `faltam ${days} dias (${formatDate(date)})`, color: "#d97706" };
+}
 
 export async function GET(req: NextRequest) {
   // Proteção: o Vercel Cron envia "Authorization: Bearer <CRON_SECRET>".
@@ -39,13 +53,20 @@ export async function GET(req: NextRequest) {
 
   const items: Item[] = [];
   for (const t of txs)
-    items.push({ ownerId: t.ownerId, kind: t.type === "RECEIVABLE" ? "A receber" : "A pagar", label: `${t.description} — ${formatCurrency(t.amount)}`, date: t.dueDate, overdue: t.dueDate < now });
+    items.push({
+      ownerId: t.ownerId,
+      section: "Financeiro",
+      label: `${t.type === "RECEIVABLE" ? "A receber" : "A pagar"}: ${t.description} — ${formatCurrency(t.amount)}`,
+      date: t.dueDate,
+    });
   for (const i of inspections)
-    items.push({ ownerId: i.ownerId, kind: "Inspeção", label: i.customer.name, date: i.scheduledAt, overdue: i.scheduledAt < now });
+    items.push({ ownerId: i.ownerId, section: "Inspeções", label: `Inspeção — ${i.customer.name}`, date: i.scheduledAt });
   for (const m of maint)
-    items.push({ ownerId: m.ownerId, kind: "Manutenção", label: `${m.title} — ${m.customer.name}`, date: m.nextVisit!, overdue: m.nextVisit! < now });
+    items.push({ ownerId: m.ownerId, section: "Manutenção", label: `${m.title} — ${m.customer.name}`, date: m.nextVisit! });
   for (const r of rentals)
-    items.push({ ownerId: r.ownerId, kind: "Locação", label: `${r.product.name} — ${r.customer.name}`, date: r.expectedEnd!, overdue: r.expectedEnd! < now });
+    items.push({ ownerId: r.ownerId, section: "Locações", label: `Devolução: ${r.product.name} — ${r.customer.name}`, date: r.expectedEnd! });
+
+  const SECTION_ORDER: Item["section"][] = ["Financeiro", "Inspeções", "Manutenção", "Locações"];
 
   let sent = 0;
   for (const u of users) {
@@ -54,15 +75,20 @@ export async function GET(req: NextRequest) {
     if (mine.length === 0) continue;
 
     mine.sort((a, b) => a.date.getTime() - b.date.getTime());
-    const rows = mine
-      .map(
-        (it) =>
-          `<li style="margin-bottom:6px;"><strong>${it.kind}:</strong> ${it.label} — ${
-            it.overdue
-              ? `<span style="color:#dc2626;">venceu ${formatDate(it.date)}</span>`
-              : `vence ${formatDate(it.date)}`
-          }</li>`,
-      )
+    const sections = SECTION_ORDER.filter((s) => mine.some((it) => it.section === s));
+
+    // Corpo agrupado por seção de origem.
+    const groups = sections
+      .map((s) => {
+        const rows = mine
+          .filter((it) => it.section === s)
+          .map((it) => {
+            const d = dayLabel(it.date, now);
+            return `<li style="margin-bottom:6px;">${it.label} — <strong style="color:${d.color};">${d.text}</strong></li>`;
+          })
+          .join("");
+        return `<p style="margin:14px 0 6px;font-weight:bold;color:#0f172a;">${s}</p><ul style="padding-left:18px;margin:0;">${rows}</ul>`;
+      })
       .join("");
 
     const okSent = await sendEmail({
@@ -70,8 +96,8 @@ export async function GET(req: NextRequest) {
       subject: `Você tem ${mine.length} prazo(s) próximo(s) — DRR Projetos`,
       html: emailLayout(
         "Prazos a vencer",
-        `<p>Olá ${u.name}, estes itens vencem em até ${ALERT_DAYS} dias (ou já venceram):</p>
-         <ul style="padding-left:18px;margin:12px 0;">${rows}</ul>`,
+        `<p>Olá ${u.name}, estes itens estão perto do prazo (ou já venceram):</p>${groups}`,
+        sections.join(" · "),
       ),
     });
     if (okSent) sent++;

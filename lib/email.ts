@@ -39,13 +39,14 @@ export async function sendEmail(opts: {
 }
 
 // Layout HTML com a cara da DRR (estilos inline p/ compatibilidade com e-mail).
-export function emailLayout(heading: string, bodyHtml: string): string {
+// subtitle: texto ao lado da marca (ex.: a seção de origem do aviso).
+export function emailLayout(heading: string, bodyHtml: string, subtitle = "Equipamentos"): string {
   return `
   <div style="background:#f1f5f9;padding:24px 0;font-family:Arial,Helvetica,sans-serif;">
     <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
       <div style="background:#0a1628;padding:20px 28px;">
         <span style="color:#ffffff;font-size:18px;font-weight:bold;">DRR&nbsp;Projetos</span>
-        <span style="color:#94a3b8;font-size:12px;"> · Equipamentos</span>
+        <span style="color:#94a3b8;font-size:12px;"> · ${subtitle}</span>
       </div>
       <div style="padding:28px;">
         <h1 style="margin:0 0 16px;font-size:20px;color:#0f172a;">${heading}</h1>
