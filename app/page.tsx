@@ -41,10 +41,10 @@ export default async function DashboardPage() {
     prisma.customer.count({ where: { deletedAt: null, ...scope } }),
     prisma.product.findMany({ where: { deletedAt: null } }),
     prisma.lead.findMany({ where: { deletedAt: null, ...scope, stage: { notIn: ["WON", "LOST"] } } }),
-    prisma.order.findMany({ where: { status: { not: "CANCELLED" }, ...scope } }),
+    prisma.order.findMany({ where: { deletedAt: null, status: { not: "CANCELLED" }, ...scope } }),
     prisma.transaction.findMany({ where: { deletedAt: null, type: "RECEIVABLE", status: { not: "PAID" }, ...scope }, include: { payments: true } }),
     prisma.transaction.findMany({ where: { deletedAt: null, type: "PAYABLE", status: { not: "PAID" }, ...scope }, include: { payments: true } }),
-    prisma.order.findMany({ where: scope, take: 5, orderBy: { createdAt: "desc" }, include: { customer: true } }),
+    prisma.order.findMany({ where: { deletedAt: null, ...scope }, take: 5, orderBy: { createdAt: "desc" }, include: { customer: true } }),
     prisma.lead.findMany({ where: { deletedAt: null, ...scope }, take: 5, orderBy: { createdAt: "desc" } }),
     prisma.appointment.findMany({
       where: { deletedAt: null, status: "SCHEDULED", startsAt: { gte: now }, ...scope },

@@ -15,7 +15,8 @@ type Entity =
   | "inspection"
   | "appointment"
   | "rental"
-  | "maintenanceContract";
+  | "maintenanceContract"
+  | "order";
 
 const META: Record<Entity, { label: string; path: string }> = {
   customer: { label: "Cliente", path: "/customers" },
@@ -28,6 +29,7 @@ const META: Record<Entity, { label: string; path: string }> = {
   appointment: { label: "Agendamento", path: "/appointments" },
   rental: { label: "Locação", path: "/rentals" },
   maintenanceContract: { label: "Manutenção", path: "/maintenance" },
+  order: { label: "Pedido", path: "/orders" },
 };
 
 // Delegates tipados por entidade (o Prisma não tem API genérica de model).
@@ -43,6 +45,7 @@ function setDeleted(entity: Entity, id: number, deletedAt: Date | null) {
     case "appointment": return prisma.appointment.update({ where: { id }, data: { deletedAt } });
     case "rental": return prisma.rental.update({ where: { id }, data: { deletedAt } });
     case "maintenanceContract": return prisma.maintenanceContract.update({ where: { id }, data: { deletedAt } });
+    case "order": return prisma.order.update({ where: { id }, data: { deletedAt } });
   }
 }
 
@@ -58,6 +61,7 @@ function hardDelete(entity: Entity, id: number) {
     case "appointment": return prisma.appointment.delete({ where: { id } });
     case "rental": return prisma.rental.delete({ where: { id } });
     case "maintenanceContract": return prisma.maintenanceContract.delete({ where: { id } });
+    case "order": return prisma.order.delete({ where: { id } }); // itens em cascata
   }
 }
 
@@ -103,6 +107,7 @@ export async function purgeExpiredTrash(): Promise<void> {
   const cutoff = new Date(Date.now() - TRASH_TTL_DAYS * 86400000);
   const where = { deletedAt: { lt: cutoff } };
   try { await prisma.transaction.deleteMany({ where }); } catch {}
+  try { await prisma.order.deleteMany({ where }); } catch {}
   try { await prisma.inspection.deleteMany({ where }); } catch {}
   try { await prisma.appointment.deleteMany({ where }); } catch {}
   try { await prisma.rental.deleteMany({ where }); } catch {}
@@ -118,6 +123,7 @@ export async function purgeExpiredTrash(): Promise<void> {
 export async function emptyTrash() {
   const where = { deletedAt: { not: null } };
   try { await prisma.transaction.deleteMany({ where }); } catch {}
+  try { await prisma.order.deleteMany({ where }); } catch {}
   try { await prisma.inspection.deleteMany({ where }); } catch {}
   try { await prisma.appointment.deleteMany({ where }); } catch {}
   try { await prisma.rental.deleteMany({ where }); } catch {}

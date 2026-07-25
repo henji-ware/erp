@@ -47,7 +47,7 @@ export default async function TrashPage({
     }),
   ]);
 
-  const [transactions, inspections, appointments, rentals, maintenance] = await Promise.all([
+  const [transactions, inspections, appointments, rentals, maintenance, orders] = await Promise.all([
     prisma.transaction.findMany({
       where: { ...archived, ...(q ? { description: { contains: q } } : {}) },
       orderBy: { deletedAt: "desc" },
@@ -71,6 +71,11 @@ export default async function TrashPage({
       orderBy: { deletedAt: "desc" },
       include: { customer: true },
     }),
+    prisma.order.findMany({
+      where: { ...archived, ...(q ? { OR: [{ number: { contains: q } }, { customer: { name: { contains: q } } }] } : {}) },
+      orderBy: { deletedAt: "desc" },
+      include: { customer: true },
+    }),
   ]);
 
   const sections: { entity: string; title: string; items: { id: number; label: string; sub?: string; deletedAt: Date | null }[] }[] = [
@@ -85,6 +90,16 @@ export default async function TrashPage({
         label: t.description,
         sub: `${TX_TYPE_LABELS[t.type]} · ${formatCurrency(t.amount)} · venc. ${formatDate(t.dueDate)}`,
         deletedAt: t.deletedAt,
+      })),
+    },
+    {
+      entity: "order",
+      title: "Pedidos",
+      items: orders.map((o) => ({
+        id: o.id,
+        label: `${o.number} — ${o.customer.name}`,
+        sub: `${formatCurrency(o.total)} · restaura como rascunho`,
+        deletedAt: o.deletedAt,
       })),
     },
     {

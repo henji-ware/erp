@@ -23,21 +23,24 @@ export default async function OrdersPage({
   const user = await getCurrentUser();
   const scope = crmScope(user);
   const owners = await ownerNames();
-  const where = q
-    ? {
-        AND: [
-          scope,
-          {
-            OR: [
-              { number: { contains: q } },
-              { refCode: { contains: q } },
-              { customer: { name: { contains: q } } },
-              { seller: { name: { contains: q } } },
-            ],
-          },
-        ],
-      }
-    : scope;
+  const where = {
+    deletedAt: null,
+    ...(q
+      ? {
+          AND: [
+            scope,
+            {
+              OR: [
+                { number: { contains: q } },
+                { refCode: { contains: q } },
+                { customer: { name: { contains: q } } },
+                { seller: { name: { contains: q } } },
+              ],
+            },
+          ],
+        }
+      : scope),
+  };
 
   const total = await prisma.order.count({ where });
   const pg = paginate(total, parsePage(pageParam));

@@ -113,13 +113,25 @@ export default async function FinancePage({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label">Valor (R$)</label>
+                <label className="label">Valor total (R$)</label>
                 <input name="amount" type="number" step="0.01" min="0" className="input" />
               </div>
               <div>
-                <label className="label">Vencimento</label>
+                <label className="label">1º vencimento</label>
                 <input name="dueDate" type="date" className="input" />
               </div>
+            </div>
+            <div>
+              <label className="label">Parcelas</label>
+              <select name="installments" className="input" defaultValue="1">
+                <option value="1">À vista (1x)</option>
+                {Array.from({ length: 23 }, (_, i) => i + 2).map((n) => (
+                  <option key={n} value={n}>{n}x (mensal)</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-400">
+                Divide o valor total e cria uma conta por mês a partir do 1º vencimento.
+              </p>
             </div>
             <div>
               <label className="label">Cliente (se a receber)</label>

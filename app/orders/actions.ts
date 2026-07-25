@@ -98,6 +98,8 @@ export async function updateOrderStatus(formData: FormData) {
   revalidatePath("/");
 }
 
+// Arquiva o pedido (Lixeira). Devolve o estoque e arquiva as cobranças
+// vinculadas — restaurar pelo Lixeira traz o pedido de volta como rascunho.
 export async function deleteOrder(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
@@ -106,9 +108,16 @@ export async function deleteOrder(formData: FormData) {
   if (!order) return;
 
   if (ACTIVE.includes(order.status)) await reverseConfirm(id);
-  await prisma.transaction.deleteMany({ where: { orderId: id } });
-  await prisma.order.delete({ where: { id } }); // itens em cascata
-  await logAudit({ action: "DELETE", entity: "Pedido", entityId: id, summary: `Pedido ${order.number} excluído` });
+  await prisma.transaction.updateMany({
+    where: { orderId: id, deletedAt: null },
+    data: { deletedAt: new Date() },
+  });
+  await prisma.order.update({
+    where: { id },
+    // Volta a rascunho: o estoque já foi devolvido acima.
+    data: { deletedAt: new Date(), status: "DRAFT" },
+  });
+  await logAudit({ action: "DELETE", entity: "Pedido", entityId: id, summary: `Pedido ${order.number} arquivado` });
 
   revalidatePath("/orders");
   revalidatePath("/products");

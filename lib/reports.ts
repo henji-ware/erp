@@ -54,6 +54,7 @@ export async function getReportData(range: Range) {
   const [orders, leads, transactions] = await Promise.all([
     prisma.order.findMany({
       where: {
+        deletedAt: null,
         status: { in: activeStatus },
         createdAt: { gte: range.from, lte: range.to },
       },

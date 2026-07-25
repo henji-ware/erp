@@ -17,19 +17,41 @@ export async function createTransaction(formData: FormData) {
   const dueDate = dueRaw ? new Date(dueRaw) : new Date();
 
   const user = await getCurrentUser();
-  const tx = await prisma.transaction.create({
-    data: {
-      description,
-      type: asEnum(TX_TYPES, type, "RECEIVABLE"),
-      amount: num(formData.get("amount")),
-      dueDate,
-      status: "PENDING",
-      customerId: type === "RECEIVABLE" ? Number(formData.get("customerId")) || null : null,
-      supplierId: type === "PAYABLE" ? Number(formData.get("supplierId")) || null : null,
-      ownerId: user?.id ?? null,
-    },
+  const total = num(formData.get("amount"));
+  // Parcelamento: divide o valor em N parcelas mensais (1 = à vista).
+  const parts = Math.min(60, Math.max(1, int(formData.get("installments"))));
+  const base = Math.floor((total / parts) * 100) / 100;
+  // A última parcela absorve a diferença de arredondamento.
+  const last = Math.round((total - base * (parts - 1)) * 100) / 100;
+
+  const common = {
+    type: asEnum(TX_TYPES, type, "RECEIVABLE"),
+    status: "PENDING" as const,
+    customerId: type === "RECEIVABLE" ? Number(formData.get("customerId")) || null : null,
+    supplierId: type === "PAYABLE" ? Number(formData.get("supplierId")) || null : null,
+    ownerId: user?.id ?? null,
+  };
+
+  const data = Array.from({ length: parts }, (_, i) => {
+    const due = new Date(dueDate);
+    due.setMonth(due.getMonth() + i);
+    return {
+      ...common,
+      description: parts > 1 ? `${description} (${i + 1}/${parts})` : description,
+      amount: i === parts - 1 ? last : base,
+      dueDate: due,
+    };
   });
-  await logAudit({ action: "CREATE", entity: "Financeiro", entityId: tx.id, summary: `Lançamento "${description}" criado` });
+
+  await prisma.transaction.createMany({ data });
+  await logAudit({
+    action: "CREATE",
+    entity: "Financeiro",
+    summary:
+      parts > 1
+        ? `Lançamento "${description}" criado em ${parts}x`
+        : `Lançamento "${description}" criado`,
+  });
 
   revalidatePath("/finance");
   revalidatePath("/");
@@ -152,4 +174,8 @@ async function recompute(transactionId: number) {
 function num(v: FormDataEntryValue | null): number {
   const n = parseFloat(String(v ?? "").replace(",", "."));
   return Number.isFinite(n) ? n : 0;
+}
+function int(v: FormDataEntryValue | null): number {
+  const n = parseInt(String(v ?? ""), 10);
+  return Number.isFinite(n) ? n : 1;
 }

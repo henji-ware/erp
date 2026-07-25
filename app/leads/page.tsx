@@ -11,6 +11,7 @@ import { PageHeader, Badge } from "../components/ui";
 import { SearchBar } from "../components/SearchBar";
 import { ShareToggle } from "../components/ShareToggle";
 import { OwnerTag } from "../components/OwnerTag";
+import DocumentInput from "../components/DocumentInput";
 import SubmitButton from "../components/SubmitButton";
 import StageSelect from "./StageSelect";
 import { createLead, convertLeadToCustomer, deleteLead } from "./actions";
@@ -89,10 +90,7 @@ export default async function LeadsPage({
               ))}
             </select>
           </div>
-          <div>
-            <label className="label">CPF / CNPJ</label>
-            <input name="document" className="input" />
-          </div>
+          <DocumentInput />
           <div>
             <label className="label">E-mail</label>
             <input name="email" type="email" className="input" />

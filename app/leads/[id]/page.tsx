@@ -4,8 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "../../components/ui";
 import SubmitButton from "../../components/SubmitButton";
 import { AttachmentsCard } from "../../components/AttachmentsCard";
+import DocumentInput from "../../components/DocumentInput";
 import LeadStageLossFields from "../LeadStageLossFields";
-import { updateLead } from "../actions";
+import { LeadItemsCard } from "../LeadItemsCard";
+import { Icon } from "../../components/icons";
+import { updateLead, closeDeal } from "../actions";
 import { getCurrentUser, canSee, crmScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -15,24 +18,32 @@ export default async function EditLeadPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ attach?: string }>;
+  searchParams: Promise<{ attach?: string; deal?: string }>;
 }) {
   const { id } = await params;
-  const { attach } = await searchParams;
+  const { attach, deal } = await searchParams;
   const [lead, user] = await Promise.all([
     prisma.lead.findUnique({
       where: { id: Number(id) },
-      include: { attachments: { orderBy: { createdAt: "desc" } } },
+      include: {
+        attachments: { orderBy: { createdAt: "desc" } },
+        items: { orderBy: { createdAt: "asc" } },
+      },
     }),
     getCurrentUser(),
   ]);
   if (!lead) notFound();
-  const customers = await prisma.customer.findMany({
-    where: { deletedAt: null, ...crmScope(user) },
-    orderBy: { name: "asc" },
-  });
+  const [customers, products] = await Promise.all([
+    prisma.customer.findMany({
+      where: { deletedAt: null, ...crmScope(user) },
+      orderBy: { name: "asc" },
+    }),
+    prisma.product.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+  ]);
   // Usuário comum só acessa os próprios orçamentos (ou compartilhados).
   if (!canSee(user, lead)) notFound();
+
+  const hasItems = lead.items.length > 0;
 
   return (
     <div className="max-w-4xl">
@@ -66,10 +77,7 @@ export default async function EditLeadPage({
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label">CPF / CNPJ</label>
-                <input name="document" defaultValue={lead.document ?? ""} className="input" />
-              </div>
+              <DocumentInput defaultValue={lead.document ?? ""} />
               <div>
                 <label className="label">Origem</label>
                 <input name="source" defaultValue={lead.source ?? ""} className="input" />
@@ -87,7 +95,20 @@ export default async function EditLeadPage({
             </div>
             <div>
               <label className="label">Valor (R$)</label>
-              <input name="value" type="number" step="0.01" min="0" defaultValue={lead.value} className="input" />
+              <input
+                name="value"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={lead.value}
+                disabled={hasItems}
+                className={`input ${hasItems ? "cursor-not-allowed opacity-60" : ""}`}
+              />
+              {hasItems && (
+                <p className="mt-1 text-xs text-slate-400">
+                  Calculado a partir dos itens ({lead.items.length}).
+                </p>
+              )}
             </div>
             <LeadStageLossFields
               stage={lead.stage}
@@ -112,6 +133,44 @@ export default async function EditLeadPage({
           hint="Anexe a proposta (PDF ou Word). Qualquer usuário logado pode baixá-la."
           error={attach}
         />
+
+        {/* Itens do orçamento */}
+        <LeadItemsCard leadId={lead.id} items={lead.items} products={products} />
+
+        {/* Fechar negócio */}
+        <div className="card h-fit p-6">
+          <h2 className="mb-1 font-semibold text-slate-800">Fechar negócio</h2>
+          <p className="mb-4 text-xs text-slate-400">
+            Gera o registro operacional já preenchido (cliente, valor e código{" "}
+            {lead.number ? `${lead.number}`: "do orçamento"}) e marca como Vendido.
+          </p>
+
+          {deal === "noitems" && (
+            <p className="mb-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+              Para gerar um pedido, adicione itens do catálogo (produtos/serviços) ao orçamento.
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <form action={closeDeal}>
+              <input type="hidden" name="leadId" value={lead.id} />
+              <input type="hidden" name="target" value="project" />
+              <SubmitButton className="btn-primary">
+                <Icon name="projects" size={15} /> Gerar projeto
+              </SubmitButton>
+            </form>
+            <form action={closeDeal}>
+              <input type="hidden" name="leadId" value={lead.id} />
+              <input type="hidden" name="target" value="order" />
+              <SubmitButton className="btn-ghost">
+                <Icon name="orders" size={15} /> Gerar pedido
+              </SubmitButton>
+            </form>
+          </div>
+          {lead.stage === "WON" && (
+            <p className="mt-3 text-xs text-green-600">Este orçamento já está marcado como Vendido.</p>
+          )}
+        </div>
       </div>
     </div>
   );

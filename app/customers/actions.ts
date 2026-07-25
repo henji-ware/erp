@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { getCurrentUser, canEdit } from "@/lib/auth";
+import { isValidDocument, normalizeDocument } from "@/lib/document";
 
 export async function createCustomer(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -17,7 +18,7 @@ export async function createCustomer(formData: FormData) {
       email: str(formData.get("email")),
       phone: str(formData.get("phone")),
       company: str(formData.get("company")),
-      document: str(formData.get("document")),
+      document: doc(formData.get("document")),
       address: str(formData.get("address")),
       notes: str(formData.get("notes")),
       ownerId: user?.id ?? null,
@@ -43,7 +44,7 @@ export async function updateCustomer(formData: FormData) {
       email: str(formData.get("email")),
       phone: str(formData.get("phone")),
       company: str(formData.get("company")),
-      document: str(formData.get("document")),
+      document: doc(formData.get("document")),
       address: str(formData.get("address")),
       notes: str(formData.get("notes")),
     },
@@ -97,4 +98,10 @@ export async function deleteCustomer(formData: FormData) {
 function str(v: FormDataEntryValue | null): string | null {
   const s = String(v ?? "").trim();
   return s.length ? s : null;
+}
+// CPF/CNPJ: descarta documento inválido (o formulário já avisa o usuário).
+function doc(v: FormDataEntryValue | null): string | null {
+  const raw = String(v ?? "").trim();
+  if (!raw) return null;
+  return isValidDocument(raw) ? normalizeDocument(raw) : null;
 }

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import "./globals.css";
 import Sidebar from "./components/Sidebar";
 import { getCurrentUser } from "@/lib/auth";
+import { getAlerts, alertText } from "@/lib/alerts";
 import {
   DEFAULT_THEME,
   isValidTheme,
@@ -26,6 +27,16 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const [user, store] = await Promise.all([getCurrentUser(), cookies()]);
+  // Avisos de prazo para o sino (mesma regra do e-mail diário).
+  const alerts = user
+    ? (await getAlerts(user)).map((a) => ({
+        section: a.section,
+        href: a.href,
+        label: a.label,
+        when: alertText(a.days),
+        overdue: a.days <= 0,
+      }))
+    : [];
   const themeCookie = store.get(THEME_COOKIE)?.value;
   const theme = isValidTheme(themeCookie) ? themeCookie : DEFAULT_THEME;
   const modeCookie = store.get(MODE_COOKIE)?.value;
@@ -41,7 +52,7 @@ export default async function RootLayout({
     >
       <body>
         <div id="app-shell" className="flex h-screen flex-col overflow-hidden md:flex-row">
-          <Sidebar userName={user?.name} isAdmin={user?.role === "ADMIN"} />
+          <Sidebar userName={user?.name} isAdmin={user?.role === "ADMIN"} alerts={alerts} />
           <main className="flex-1 overflow-y-auto">
             <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">{children}</div>
           </main>

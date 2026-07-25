@@ -7,6 +7,7 @@ import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
 import { ShareToggle } from "../components/ShareToggle";
 import { OwnerTag } from "../components/OwnerTag";
+import DocumentInput from "../components/DocumentInput";
 import { parsePage, paginate } from "@/lib/pagination";
 import { getCurrentUser, isAdmin, crmScope, ownerNames } from "@/lib/auth";
 import SubmitButton from "../components/SubmitButton";
@@ -95,10 +96,7 @@ export default async function CustomersPage({
                 <input name="phone" className="input" />
               </div>
             </div>
-            <div>
-              <label className="label">CPF / CNPJ</label>
-              <input name="document" className="input" />
-            </div>
+            <DocumentInput />
             <div>
               <label className="label">Endereço</label>
               <input name="address" className="input" placeholder="Rua, nº, bairro, cidade - UF" />

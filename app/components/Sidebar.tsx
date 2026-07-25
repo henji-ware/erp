@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { logout } from "../login/actions";
 import { Icon, type IconName } from "./icons";
 import Logo from "./Logo";
+import NotificationBell, { type BellItem } from "./NotificationBell";
 
 const links: { href: string; label: string; icon: IconName }[] = [
   { href: "/", label: "Dashboard", icon: "dashboard" },
@@ -34,9 +35,11 @@ const adminLinks: { href: string; label: string; icon: IconName }[] = [
 export default function Sidebar({
   userName,
   isAdmin = false,
+  alerts = [],
 }: {
   userName?: string;
   isAdmin?: boolean;
+  alerts?: BellItem[];
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -150,7 +153,7 @@ export default function Sidebar({
           </form>
         ) : (
           // Expandido: card do usuário com avatar + botão de sair.
-          <div className="flex items-center gap-2.5 rounded-xl bg-slate-100 p-2">
+          <div className="flex items-center gap-2 rounded-xl bg-slate-100 p-2">
             <span className="bg-accent text-on-accent flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold">
               {initials}
             </span>
@@ -160,6 +163,7 @@ export default function Sidebar({
               </p>
               <p className="truncate text-[11px] text-slate-400">Conectado</p>
             </div>
+            <NotificationBell items={alerts} />
             <form action={logout}>
               <button
                 title="Sair"
@@ -189,7 +193,7 @@ export default function Sidebar({
           <Logo size={28} />
           <span className="text-sm font-bold text-slate-800">DRR&nbsp;Projetos</span>
         </div>
-        <div className="w-[38px]" /> {/* Spacer to center the logo */}
+        <NotificationBell items={alerts} />
       </div>
 
       {/* ─── Mobile overlay ─── */}

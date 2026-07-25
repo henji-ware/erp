@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "../../components/ui";
 import SubmitButton from "../../components/SubmitButton";
+import DocumentInput from "../../components/DocumentInput";
 import { updateSupplier } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -27,10 +28,7 @@ export default async function EditSupplierPage({
             <label className="label">Nome *</label>
             <input name="name" required defaultValue={supplier.name} className="input" />
           </div>
-          <div>
-            <label className="label">CPF / CNPJ</label>
-            <input name="document" defaultValue={supplier.document ?? ""} className="input" />
-          </div>
+          <DocumentInput defaultValue={supplier.document ?? ""} />
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">E-mail</label>

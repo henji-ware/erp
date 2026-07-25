@@ -16,6 +16,7 @@ import {
 import { PageHeader } from "../../components/ui";
 import { Icon, type IconName } from "../../components/icons";
 import SubmitButton from "../../components/SubmitButton";
+import DocumentInput from "../../components/DocumentInput";
 import { updateCustomer } from "../actions";
 import { getCurrentUser, canSee } from "@/lib/auth";
 
@@ -146,10 +147,7 @@ export default async function EditCustomerPage({
               <label className="label">Telefone</label>
               <input name="phone" defaultValue={customer.phone ?? ""} className="input" />
             </div>
-            <div>
-              <label className="label">CPF / CNPJ</label>
-              <input name="document" defaultValue={customer.document ?? ""} className="input" />
-            </div>
+            <DocumentInput defaultValue={customer.document ?? ""} />
             <div>
               <label className="label">Endereço</label>
               <input name="address" defaultValue={customer.address ?? ""} className="input" placeholder="Rua, nº, bairro, cidade - UF" />

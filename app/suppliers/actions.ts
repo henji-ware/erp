@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { isValidDocument, normalizeDocument } from "@/lib/document";
 
 export async function createSupplier(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -12,7 +13,7 @@ export async function createSupplier(formData: FormData) {
   const supplier = await prisma.supplier.create({
     data: {
       name,
-      document: str(formData.get("document")),
+      document: doc(formData.get("document")),
       email: str(formData.get("email")),
       phone: str(formData.get("phone")),
       notes: str(formData.get("notes")),
@@ -32,7 +33,7 @@ export async function updateSupplier(formData: FormData) {
     where: { id },
     data: {
       name,
-      document: str(formData.get("document")),
+      document: doc(formData.get("document")),
       email: str(formData.get("email")),
       phone: str(formData.get("phone")),
       notes: str(formData.get("notes")),
@@ -58,4 +59,10 @@ export async function deleteSupplier(formData: FormData) {
 function str(v: FormDataEntryValue | null): string | null {
   const s = String(v ?? "").trim();
   return s.length ? s : null;
+}
+// CPF/CNPJ: descarta documento inválido (o formulário já avisa o usuário).
+function doc(v: FormDataEntryValue | null): string | null {
+  const raw = String(v ?? "").trim();
+  if (!raw) return null;
+  return isValidDocument(raw) ? normalizeDocument(raw) : null;
 }

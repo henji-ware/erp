@@ -364,11 +364,28 @@ model Lead {
   lossNote    String? // observação livre sobre a perda
   shared      Boolean         @default(false) // visível a todos os usuários
   attachments Attachment[]
+  items       LeadItem[]
   deletedAt   DateTime? // soft delete (lixeira)
   createdAt   DateTime        @default(now())
 
   @@index([deletedAt])
   @@index([ownerId])
+}
+
+// Item do orçamento. Pode referenciar um produto/serviço do catálogo ou ser
+// uma linha livre (só descrição). O total do orçamento vem da soma dos itens.
+model LeadItem {
+  id          Int      @id @default(autoincrement())
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId      Int
+  product     Product? @relation(fields: [productId], references: [id])
+  productId   Int?
+  description String // nome do produto ou texto livre
+  quantity    Int      @default(1)
+  unitPrice   Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([leadId])
 }
 
 // Anexo (proposta, ART, laudo, contrato em PDF/Word). Pode pertencer a um
@@ -409,6 +426,7 @@ model Product {
   deletedAt DateTime? // soft delete (lixeira)
   createdAt DateTime    @default(now())
   items     OrderItem[]
+  leadItems LeadItem[]
   rentals   Rental[]
 
   @@index([deletedAt])
@@ -430,11 +448,13 @@ model Order {
   refCode      String? // nº do orçamento de origem
   ownerId      Int? // usuário que criou (escopo por dono)
   shared       Boolean       @default(false)
+  deletedAt    DateTime? // soft delete (lixeira)
   createdAt    DateTime      @default(now())
   items        OrderItem[]
   transactions Transaction[]
 
   @@index([ownerId])
+  @@index([deletedAt])
 }
 
 model OrderItem {

@@ -6,6 +6,7 @@ import { PageHeader, EmptyState } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import SubmitButton from "../components/SubmitButton";
+import DocumentInput from "../components/DocumentInput";
 import { createSupplier, deleteSupplier } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -51,10 +52,7 @@ export default async function SuppliersPage({
               <label className="label">Nome *</label>
               <input name="name" required className="input" />
             </div>
-            <div>
-              <label className="label">CPF / CNPJ</label>
-              <input name="document" className="input" />
-            </div>
+            <DocumentInput />
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">E-mail</label>
