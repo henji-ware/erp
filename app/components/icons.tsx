@@ -46,7 +46,8 @@ export type IconName =
   | "rental"
   | "maintenance"
   | "history"
-  | "share";
+  | "share"
+  | "bell";
 
 const paths: Record<IconName, React.ReactNode> = {
   dashboard: (
@@ -291,6 +292,12 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="M3 3v5h5" />
       <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
       <path d="M12 7v5l4 2" />
+    </>
+  ),
+  bell: (
+    <>
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
     </>
   ),
   share: (
