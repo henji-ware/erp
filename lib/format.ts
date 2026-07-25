@@ -167,6 +167,42 @@ export const SELLER_CATEGORY_LABELS: Record<string, string> = {
   PARCEIRO: "Parceiro",
 };
 
+// ---- Tipos de fornecedor ----
+export const SUPPLIER_CATEGORIES = [
+  "MATERIA_PRIMA",
+  "EQUIPAMENTOS",
+  "COMPONENTES",
+  "SERVICOS",
+  "TRANSPORTE",
+  "FERRAMENTAS",
+  "EPI",
+  "MANUTENCAO",
+  "OUTROS",
+] as const;
+export const SUPPLIER_CATEGORY_LABELS: Record<string, string> = {
+  MATERIA_PRIMA: "Matéria-prima (aço, perfis)",
+  EQUIPAMENTOS: "Equipamentos",
+  COMPONENTES: "Componentes / acessórios",
+  SERVICOS: "Serviços terceirizados",
+  TRANSPORTE: "Transporte / logística",
+  FERRAMENTAS: "Ferramentas",
+  EPI: "EPI / segurança",
+  MANUTENCAO: "Manutenção",
+  OUTROS: "Outros",
+};
+// Rótulo curto para o selo na lista.
+export const SUPPLIER_CATEGORY_SHORT: Record<string, string> = {
+  MATERIA_PRIMA: "Matéria-prima",
+  EQUIPAMENTOS: "Equipamentos",
+  COMPONENTES: "Componentes",
+  SERVICOS: "Serviços",
+  TRANSPORTE: "Transporte",
+  FERRAMENTAS: "Ferramentas",
+  EPI: "EPI",
+  MANUTENCAO: "Manutenção",
+  OUTROS: "Outros",
+};
+
 // ---- Motivo de perda de orçamento ----
 export const LEAD_LOSS_REASONS = [
   "PRAZO_ENTREGA",

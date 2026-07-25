@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { SUPPLIER_CATEGORIES, SUPPLIER_CATEGORY_LABELS } from "@/lib/format";
 import { PageHeader } from "../../components/ui";
 import SubmitButton from "../../components/SubmitButton";
 import DocumentInput from "../../components/DocumentInput";
@@ -38,6 +39,35 @@ export default async function EditSupplierPage({
               <label className="label">Telefone</label>
               <input name="phone" defaultValue={supplier.phone ?? ""} className="input" />
             </div>
+          </div>
+          <div>
+            <label className="label">Tipo de fornecedor</label>
+            <select name="category" defaultValue={supplier.category ?? ""} className="input">
+              <option value="">— (sem tipo)</option>
+              {SUPPLIER_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{SUPPLIER_CATEGORY_LABELS[c]}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">O que vende</label>
+            <textarea
+              name="products"
+              rows={2}
+              defaultValue={supplier.products ?? ""}
+              className="input"
+              placeholder="Ex.: perfis de aço, chapas galvanizadas, parafusos"
+            />
+          </div>
+          <div>
+            <label className="label">Serviços prestados</label>
+            <textarea
+              name="services"
+              rows={2}
+              defaultValue={supplier.services ?? ""}
+              className="input"
+              placeholder="Ex.: corte e dobra, pintura eletrostática, frete"
+            />
           </div>
           <div>
             <label className="label">Observações</label>

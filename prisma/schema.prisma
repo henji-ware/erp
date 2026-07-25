@@ -135,6 +135,18 @@ enum SellerCategory {
   PARCEIRO
 }
 
+enum SupplierCategory {
+  MATERIA_PRIMA // aço, perfis, chapas
+  EQUIPAMENTOS
+  COMPONENTES // acessórios e peças
+  SERVICOS // montagem, pintura, galvanização…
+  TRANSPORTE
+  FERRAMENTAS
+  EPI // segurança do trabalho
+  MANUTENCAO
+  OUTROS
+}
+
 enum LeadLossReason {
   PRAZO_ENTREGA
   PRECO
@@ -304,11 +316,14 @@ model Appointment {
 // ------------------------- Fornecedores ------------------------
 
 model Supplier {
-  id           Int           @id @default(autoincrement())
+  id           Int               @id @default(autoincrement())
   name         String
   document     String? // CPF/CNPJ
   email        String?
   phone        String?
+  category     SupplierCategory? // tipo de fornecedor
+  products     String? // o que vende (itens fornecidos)
+  services     String? // serviços prestados
   notes        String?
   deletedAt    DateTime? // soft delete (lixeira)
   createdAt    DateTime      @default(now())

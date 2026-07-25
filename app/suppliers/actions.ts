@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { isValidDocument, normalizeDocument } from "@/lib/document";
+import { SUPPLIER_CATEGORIES } from "@/lib/format";
 
 export async function createSupplier(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -16,6 +17,9 @@ export async function createSupplier(formData: FormData) {
       document: doc(formData.get("document")),
       email: str(formData.get("email")),
       phone: str(formData.get("phone")),
+      category: category(formData.get("category")),
+      products: str(formData.get("products")),
+      services: str(formData.get("services")),
       notes: str(formData.get("notes")),
     },
   });
@@ -36,6 +40,9 @@ export async function updateSupplier(formData: FormData) {
       document: doc(formData.get("document")),
       email: str(formData.get("email")),
       phone: str(formData.get("phone")),
+      category: category(formData.get("category")),
+      products: str(formData.get("products")),
+      services: str(formData.get("services")),
       notes: str(formData.get("notes")),
     },
   });
@@ -59,6 +66,12 @@ export async function deleteSupplier(formData: FormData) {
 function str(v: FormDataEntryValue | null): string | null {
   const s = String(v ?? "").trim();
   return s.length ? s : null;
+}
+function category(v: FormDataEntryValue | null): (typeof SUPPLIER_CATEGORIES)[number] | null {
+  const s = String(v ?? "").trim();
+  return SUPPLIER_CATEGORIES.includes(s as (typeof SUPPLIER_CATEGORIES)[number])
+    ? (s as (typeof SUPPLIER_CATEGORIES)[number])
+    : null;
 }
 // CPF/CNPJ: descarta documento inválido (o formulário já avisa o usuário).
 function doc(v: FormDataEntryValue | null): string | null {

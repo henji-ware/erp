@@ -1,8 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { formatCurrency } from "@/lib/format";
+import {
+  formatCurrency,
+  SUPPLIER_CATEGORIES,
+  SUPPLIER_CATEGORY_LABELS,
+  SUPPLIER_CATEGORY_SHORT,
+} from "@/lib/format";
 import { remaining } from "@/lib/finance";
-import { PageHeader, EmptyState } from "../components/ui";
+import { PageHeader, EmptyState, Badge } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import SubmitButton from "../components/SubmitButton";
@@ -26,6 +31,8 @@ export default async function SuppliersPage({
               { name: { contains: q } },
               { email: { contains: q } },
               { document: { contains: q } },
+              { products: { contains: q } },
+              { services: { contains: q } },
             ],
           }
         : {}),
@@ -64,6 +71,33 @@ export default async function SuppliersPage({
               </div>
             </div>
             <div>
+              <label className="label">Tipo de fornecedor</label>
+              <select name="category" className="input" defaultValue="">
+                <option value="">— (sem tipo)</option>
+                {SUPPLIER_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{SUPPLIER_CATEGORY_LABELS[c]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">O que vende</label>
+              <textarea
+                name="products"
+                rows={2}
+                className="input"
+                placeholder="Ex.: perfis de aço, chapas galvanizadas, parafusos"
+              />
+            </div>
+            <div>
+              <label className="label">Serviços prestados</label>
+              <textarea
+                name="services"
+                rows={2}
+                className="input"
+                placeholder="Ex.: corte e dobra, pintura eletrostática, frete"
+              />
+            </div>
+            <div>
               <label className="label">Observações</label>
               <textarea name="notes" rows={2} className="input" />
             </div>
@@ -77,6 +111,7 @@ export default async function SuppliersPage({
             <thead className="border-b border-slate-100 bg-slate-50">
               <tr>
                 <th className="th">Fornecedor</th>
+                <th className="th">Fornece</th>
                 <th className="th">Contato</th>
                 <th className="th text-right">Saldo a pagar</th>
                 <th className="th"></th>
@@ -85,7 +120,7 @@ export default async function SuppliersPage({
             <tbody>
               {suppliers.length === 0 ? (
                 <tr>
-                  <td colSpan={4}>
+                  <td colSpan={5}>
                     <EmptyState>Nenhum fornecedor cadastrado.</EmptyState>
                   </td>
                 </tr>
@@ -95,10 +130,30 @@ export default async function SuppliersPage({
                   return (
                     <tr key={s.id} className="border-b border-slate-50 last:border-0">
                       <td className="td">
-                        <p className="font-medium text-slate-800">{s.name}</p>
+                        <p className="flex flex-wrap items-center gap-2 font-medium text-slate-800">
+                          {s.name}
+                          {s.category && (
+                            <Badge className="bg-brand-50 text-brand-700">
+                              {SUPPLIER_CATEGORY_SHORT[s.category]}
+                            </Badge>
+                          )}
+                        </p>
                         {s.document && (
                           <p className="text-xs text-slate-400">{s.document}</p>
                         )}
+                      </td>
+                      <td className="td max-w-[220px] text-slate-600">
+                        {s.products && (
+                          <p className="truncate text-xs" title={s.products}>
+                            <span className="text-slate-400">Vende:</span> {s.products}
+                          </p>
+                        )}
+                        {s.services && (
+                          <p className="truncate text-xs" title={s.services}>
+                            <span className="text-slate-400">Serviços:</span> {s.services}
+                          </p>
+                        )}
+                        {!s.products && !s.services && <span className="text-slate-400">—</span>}
                       </td>
                       <td className="td text-slate-500">
                         {s.email && <p>{s.email}</p>}
