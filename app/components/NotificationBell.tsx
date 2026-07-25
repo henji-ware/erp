@@ -18,26 +18,29 @@ export type BellItem = {
 // aplicação tem overflow hidden e cortaria o dropdown.
 export default function NotificationBell({ items }: { items: BellItem[] }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [pos, setPos] = useState<{ bottom: number; left: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const PANEL_W = 320;
   const MARGIN = 8;
 
-  // Calcula a posição do painel a partir do botão, mantendo-o na tela.
+  // Posiciona o painel AO LADO DIREITO do sino; se não couber, à esquerda.
+  // Verticalmente, alinha pelo rodapé do botão (o sino fica no rodapé da barra).
   function place() {
     const b = btnRef.current?.getBoundingClientRect();
     if (!b) return;
     const maxH = Math.min(380, window.innerHeight - 2 * MARGIN);
-    // Abre para cima quando não há espaço abaixo (caso do rodapé da sidebar).
-    const spaceBelow = window.innerHeight - b.bottom;
-    const top = spaceBelow > maxH + MARGIN ? b.bottom + MARGIN : Math.max(MARGIN, b.top - maxH - MARGIN);
-    const left = Math.min(
-      Math.max(MARGIN, b.left + b.width / 2 - PANEL_W / 2),
-      window.innerWidth - PANEL_W - MARGIN,
-    );
-    setPos({ top, left });
+
+    let left = b.right + MARGIN;
+    if (left + PANEL_W > window.innerWidth - MARGIN) {
+      left = Math.max(MARGIN, b.left - PANEL_W - MARGIN);
+    }
+
+    // Ancora pela BASE (alinhada ao rodapé do sino): o painel cresce para cima
+    // conforme a quantidade de itens, sem sobra quando a lista é curta.
+    const bottom = Math.max(MARGIN, Math.min(window.innerHeight - b.bottom, window.innerHeight - maxH - MARGIN));
+    setPos({ bottom, left });
   }
 
   useEffect(() => {
@@ -66,7 +69,13 @@ export default function NotificationBell({ items }: { items: BellItem[] }) {
   const panel = (
     <div
       ref={panelRef}
-      style={{ position: "fixed", top: pos?.top ?? 0, left: pos?.left ?? 0, width: PANEL_W }}
+      style={{
+        position: "fixed",
+        bottom: pos?.bottom ?? 0,
+        left: pos?.left ?? 0,
+        width: PANEL_W,
+        visibility: pos ? "visible" : "hidden",
+      }}
       className="z-[100] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
     >
       <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-2.5">
