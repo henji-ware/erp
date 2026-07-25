@@ -38,7 +38,13 @@ export default async function FinancePage({
     prisma.transaction.findMany({
       where: { deletedAt: null, ...scope },
       orderBy: { dueDate: "asc" },
-      include: { customer: true, supplier: true, payments: true },
+      include: {
+        customer: true,
+        supplier: true,
+        payments: true,
+        installments: { include: { payments: true } },
+        _count: { select: { attachments: true } },
+      },
     }),
     prisma.customer.findMany({ where: { deletedAt: null, ...scope }, orderBy: { name: "asc" } }),
     prisma.supplier.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
@@ -195,6 +201,9 @@ export default async function FinancePage({
                         <p className="text-xs text-slate-400">
                           venc. {formatDate(t.dueDate)}
                           {who ? ` · ${who}` : ""}
+                          {t.installments.length > 0 &&
+                            ` · ${t.installments.filter((i) => i.payments.reduce((s, p) => s + p.amount, 0) >= i.amount).length}/${t.installments.length} parcelas`}
+                          {t._count.attachments > 0 && ` · ${t._count.attachments} anexo(s)`}
                         </p>
                         {due && <p className={`text-xs ${due.cls}`}>{due.text}</p>}
                       </td>

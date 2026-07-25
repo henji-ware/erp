@@ -398,6 +398,8 @@ model Attachment {
   projectId    Int?
   inspection   Inspection? @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
   inspectionId Int?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  transactionId Int? // notas fiscais / comprovantes do lançamento
   fileName     String // nome original do arquivo
   storedName   String // nome único (disco) ou caminho do blob
   url          String? // URL do Vercel Blob (nuvem); vazio = arquivo em disco (local)
@@ -408,6 +410,7 @@ model Attachment {
   @@index([leadId])
   @@index([projectId])
   @@index([inspectionId])
+  @@index([transactionId])
 }
 
 // -------------------------- Estoque ----------------------------
@@ -489,10 +492,27 @@ model Transaction {
   shared      Boolean           @default(false)
   deletedAt   DateTime? // soft delete (lixeira)
   payments    Payment[]
+  installments Installment[] // parcelamento (vazio = à vista)
+  attachments Attachment[] // notas fiscais e comprovantes
   createdAt   DateTime          @default(now())
 
   @@index([ownerId])
   @@index([deletedAt])
+}
+
+// Parcela de um lançamento. O lançamento continua único (1 conta), com o
+// cronograma de vencimentos aqui — cada parcela tem seu valor e data.
+model Installment {
+  id            Int         @id @default(autoincrement())
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  transactionId Int
+  number        Int // 1, 2, 3… (ordem de exibição)
+  amount        Float       @default(0)
+  dueDate       DateTime
+  payments      Payment[]
+  createdAt     DateTime    @default(now())
+
+  @@index([transactionId])
 }
 
 // Pagamentos podem ser parciais. method: CARD_CREDIT | CARD_DEBIT | PIX | BOLETO | CASH
@@ -500,10 +520,14 @@ model Payment {
   id            Int           @id @default(autoincrement())
   transaction   Transaction   @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   transactionId Int
+  installment   Installment?  @relation(fields: [installmentId], references: [id], onDelete: SetNull)
+  installmentId Int? // quando o pagamento quita uma parcela específica
   amount        Float         @default(0)
   method        PaymentMethod @default(CASH)
   paidAt        DateTime      @default(now())
   createdAt     DateTime    @default(now())
+
+  @@index([installmentId])
 }
 
 // --------------------------- Locação ---------------------------

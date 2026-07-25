@@ -14,16 +14,21 @@ import { paidAmount, remaining } from "@/lib/finance";
 import { PageHeader, Badge } from "../../components/ui";
 import { Icon } from "../../components/icons";
 import SubmitButton from "../../components/SubmitButton";
+import { AttachmentsCard } from "../../components/AttachmentsCard";
+import { InstallmentsCard } from "../InstallmentsCard";
 import { updateTransaction, addPayment, deletePayment } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function TransactionDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ attach?: string }>;
 }) {
   const { id } = await params;
+  const { attach } = await searchParams;
   const txId = Number(id);
   const [tx, customers, suppliers] = await Promise.all([
     prisma.transaction.findUnique({
@@ -33,6 +38,8 @@ export default async function TransactionDetailPage({
         supplier: true,
         order: true,
         payments: { orderBy: { paidAt: "desc" } },
+        installments: { orderBy: { number: "asc" }, include: { payments: true } },
+        attachments: { orderBy: { createdAt: "desc" } },
       },
     }),
     prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
@@ -42,6 +49,7 @@ export default async function TransactionDetailPage({
 
   const paid = paidAmount(tx);
   const left = remaining(tx);
+  const hasInstallments = tx.installments.length > 0;
   const dueValue = tx.dueDate.toISOString().slice(0, 10);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -97,12 +105,31 @@ export default async function TransactionDetailPage({
               </div>
               <div>
                 <label className="label">Valor (R$)</label>
-                <input name="amount" type="number" step="0.01" min="0" defaultValue={tx.amount} className="input" />
+                <input
+                  name="amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  defaultValue={tx.amount}
+                  disabled={hasInstallments}
+                  className={`input ${hasInstallments ? "cursor-not-allowed opacity-60" : ""}`}
+                />
               </div>
             </div>
             <div>
               <label className="label">Vencimento</label>
-              <input name="dueDate" type="date" defaultValue={dueValue} className="input" />
+              <input
+                name="dueDate"
+                type="date"
+                defaultValue={dueValue}
+                disabled={hasInstallments}
+                className={`input ${hasInstallments ? "cursor-not-allowed opacity-60" : ""}`}
+              />
+              {hasInstallments && (
+                <p className="mt-1 text-xs text-slate-400">
+                  Valor e vencimento vêm das parcelas.
+                </p>
+              )}
             </div>
             <div>
               <label className="label">Cliente (se a receber)</label>
@@ -126,9 +153,34 @@ export default async function TransactionDetailPage({
           </form>
         </div>
 
+        {/* Notas fiscais / comprovantes */}
+        <AttachmentsCard
+          ownerType="transaction"
+          ownerId={tx.id}
+          attachments={tx.attachments}
+          title="Notas fiscais e comprovantes"
+          hint="Anexe a NF (PDF ou XML) e comprovantes deste lançamento."
+          accept=".pdf,.xml"
+          error={attach}
+        />
+
+        {/* Parcelas */}
+        <InstallmentsCard
+          transactionId={tx.id}
+          installments={tx.installments}
+          totalAmount={tx.amount}
+          firstDue={tx.dueDate}
+        />
+
         {/* Pagamentos */}
-        <div className="card p-6">
+        <div className="card p-6 lg:col-span-2">
           <h2 className="mb-4 font-semibold text-slate-800">Pagamentos</h2>
+          {tx.installments.length > 0 && (
+            <p className="mb-4 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">
+              Este lançamento é parcelado — quite as parcelas no cronograma acima. O
+              registro manual abaixo continua disponível para pagamentos avulsos.
+            </p>
+          )}
 
           {left > 0 ? (
             <form action={addPayment} className="mb-5 space-y-3 rounded-lg border border-slate-200 p-4">

@@ -16,16 +16,22 @@ const ALLOWED: Record<string, string> = {
   "application/pdf": ".pdf",
   "application/msword": ".doc",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+  "text/xml": ".xml",
+  "application/xml": ".xml",
 };
 
 // Tipos de "dono" que um anexo pode ter. Cada um vira uma coluna FK no banco
 // e uma rota de detalhe que precisa ser revalidada.
-type OwnerType = "lead" | "project" | "inspection";
+type OwnerType = "lead" | "project" | "inspection" | "transaction";
 
-const OWNER: Record<OwnerType, { field: "leadId" | "projectId" | "inspectionId"; path: string; entity: string }> = {
+const OWNER: Record<
+  OwnerType,
+  { field: "leadId" | "projectId" | "inspectionId" | "transactionId"; path: string; entity: string }
+> = {
   lead: { field: "leadId", path: "/leads", entity: "Orçamento" },
   project: { field: "projectId", path: "/projects", entity: "Projeto" },
   inspection: { field: "inspectionId", path: "/inspections", entity: "Inspeção" },
+  transaction: { field: "transactionId", path: "/finance", entity: "Financeiro" },
 };
 
 function useBlob() {
@@ -46,12 +52,12 @@ export async function uploadAttachment(formData: FormData) {
 
   // Valida tipo (PDF ou Word) por mimetype ou extensão.
   const lowerName = file.name.toLowerCase();
-  const okByName = /\.(pdf|doc|docx)$/.test(lowerName);
+  const okByName = /\.(pdf|doc|docx|xml)$/.test(lowerName);
   if (!ALLOWED[file.type] && !okByName) return;
 
   const ext =
     ALLOWED[file.type] ??
-    (lowerName.endsWith(".docx") ? ".docx" : lowerName.endsWith(".doc") ? ".doc" : ".pdf");
+    (lowerName.match(/\.(docx|doc|xml|pdf)$/)?.[0] ?? ".pdf");
   const storedName = `${randomUUID()}${ext}`;
 
   const cfgOwner = OWNER[owner.type];
@@ -166,4 +172,5 @@ export async function deleteAttachment(formData: FormData) {
   if (att.leadId) revalidatePath(`/leads/${att.leadId}`);
   if (att.projectId) revalidatePath(`/projects/${att.projectId}`);
   if (att.inspectionId) revalidatePath(`/inspections/${att.inspectionId}`);
+  if (att.transactionId) revalidatePath(`/finance/${att.transactionId}`);
 }

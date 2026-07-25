@@ -18,35 +18,44 @@ export async function createTransaction(formData: FormData) {
 
   const user = await getCurrentUser();
   const total = num(formData.get("amount"));
-  // Parcelamento: divide o valor em N parcelas mensais (1 = à vista).
+  // Parcelamento: UM lançamento com N parcelas (1 = à vista, sem parcelas).
   const parts = Math.min(60, Math.max(1, int(formData.get("installments"))));
-  const base = Math.floor((total / parts) * 100) / 100;
-  // A última parcela absorve a diferença de arredondamento.
-  const last = Math.round((total - base * (parts - 1)) * 100) / 100;
 
-  const common = {
-    type: asEnum(TX_TYPES, type, "RECEIVABLE"),
-    status: "PENDING" as const,
-    customerId: type === "RECEIVABLE" ? Number(formData.get("customerId")) || null : null,
-    supplierId: type === "PAYABLE" ? Number(formData.get("supplierId")) || null : null,
-    ownerId: user?.id ?? null,
-  };
-
-  const data = Array.from({ length: parts }, (_, i) => {
-    const due = new Date(dueDate);
-    due.setMonth(due.getMonth() + i);
-    return {
-      ...common,
-      description: parts > 1 ? `${description} (${i + 1}/${parts})` : description,
-      amount: i === parts - 1 ? last : base,
-      dueDate: due,
-    };
+  const tx = await prisma.transaction.create({
+    data: {
+      description,
+      type: asEnum(TX_TYPES, type, "RECEIVABLE"),
+      amount: total,
+      dueDate,
+      status: "PENDING",
+      customerId: type === "RECEIVABLE" ? Number(formData.get("customerId")) || null : null,
+      supplierId: type === "PAYABLE" ? Number(formData.get("supplierId")) || null : null,
+      ownerId: user?.id ?? null,
+    },
   });
 
-  await prisma.transaction.createMany({ data });
+  if (parts > 1) {
+    const base = Math.floor((total / parts) * 100) / 100;
+    // A última parcela absorve a diferença de arredondamento.
+    const last = Math.round((total - base * (parts - 1)) * 100) / 100;
+    await prisma.installment.createMany({
+      data: Array.from({ length: parts }, (_, i) => {
+        const due = new Date(dueDate);
+        due.setMonth(due.getMonth() + i);
+        return {
+          transactionId: tx.id,
+          number: i + 1,
+          amount: i === parts - 1 ? last : base,
+          dueDate: due,
+        };
+      }),
+    });
+  }
+
   await logAudit({
     action: "CREATE",
     entity: "Financeiro",
+    entityId: tx.id,
     summary:
       parts > 1
         ? `Lançamento "${description}" criado em ${parts}x`
@@ -155,6 +164,171 @@ export async function deleteTransaction(formData: FormData) {
   await logAudit({ action: "DELETE", entity: "Financeiro", entityId: id, summary: "Lançamento arquivado" });
   revalidatePath("/finance");
   revalidatePath("/");
+}
+
+// ---- Parcelas ----
+
+// Gera (ou regera) o cronograma: N parcelas mensais a partir do 1º vencimento.
+// As parcelas anteriores são substituídas; pagamentos já feitos são mantidos.
+export async function generateInstallments(formData: FormData) {
+  const transactionId = Number(formData.get("transactionId"));
+  const count = Math.min(60, Math.max(1, int(formData.get("count"))));
+  const firstRaw = String(formData.get("firstDue") ?? "");
+  if (!transactionId) return;
+
+  const tx = await prisma.transaction.findUnique({ where: { id: transactionId } });
+  if (!tx) return;
+
+  const first = firstRaw ? new Date(firstRaw) : new Date(tx.dueDate);
+  const base = Math.floor((tx.amount / count) * 100) / 100;
+  const last = Math.round((tx.amount - base * (count - 1)) * 100) / 100;
+
+  await prisma.installment.deleteMany({ where: { transactionId } });
+  await prisma.installment.createMany({
+    data: Array.from({ length: count }, (_, i) => {
+      const due = new Date(first);
+      due.setMonth(due.getMonth() + i);
+      return {
+        transactionId,
+        number: i + 1,
+        amount: i === count - 1 ? last : base,
+        dueDate: due,
+      };
+    }),
+  });
+
+  // O 1º vencimento do lançamento acompanha a 1ª parcela.
+  await prisma.transaction.update({ where: { id: transactionId }, data: { dueDate: first } });
+  await logAudit({ action: "UPDATE", entity: "Financeiro", entityId: transactionId, summary: `Parcelado em ${count}x` });
+
+  revalidatePath(`/finance/${transactionId}`);
+  revalidatePath("/finance");
+}
+
+// Edita uma parcela (valor e/ou vencimento) e ajusta o total do lançamento.
+export async function updateInstallment(formData: FormData) {
+  const id = Number(formData.get("installmentId"));
+  if (!id) return;
+  const inst = await prisma.installment.findUnique({ where: { id } });
+  if (!inst) return;
+
+  const dueRaw = String(formData.get("dueDate") ?? "");
+  await prisma.installment.update({
+    where: { id },
+    data: {
+      amount: num(formData.get("amount")),
+      ...(dueRaw ? { dueDate: new Date(dueRaw) } : {}),
+    },
+  });
+  await syncFromInstallments(inst.transactionId);
+
+  revalidatePath(`/finance/${inst.transactionId}`);
+  revalidatePath("/finance");
+}
+
+// Acrescenta uma parcela ao fim do cronograma (mês seguinte à última).
+export async function addInstallment(formData: FormData) {
+  const transactionId = Number(formData.get("transactionId"));
+  if (!transactionId) return;
+
+  const last = await prisma.installment.findFirst({
+    where: { transactionId },
+    orderBy: { number: "desc" },
+  });
+  const due = new Date(last?.dueDate ?? new Date());
+  if (last) due.setMonth(due.getMonth() + 1);
+
+  await prisma.installment.create({
+    data: {
+      transactionId,
+      number: (last?.number ?? 0) + 1,
+      amount: 0,
+      dueDate: due,
+    },
+  });
+  await syncFromInstallments(transactionId);
+
+  revalidatePath(`/finance/${transactionId}`);
+}
+
+export async function deleteInstallment(formData: FormData) {
+  const id = Number(formData.get("installmentId"));
+  if (!id) return;
+  const inst = await prisma.installment.findUnique({ where: { id } });
+  if (!inst) return;
+
+  await prisma.installment.delete({ where: { id } });
+  await renumberInstallments(inst.transactionId);
+  await syncFromInstallments(inst.transactionId);
+
+  revalidatePath(`/finance/${inst.transactionId}`);
+  revalidatePath("/finance");
+}
+
+// Quita uma parcela (registra o pagamento vinculado a ela).
+export async function payInstallment(formData: FormData) {
+  const id = Number(formData.get("installmentId"));
+  const method = asEnum(PAYMENT_METHODS, formData.get("method"), "PIX");
+  if (!id) return;
+
+  const inst = await prisma.installment.findUnique({
+    where: { id },
+    include: { payments: true },
+  });
+  if (!inst) return;
+
+  const alreadyPaid = inst.payments.reduce((s, p) => s + p.amount, 0);
+  const left = Math.round((inst.amount - alreadyPaid) * 100) / 100;
+  if (left <= 0) return;
+
+  await prisma.payment.create({
+    data: { transactionId: inst.transactionId, installmentId: id, amount: left, method },
+  });
+  await recompute(inst.transactionId);
+  await logAudit({ action: "UPDATE", entity: "Financeiro", entityId: inst.transactionId, summary: `Parcela ${inst.number} quitada` });
+
+  revalidatePath(`/finance/${inst.transactionId}`);
+  revalidatePath("/finance");
+  revalidatePath("/");
+}
+
+// Remove o parcelamento (volta a lançamento à vista).
+export async function clearInstallments(formData: FormData) {
+  const transactionId = Number(formData.get("transactionId"));
+  if (!transactionId) return;
+  await prisma.installment.deleteMany({ where: { transactionId } });
+  revalidatePath(`/finance/${transactionId}`);
+  revalidatePath("/finance");
+}
+
+// Mantém a numeração 1..N contínua após remoções.
+async function renumberInstallments(transactionId: number) {
+  const list = await prisma.installment.findMany({
+    where: { transactionId },
+    orderBy: { dueDate: "asc" },
+  });
+  await Promise.all(
+    list.map((it, i) =>
+      it.number === i + 1
+        ? Promise.resolve(it)
+        : prisma.installment.update({ where: { id: it.id }, data: { number: i + 1 } }),
+    ),
+  );
+}
+
+// Com parcelas, o valor do lançamento é a soma delas (e o venc. é o da 1ª).
+async function syncFromInstallments(transactionId: number) {
+  const list = await prisma.installment.findMany({
+    where: { transactionId },
+    orderBy: { dueDate: "asc" },
+  });
+  if (list.length === 0) return;
+  const total = Math.round(list.reduce((s, it) => s + it.amount, 0) * 100) / 100;
+  await prisma.transaction.update({
+    where: { id: transactionId },
+    data: { amount: total, dueDate: list[0].dueDate },
+  });
+  await recompute(transactionId);
 }
 
 // Recalcula o status (PENDING/PARTIAL/PAID) a partir dos pagamentos.

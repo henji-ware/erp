@@ -35,13 +35,15 @@ export function AttachmentsCard({
   attachments,
   title = "Anexos",
   hint = "Anexe documentos (PDF ou Word, até 100 MB).",
+  accept = ".pdf,.doc,.docx",
   error,
 }: {
-  ownerType: "lead" | "project" | "inspection";
+  ownerType: "lead" | "project" | "inspection" | "transaction";
   ownerId: number;
   attachments: AttachmentItem[];
   title?: string;
   hint?: string;
+  accept?: string;
   error?: string;
 }) {
   const router = useRouter();
@@ -60,8 +62,9 @@ export function AttachmentsCard({
     const file = fileRef.current?.files?.[0];
     if (!file || busy) return;
 
-    if (!/\.(pdf|doc|docx)$/i.test(file.name)) {
-      setMsg("Só PDF ou Word (.pdf, .doc, .docx).");
+    const exts = accept.replace(/\./g, "").split(",").map((s) => s.trim()).join("|");
+    if (!new RegExp(`\\.(${exts})$`, "i").test(file.name)) {
+      setMsg(`Formato não aceito. Envie: ${accept}`);
       return;
     }
     if (file.size > MAX_SIZE) {
@@ -74,7 +77,7 @@ export function AttachmentsCard({
     try {
       // Caminho principal: navegador → Blob (sem passar pelo servidor).
       // Nome aleatório no storage: evita problemas com acentos/espaços.
-      const ext = file.name.match(/\.(pdf|docx?|PDF|DOCX?)$/)?.[0].toLowerCase() ?? ".pdf";
+      const ext = file.name.match(/\.[a-z0-9]+$/i)?.[0].toLowerCase() ?? ".pdf";
       const blob = await upload(`anexos/${crypto.randomUUID()}${ext}`, file, {
         access: "private",
         handleUploadUrl: "/api/attachments/upload",
@@ -127,7 +130,7 @@ export function AttachmentsCard({
           type="file"
           name="file"
           required
-          accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept={accept}
           className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100"
         />
         <button type="submit" disabled={busy} className="btn-primary">
