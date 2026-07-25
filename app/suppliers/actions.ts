@@ -55,7 +55,8 @@ export async function updateSupplier(formData: FormData) {
 export async function deleteSupplier(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
-  const used = await prisma.transaction.count({ where: { supplierId: id } });
+  // Só lançamentos ativos impedem o arquivamento (os da Lixeira não contam).
+  const used = await prisma.transaction.count({ where: { supplierId: id, deletedAt: null } });
   if (used > 0) return;
 
   await prisma.supplier.update({ where: { id }, data: { deletedAt: new Date() } });

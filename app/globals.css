@@ -475,6 +475,19 @@ html.no-anim *::after {
   .grid {
     break-inside: avoid;
   }
+  /* Proposta: só o documento vai para o papel, ocupando a página inteira */
+  .proposal-doc {
+    max-width: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+  .proposal-doc table {
+    font-size: 9.5pt;
+  }
+  .break-inside-avoid {
+    break-inside: avoid;
+  }
+
   /* Rodapé ao fim do documento (sem position:fixed => nunca cobre conteúdo) */
   .report-footer {
     display: flex !important;

@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { asEnum, RENTAL_STATUSES, RENTAL_STATUS_LABELS } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, canEditRecord } from "@/lib/auth";
+
+// Autorização: só o dono (ou admin) altera a locação.
+async function allowed(id: number): Promise<boolean> {
+  return canEditRecord(await prisma.rental.findUnique({ where: { id }, select: { ownerId: true } }));
+}
 
 export async function createRental(formData: FormData) {
   const customerId = Number(formData.get("customerId"));
@@ -39,6 +44,7 @@ export async function setRentalStatus(formData: FormData) {
   const id = Number(formData.get("id"));
   const status = String(formData.get("status") ?? "");
   if (!id || !RENTAL_STATUSES.includes(status as (typeof RENTAL_STATUSES)[number])) return;
+  if (!(await allowed(id))) return;
 
   await prisma.rental.update({
     where: { id },
@@ -56,6 +62,7 @@ export async function setRentalStatus(formData: FormData) {
 export async function deleteRental(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
+  if (!(await allowed(id))) return;
   await prisma.rental.update({ where: { id }, data: { deletedAt: new Date() } });
   await logAudit({ action: "DELETE", entity: "Locação", entityId: id, summary: "Locação arquivada" });
   revalidatePath("/rentals");

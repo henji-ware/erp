@@ -5,7 +5,12 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { asEnum, INSPECTION_STATUSES, INSPECTION_STATUS_LABELS, RISK_LEVELS } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, canEditRecord } from "@/lib/auth";
+
+// Autorização: só o dono (ou admin) altera a inspeção.
+async function allowed(id: number): Promise<boolean> {
+  return canEditRecord(await prisma.inspection.findUnique({ where: { id }, select: { ownerId: true } }));
+}
 
 export async function createInspection(formData: FormData) {
   const customerId = Number(formData.get("customerId"));
@@ -38,6 +43,7 @@ export async function updateInspection(formData: FormData) {
   const customerId = Number(formData.get("customerId"));
   const scheduledRaw = String(formData.get("scheduledAt") ?? "");
   if (!id || !customerId || !scheduledRaw) return;
+  if (!(await allowed(id))) return;
 
   await prisma.inspection.update({
     where: { id },
@@ -62,6 +68,7 @@ export async function setInspectionStatus(formData: FormData) {
   const status = String(formData.get("status") ?? "");
   if (!id || !INSPECTION_STATUSES.includes(status as (typeof INSPECTION_STATUSES)[number]))
     return;
+  if (!(await allowed(id))) return;
 
   await prisma.inspection.update({
     where: { id },
@@ -75,6 +82,7 @@ export async function setInspectionStatus(formData: FormData) {
 export async function deleteInspection(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
+  if (!(await allowed(id))) return;
   await prisma.inspection.update({ where: { id }, data: { deletedAt: new Date() } });
   await logAudit({ action: "DELETE", entity: "Inspeção", entityId: id, summary: "Inspeção arquivada" });
   revalidatePath("/inspections");

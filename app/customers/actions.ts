@@ -65,14 +65,15 @@ export async function deleteCustomer(formData: FormData) {
     where: { id },
     select: {
       ownerId: true,
+      // Só vínculos ATIVOS impedem o arquivamento (os da Lixeira não contam).
       _count: {
         select: {
-          orders: true,
-          projects: true,
-          inspections: true,
-          leads: true,
-          transactions: true,
-          appointments: true,
+          orders: { where: { deletedAt: null } },
+          projects: { where: { deletedAt: null } },
+          inspections: { where: { deletedAt: null } },
+          leads: { where: { deletedAt: null } },
+          transactions: { where: { deletedAt: null } },
+          appointments: { where: { deletedAt: null } },
         },
       },
     },

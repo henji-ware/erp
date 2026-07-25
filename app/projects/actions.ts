@@ -5,7 +5,12 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { asEnum, PROJECT_TYPES, PROJECT_STATUSES, PROJECT_STATUS_LABELS } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, canEditRecord } from "@/lib/auth";
+
+// Autorização: só o dono (ou admin) altera o projeto.
+async function allowed(id: number): Promise<boolean> {
+  return canEditRecord(await prisma.project.findUnique({ where: { id }, select: { ownerId: true } }));
+}
 
 export async function createProject(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
@@ -42,6 +47,7 @@ export async function updateProject(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const customerId = Number(formData.get("customerId"));
   if (!id || !title || !customerId) return;
+  if (!(await allowed(id))) return;
 
   await prisma.project.update({
     where: { id },
@@ -67,6 +73,7 @@ export async function setProjectStatus(formData: FormData) {
   const id = Number(formData.get("id"));
   const status = String(formData.get("status") ?? "");
   if (!id || !PROJECT_STATUSES.includes(status as (typeof PROJECT_STATUSES)[number])) return;
+  if (!(await allowed(id))) return;
 
   await prisma.project.update({
     where: { id },
@@ -82,6 +89,7 @@ export async function setProjectStatus(formData: FormData) {
 export async function invoiceProject(formData: FormData) {
   const projectId = Number(formData.get("projectId"));
   if (!projectId) return;
+  if (!(await allowed(projectId))) return;
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) return;
 
@@ -115,6 +123,7 @@ export async function invoiceProject(formData: FormData) {
 export async function deleteProject(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
+  if (!(await allowed(id))) return;
   await prisma.project.update({ where: { id }, data: { deletedAt: new Date() } });
   await logAudit({ action: "DELETE", entity: "Projeto", entityId: id, summary: "Projeto arquivado" });
   revalidatePath("/projects");

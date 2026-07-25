@@ -9,7 +9,14 @@ import {
   MAINTENANCE_STATUSES,
 } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, canEditRecord } from "@/lib/auth";
+
+// Autorização: só o dono (ou admin) altera o contrato.
+async function allowed(id: number): Promise<boolean> {
+  return canEditRecord(
+    await prisma.maintenanceContract.findUnique({ where: { id }, select: { ownerId: true } }),
+  );
+}
 
 export async function createMaintenance(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
@@ -40,6 +47,7 @@ export async function setMaintenanceStatus(formData: FormData) {
   const id = Number(formData.get("id"));
   const status = String(formData.get("status") ?? "");
   if (!id || !MAINTENANCE_STATUSES.includes(status as (typeof MAINTENANCE_STATUSES)[number])) return;
+  if (!(await allowed(id))) return;
 
   await prisma.maintenanceContract.update({
     where: { id },
@@ -53,6 +61,7 @@ export async function setMaintenanceStatus(formData: FormData) {
 export async function completeVisit(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
+  if (!(await allowed(id))) return;
   const c = await prisma.maintenanceContract.findUnique({ where: { id } });
   if (!c) return;
 
@@ -70,6 +79,7 @@ export async function completeVisit(formData: FormData) {
 export async function deleteMaintenance(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
+  if (!(await allowed(id))) return;
   await prisma.maintenanceContract.update({ where: { id }, data: { deletedAt: new Date() } });
   await logAudit({ action: "DELETE", entity: "Manutenção", entityId: id, summary: "Contrato arquivado" });
   revalidatePath("/maintenance");

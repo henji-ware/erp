@@ -52,14 +52,15 @@ export default async function CustomersPage({
     skip: pg.skip,
     take: pg.take,
     include: {
+      // Conta só vínculos ativos (itens na Lixeira não travam o arquivamento).
       _count: {
         select: {
-          orders: true,
-          projects: true,
-          inspections: true,
-          leads: true,
-          transactions: true,
-          appointments: true,
+          orders: { where: { deletedAt: null } },
+          projects: { where: { deletedAt: null } },
+          inspections: { where: { deletedAt: null } },
+          leads: { where: { deletedAt: null } },
+          transactions: { where: { deletedAt: null } },
+          appointments: { where: { deletedAt: null } },
         },
       },
     },

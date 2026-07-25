@@ -6,7 +6,14 @@ import { prisma } from "@/lib/prisma";
 import { asEnum, PAYMENT_METHODS, TX_TYPES } from "@/lib/format";
 import { deriveStatus, remaining } from "@/lib/finance";
 import { logAudit } from "@/lib/audit";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, canEditRecord } from "@/lib/auth";
+
+// Autorização: só o dono (ou admin) altera o lançamento.
+async function allowed(id: number): Promise<boolean> {
+  return canEditRecord(
+    await prisma.transaction.findUnique({ where: { id }, select: { ownerId: true } }),
+  );
+}
 
 export async function createTransaction(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim();
@@ -71,6 +78,7 @@ export async function updateTransaction(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim();
   const type = String(formData.get("type") ?? "");
   if (!id || !description || !TX_TYPES.includes(type as (typeof TX_TYPES)[number])) return;
+  if (!(await allowed(id))) return;
 
   const dueRaw = String(formData.get("dueDate") ?? "");
   await prisma.transaction.update({
@@ -100,6 +108,7 @@ export async function addPayment(formData: FormData) {
   const dateRaw = String(formData.get("paidAt") ?? "");
   if (!transactionId || amount <= 0) return;
   if (!PAYMENT_METHODS.includes(method as (typeof PAYMENT_METHODS)[number])) return;
+  if (!(await allowed(transactionId))) return;
 
   await prisma.payment.create({
     data: {
@@ -122,6 +131,7 @@ export async function payRemaining(formData: FormData) {
   const id = Number(formData.get("id"));
   const method = asEnum(PAYMENT_METHODS, formData.get("method"), "CASH");
   if (!id) return;
+  if (!(await allowed(id))) return;
 
   const tx = await prisma.transaction.findUnique({
     where: { id },
@@ -147,6 +157,7 @@ export async function deletePayment(formData: FormData) {
   if (!id) return;
   const payment = await prisma.payment.findUnique({ where: { id } });
   if (!payment) return;
+  if (!(await allowed(payment.transactionId))) return;
 
   await prisma.payment.delete({ where: { id } });
   await recompute(payment.transactionId);
@@ -159,6 +170,7 @@ export async function deletePayment(formData: FormData) {
 export async function deleteTransaction(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
+  if (!(await allowed(id))) return;
   // Soft delete: vai para a Lixeira (recuperável); pagamentos são preservados.
   await prisma.transaction.update({ where: { id }, data: { deletedAt: new Date() } });
   await logAudit({ action: "DELETE", entity: "Financeiro", entityId: id, summary: "Lançamento arquivado" });
@@ -175,6 +187,7 @@ export async function generateInstallments(formData: FormData) {
   const count = Math.min(60, Math.max(1, int(formData.get("count"))));
   const firstRaw = String(formData.get("firstDue") ?? "");
   if (!transactionId) return;
+  if (!(await allowed(transactionId))) return;
 
   const tx = await prisma.transaction.findUnique({ where: { id: transactionId } });
   if (!tx) return;
@@ -210,7 +223,7 @@ export async function updateInstallment(formData: FormData) {
   const id = Number(formData.get("installmentId"));
   if (!id) return;
   const inst = await prisma.installment.findUnique({ where: { id } });
-  if (!inst) return;
+  if (!inst || !(await allowed(inst.transactionId))) return;
 
   const dueRaw = String(formData.get("dueDate") ?? "");
   await prisma.installment.update({
@@ -230,6 +243,7 @@ export async function updateInstallment(formData: FormData) {
 export async function addInstallment(formData: FormData) {
   const transactionId = Number(formData.get("transactionId"));
   if (!transactionId) return;
+  if (!(await allowed(transactionId))) return;
 
   const last = await prisma.installment.findFirst({
     where: { transactionId },
@@ -255,7 +269,7 @@ export async function deleteInstallment(formData: FormData) {
   const id = Number(formData.get("installmentId"));
   if (!id) return;
   const inst = await prisma.installment.findUnique({ where: { id } });
-  if (!inst) return;
+  if (!inst || !(await allowed(inst.transactionId))) return;
 
   await prisma.installment.delete({ where: { id } });
   await renumberInstallments(inst.transactionId);
@@ -275,7 +289,7 @@ export async function payInstallment(formData: FormData) {
     where: { id },
     include: { payments: true },
   });
-  if (!inst) return;
+  if (!inst || !(await allowed(inst.transactionId))) return;
 
   const alreadyPaid = inst.payments.reduce((s, p) => s + p.amount, 0);
   const left = Math.round((inst.amount - alreadyPaid) * 100) / 100;
@@ -296,6 +310,7 @@ export async function payInstallment(formData: FormData) {
 export async function clearInstallments(formData: FormData) {
   const transactionId = Number(formData.get("transactionId"));
   if (!transactionId) return;
+  if (!(await allowed(transactionId))) return;
   await prisma.installment.deleteMany({ where: { transactionId } });
   revalidatePath(`/finance/${transactionId}`);
   revalidatePath("/finance");

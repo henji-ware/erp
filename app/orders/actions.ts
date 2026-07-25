@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { asEnum, ORDER_STATUSES, ORDER_STATUS_LABELS } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, canEditRecord } from "@/lib/auth";
+
+// Autorização: só o dono (ou admin) altera o pedido.
+async function allowed(id: number): Promise<boolean> {
+  return canEditRecord(await prisma.order.findUnique({ where: { id }, select: { ownerId: true } }));
+}
 
 const ACTIVE = ["CONFIRMED", "INVOICED"];
 
@@ -72,6 +77,7 @@ export async function updateOrderStatus(formData: FormData) {
   const id = Number(formData.get("id"));
   const next = String(formData.get("status") ?? "");
   if (!id || !ORDER_STATUSES.includes(next as (typeof ORDER_STATUSES)[number])) return;
+  if (!(await allowed(id))) return;
 
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return;
@@ -103,6 +109,7 @@ export async function updateOrderStatus(formData: FormData) {
 export async function deleteOrder(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!id) return;
+  if (!(await allowed(id))) return;
 
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return;

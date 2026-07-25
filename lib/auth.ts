@@ -71,6 +71,16 @@ export function canEdit(
   return !!user && record.ownerId === user.id;
 }
 
+// Guarda de autorização para server actions: o usuário atual pode alterar
+// este registro? (admin sempre; usuário comum só o que é dele).
+// Use nas actions de update/delete para impedir acesso por ID forjado.
+export async function canEditRecord(
+  record: { ownerId: number | null } | null | undefined,
+): Promise<boolean> {
+  if (!record) return false;
+  return canEdit(await getCurrentUser(), record);
+}
+
 // Mapa id->nome dos usuários, para exibir "adicionado por" nos registros.
 export async function ownerNames(): Promise<Map<number, string>> {
   const users = await prisma.user.findMany({ select: { id: true, name: true } });

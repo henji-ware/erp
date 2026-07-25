@@ -135,6 +135,18 @@ enum SellerCategory {
   PARCEIRO
 }
 
+// Tipo de serviço da proposta (define o texto padrão do escopo).
+enum ProposalType {
+  INSPECAO
+  MANUTENCAO
+  MATERIAL
+  MONTAGEM
+  REMANEJAMENTO
+  DESMONTAGEM
+  PROJETO
+  LOCACAO
+}
+
 enum SupplierCategory {
   MATERIA_PRIMA // aço, perfis, chapas
   EQUIPAMENTOS
@@ -380,11 +392,48 @@ model Lead {
   shared      Boolean         @default(false) // visível a todos os usuários
   attachments Attachment[]
   items       LeadItem[]
+  proposals   Proposal[]
   deletedAt   DateTime? // soft delete (lixeira)
   createdAt   DateTime        @default(now())
 
   @@index([deletedAt])
   @@index([ownerId])
+}
+
+// Proposta comercial gerada a partir de um orçamento. Cada revisão (R0, R1…)
+// é um registro, preservando o histórico enviado ao cliente.
+model Proposal {
+  id            Int          @id @default(autoincrement())
+  lead          Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId        Int
+  revision      Int          @default(0) // R0, R1, R2…
+  type          ProposalType @default(INSPECAO)
+  title         String // ex.: "INSPEÇÃO ESTAMPARIA"
+  // Destinatário (copiado do cliente, editável na proposta)
+  clientName    String
+  clientCity    String? // "Santa Isabel/SP"
+  contactName   String?
+  contactPhone  String?
+  contactEmail  String?
+  // Corpo
+  intro         String // "Segue nossa proposta para…"
+  scope         String // escopo técnico (texto padrão por tipo, editável)
+  included      String? // "Incluso no preço" (uma linha por item)
+  notes         String? // observações numeradas
+  // Comercial
+  amount        Float        @default(0)
+  amountLabel   String? // ex.: "VALOR PARA INSPEÇÃO DOS CONJUNTOS"
+  deadline      String? // prazo de execução/fabricação
+  paymentTerms  String?
+  taxes         String?
+  validityDays  Int          @default(10)
+  signedBy      String? // responsável que assina
+  signerPhone   String?
+  signerEmail   String?
+  createdAt     DateTime     @default(now())
+
+  @@unique([leadId, revision])
+  @@index([leadId])
 }
 
 // Item do orçamento. Pode referenciar um produto/serviço do catálogo ou ser

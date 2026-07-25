@@ -11,6 +11,7 @@ import {
   TX_STATUS_COLORS,
 } from "@/lib/format";
 import { paidAmount, remaining } from "@/lib/finance";
+import { getCurrentUser, canSee, crmScope } from "@/lib/auth";
 import { PageHeader, Badge } from "../../components/ui";
 import { Icon } from "../../components/icons";
 import SubmitButton from "../../components/SubmitButton";
@@ -30,6 +31,7 @@ export default async function TransactionDetailPage({
   const { id } = await params;
   const { attach } = await searchParams;
   const txId = Number(id);
+  const user = await getCurrentUser();
   const [tx, customers, suppliers] = await Promise.all([
     prisma.transaction.findUnique({
       where: { id: txId },
@@ -42,10 +44,12 @@ export default async function TransactionDetailPage({
         attachments: { orderBy: { createdAt: "desc" } },
       },
     }),
-    prisma.customer.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ where: { deletedAt: null, ...crmScope(user) }, orderBy: { name: "asc" } }),
     prisma.supplier.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
   ]);
   if (!tx || tx.deletedAt) notFound();
+  // Usuário comum só acessa os próprios lançamentos (ou compartilhados).
+  if (!canSee(user, tx)) notFound();
 
   const paid = paidAmount(tx);
   const left = remaining(tx);

@@ -23,13 +23,14 @@ export default async function SettingsPage() {
     cookies(),
     getCurrentUser(),
     Promise.all([
-      prisma.customer.count(),
-      prisma.product.count(),
-      prisma.order.count(),
-      prisma.supplier.count(),
-      prisma.transaction.count(),
+      // Contadores do sistema: ignoram itens arquivados (Lixeira).
+      prisma.customer.count({ where: { deletedAt: null } }),
+      prisma.product.count({ where: { deletedAt: null } }),
+      prisma.order.count({ where: { deletedAt: null } }),
+      prisma.supplier.count({ where: { deletedAt: null } }),
+      prisma.transaction.count({ where: { deletedAt: null } }),
       prisma.employee.count(),
-      prisma.appointment.count(),
+      prisma.appointment.count({ where: { deletedAt: null } }),
       prisma.auditLog.count(),
     ]),
   ]);
