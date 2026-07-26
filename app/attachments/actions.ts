@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { blobToken } from "@/lib/blob";
+import { canEditRecord } from "@/lib/auth";
 
 // Pasta de uploads local (fora de /public => só baixa via rota autenticada).
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
@@ -38,6 +39,29 @@ function useBlob() {
   return !!blobToken();
 }
 
+// Dono do registro ao qual o anexo pertence (orçamento, projeto, inspeção ou
+// lançamento). Usado para autorizar upload, download e exclusão de anexos.
+export async function attachmentOwner(a: {
+  leadId?: number | null;
+  projectId?: number | null;
+  inspectionId?: number | null;
+  transactionId?: number | null;
+}): Promise<{ ownerId: number | null; shared: boolean } | null> {
+  const sel = { select: { ownerId: true, shared: true } };
+  if (a.leadId) return prisma.lead.findUnique({ where: { id: a.leadId }, ...sel });
+  if (a.projectId) return prisma.project.findUnique({ where: { id: a.projectId }, ...sel });
+  if (a.inspectionId) return prisma.inspection.findUnique({ where: { id: a.inspectionId }, ...sel });
+  if (a.transactionId) return prisma.transaction.findUnique({ where: { id: a.transactionId }, ...sel });
+  return null;
+}
+
+// O usuário atual pode mexer nos anexos deste registro?
+async function canAttach(type: OwnerType, id: number): Promise<boolean> {
+  const key = OWNER[type].field;
+  const rec = await attachmentOwner({ [key]: id } as Parameters<typeof attachmentOwner>[0]);
+  return canEditRecord(rec);
+}
+
 function parseOwner(formData: FormData): { type: OwnerType; id: number } | null {
   const type = String(formData.get("ownerType") ?? "") as OwnerType;
   const id = Number(formData.get("ownerId"));
@@ -49,6 +73,7 @@ export async function uploadAttachment(formData: FormData) {
   const owner = parseOwner(formData);
   const file = formData.get("file");
   if (!owner || !(file instanceof File) || file.size === 0) return;
+  if (!(await canAttach(owner.type, owner.id))) return;
 
   // Valida tipo (PDF ou Word) por mimetype ou extensão.
   const lowerName = file.name.toLowerCase();
@@ -127,6 +152,7 @@ export async function registerClientUpload(input: {
   const cfg = OWNER[type];
   const id = Number(input.ownerId);
   if (!cfg || !id || !input.url || !input.fileName) return;
+  if (!(await canAttach(type, id))) return;
 
   await prisma.attachment.create({
     data: {
@@ -154,6 +180,7 @@ export async function deleteAttachment(formData: FormData) {
   if (!id) return;
   const att = await prisma.attachment.findUnique({ where: { id } });
   if (!att) return;
+  if (!(await canEditRecord(await attachmentOwner(att)))) return;
 
   await prisma.attachment.delete({ where: { id } });
 

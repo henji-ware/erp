@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { TRASH_TTL_DAYS } from "@/lib/format";
+import { getCurrentUser, isAdmin, canEdit } from "@/lib/auth";
 
 type Entity =
   | "customer"
@@ -72,10 +73,40 @@ function parse(formData: FormData): { entity: Entity; id: number } | null {
   return { entity, id };
 }
 
+// Dono do registro arquivado (produtos e fornecedores são compartilhados e
+// não têm dono — qualquer usuário logado pode restaurá-los).
+async function ownerOf(entity: Entity, id: number): Promise<{ ownerId: number | null } | null> {
+  const sel = { select: { ownerId: true }, where: { id } };
+  switch (entity) {
+    case "customer": return prisma.customer.findUnique(sel);
+    case "project": return prisma.project.findUnique(sel);
+    case "lead": return prisma.lead.findUnique(sel);
+    case "transaction": return prisma.transaction.findUnique(sel);
+    case "inspection": return prisma.inspection.findUnique(sel);
+    case "appointment": return prisma.appointment.findUnique(sel);
+    case "rental": return prisma.rental.findUnique(sel);
+    case "maintenanceContract": return prisma.maintenanceContract.findUnique(sel);
+    case "order": return prisma.order.findUnique(sel);
+    // Catálogo compartilhado: sem dono.
+    case "product": return { ownerId: null };
+    case "supplier": return { ownerId: null };
+  }
+}
+
+// Restaurar é reversível: permitido ao dono, ao admin e em itens compartilhados.
+async function canRestore(entity: Entity, id: number): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (isAdmin(user)) return true;
+  const rec = await ownerOf(entity, id);
+  if (!rec) return false;
+  return rec.ownerId === null || canEdit(user, rec);
+}
+
 // Restaura um item arquivado (deletedAt = null).
 export async function restoreItem(formData: FormData) {
   const p = parse(formData);
   if (!p) return;
+  if (!(await canRestore(p.entity, p.id))) return;
 
   await setDeleted(p.entity, p.id, null);
   await logAudit({ action: "UPDATE", entity: META[p.entity].label, entityId: p.id, summary: "Restaurado da lixeira" });
@@ -84,10 +115,11 @@ export async function restoreItem(formData: FormData) {
   revalidatePath("/");
 }
 
-// Exclui DEFINITIVAMENTE (sem volta).
+// Exclui DEFINITIVAMENTE (sem volta) — restrito a administradores.
 export async function purgeItem(formData: FormData) {
   const p = parse(formData);
   if (!p) return;
+  if (!isAdmin(await getCurrentUser())) return;
 
   try {
     await hardDelete(p.entity, p.id);
@@ -119,8 +151,9 @@ export async function purgeExpiredTrash(): Promise<void> {
   try { await prisma.supplier.deleteMany({ where }); } catch {}
 }
 
-// Esvazia a lixeira inteira agora (todos os arquivados).
+// Esvazia a lixeira inteira agora — ação destrutiva, restrita a administradores.
 export async function emptyTrash() {
+  if (!isAdmin(await getCurrentUser())) return;
   const where = { deletedAt: { not: null } };
   try { await prisma.transaction.deleteMany({ where }); } catch {}
   try { await prisma.order.deleteMany({ where }); } catch {}

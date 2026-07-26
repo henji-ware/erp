@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { blobToken } from "@/lib/blob";
+import { getCurrentUser, canSee } from "@/lib/auth";
+import { attachmentOwner } from "@/app/attachments/actions";
 
 // Baixa o anexo. Protegido pelo middleware (exige login). O store do Blob é
 // PRIVADO: o arquivo é buscado com o token e transmitido (stream) pelo app —
@@ -14,6 +16,12 @@ export async function GET(
   const { id } = await params;
   const att = await prisma.attachment.findUnique({ where: { id: Number(id) } });
   if (!att) return new Response("Anexo não encontrado", { status: 404 });
+
+  // Só baixa quem enxerga o registro dono do anexo (dono, compartilhado ou admin).
+  const owner = await attachmentOwner(att);
+  if (!canSee(await getCurrentUser(), owner ?? { ownerId: null, shared: false })) {
+    return new Response("Sem permissão para baixar este anexo", { status: 403 });
+  }
 
   const headers = {
     "Content-Type": att.mimeType || "application/octet-stream",

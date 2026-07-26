@@ -4,6 +4,7 @@ import { PageHeader, EmptyState } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import SubmitButton from "../components/SubmitButton";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { restoreItem, purgeItem, emptyTrash, purgeExpiredTrash } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -23,12 +24,17 @@ export default async function TrashPage({
   const { q } = await searchParams;
   // Limpeza automática: remove o que passou de 30 dias.
   await purgeExpiredTrash();
+  const user = await getCurrentUser();
+  const admin = isAdmin(user);
+  // Usuário comum só enxerga na Lixeira o que ele mesmo arquivou.
+  const mine = admin ? {} : { ownerId: user?.id ?? -1 };
   const archived = { deletedAt: { not: null } };
   const [customers, products, suppliers, projects, leads] = await Promise.all([
     prisma.customer.findMany({
-      where: { ...archived, ...(q ? { name: { contains: q } } : {}) },
+      where: { ...archived, ...mine, ...(q ? { name: { contains: q } } : {}) },
       orderBy: { deletedAt: "desc" },
     }),
+    // Catálogo compartilhado (sem dono): visível a todos na Lixeira.
     prisma.product.findMany({
       where: { ...archived, ...(q ? { OR: [{ name: { contains: q } }, { sku: { contains: q } }] } : {}) },
       orderBy: { deletedAt: "desc" },
@@ -38,41 +44,41 @@ export default async function TrashPage({
       orderBy: { deletedAt: "desc" },
     }),
     prisma.project.findMany({
-      where: { ...archived, ...(q ? { OR: [{ title: { contains: q } }, { number: { contains: q } }] } : {}) },
+      where: { ...archived, ...mine, ...(q ? { OR: [{ title: { contains: q } }, { number: { contains: q } }] } : {}) },
       orderBy: { deletedAt: "desc" },
     }),
     prisma.lead.findMany({
-      where: { ...archived, ...(q ? { name: { contains: q } } : {}) },
+      where: { ...archived, ...mine, ...(q ? { name: { contains: q } } : {}) },
       orderBy: { deletedAt: "desc" },
     }),
   ]);
 
   const [transactions, inspections, appointments, rentals, maintenance, orders] = await Promise.all([
     prisma.transaction.findMany({
-      where: { ...archived, ...(q ? { description: { contains: q } } : {}) },
+      where: { ...archived, ...mine, ...(q ? { description: { contains: q } } : {}) },
       orderBy: { deletedAt: "desc" },
     }),
     prisma.inspection.findMany({
-      where: { ...archived, ...(q ? { customer: { name: { contains: q } } } : {}) },
+      where: { ...archived, ...mine, ...(q ? { customer: { name: { contains: q } } } : {}) },
       orderBy: { deletedAt: "desc" },
       include: { customer: true },
     }),
     prisma.appointment.findMany({
-      where: { ...archived, ...(q ? { title: { contains: q } } : {}) },
+      where: { ...archived, ...mine, ...(q ? { title: { contains: q } } : {}) },
       orderBy: { deletedAt: "desc" },
     }),
     prisma.rental.findMany({
-      where: { ...archived, ...(q ? { OR: [{ number: { contains: q } }, { customer: { name: { contains: q } } }] } : {}) },
+      where: { ...archived, ...mine, ...(q ? { OR: [{ number: { contains: q } }, { customer: { name: { contains: q } } }] } : {}) },
       orderBy: { deletedAt: "desc" },
       include: { customer: true, product: true },
     }),
     prisma.maintenanceContract.findMany({
-      where: { ...archived, ...(q ? { title: { contains: q } } : {}) },
+      where: { ...archived, ...mine, ...(q ? { title: { contains: q } } : {}) },
       orderBy: { deletedAt: "desc" },
       include: { customer: true },
     }),
     prisma.order.findMany({
-      where: { ...archived, ...(q ? { OR: [{ number: { contains: q } }, { customer: { name: { contains: q } } }] } : {}) },
+      where: { ...archived, ...mine, ...(q ? { OR: [{ number: { contains: q } }, { customer: { name: { contains: q } } }] } : {}) },
       orderBy: { deletedAt: "desc" },
       include: { customer: true },
     }),
@@ -156,7 +162,7 @@ export default async function TrashPage({
         action={
           <div className="flex items-center gap-2">
             <SearchBar placeholder="Buscar arquivados..." defaultValue={q} />
-            {totalItems > 0 && (
+            {totalItems > 0 && admin && (
               <form action={emptyTrash}>
                 <SubmitButton className="btn-danger">
                   <Icon name="trash" size={14} /> Esvaziar
@@ -209,13 +215,16 @@ export default async function TrashPage({
                                 <Icon name="history" size={14} /> Restaurar
                               </button>
                             </form>
-                            <form action={purgeItem}>
-                              <input type="hidden" name="entity" value={sec.entity} />
-                              <input type="hidden" name="id" value={it.id} />
-                              <button className="btn-danger px-3 py-1.5 text-xs" title="Excluir definitivamente">
-                                <Icon name="trash" size={14} />
-                              </button>
-                            </form>
+                            {/* Exclusão definitiva é irreversível: só admin. */}
+                            {admin && (
+                              <form action={purgeItem}>
+                                <input type="hidden" name="entity" value={sec.entity} />
+                                <input type="hidden" name="id" value={it.id} />
+                                <button className="btn-danger px-3 py-1.5 text-xs" title="Excluir definitivamente">
+                                  <Icon name="trash" size={14} />
+                                </button>
+                              </form>
+                            )}
                           </div>
                         </td>
                       </tr>

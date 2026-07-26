@@ -171,9 +171,7 @@ export function ProposalDoc({
             {doc.amountLabel ?? "VALOR TOTAL"} — {formatCurrency(total)}
           </p>
           <p className="text-[10pt] font-semibold">({currencyInWords(total)})</p>
-          {doc.taxes && (
-            <p className="mt-1 whitespace-pre-line text-[9.5pt] text-slate-700">{doc.taxes}</p>
-          )}
+          {/* Os impostos são detalhados em CONDIÇÕES GERAIS, sem repetir aqui. */}
         </section>
 
         {/* Incluso no preço */}
