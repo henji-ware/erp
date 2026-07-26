@@ -156,6 +156,53 @@ export async function deleteLeadItem(formData: FormData) {
   revalidatePath("/leads");
 }
 
+// Duplica um orçamento (com os itens) num novo, com número próprio.
+// Útil para propostas parecidas — evita redigitar tudo.
+export async function duplicateLead(formData: FormData) {
+  const id = Number(formData.get("id"));
+  if (!id || !(await canEditLead(id))) return;
+
+  const source = await prisma.lead.findUnique({
+    where: { id },
+    include: { items: true },
+  });
+  if (!source) return;
+
+  const user = await getCurrentUser();
+  const copy = await prisma.lead.create({
+    data: {
+      number: await nextLeadNumber(),
+      name: `${source.name} (cópia)`,
+      email: source.email,
+      phone: source.phone,
+      document: source.document,
+      source: source.source,
+      value: source.value,
+      customerId: source.customerId,
+      stage: "NEW",
+      ownerId: user?.id ?? source.ownerId,
+      shared: source.shared,
+      items: {
+        create: source.items.map((it) => ({
+          productId: it.productId,
+          description: it.description,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+        })),
+      },
+    },
+  });
+  await logAudit({
+    action: "CREATE",
+    entity: "Orçamento",
+    entityId: copy.id,
+    summary: `Duplicado do orçamento ${source.number ?? id}`,
+  });
+
+  revalidatePath("/leads");
+  redirect(`/leads/${copy.id}`);
+}
+
 // ---- Fechar negócio ----
 
 // Garante um cliente para o orçamento: usa o vinculado ou cria a partir dos

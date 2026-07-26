@@ -432,6 +432,7 @@ export function currencyInWords(value: number): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+
 // Data por extenso: "São Paulo, 25 de março de 2026."
 export function longDate(d: Date = new Date()): string {
   return `${COMPANY.city.split(" - ")[0]}, ${new Intl.DateTimeFormat("pt-BR", {

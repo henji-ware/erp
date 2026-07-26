@@ -8,7 +8,7 @@ import DocumentInput from "../../components/DocumentInput";
 import LeadStageLossFields from "../LeadStageLossFields";
 import { LeadItemsCard } from "../LeadItemsCard";
 import { Icon } from "../../components/icons";
-import { updateLead, closeDeal } from "../actions";
+import { updateLead, closeDeal, duplicateLead } from "../actions";
 import { createProposal } from "../../proposals/actions";
 import { PROPOSAL_TYPES, PROPOSAL_TYPE_LABELS } from "@/lib/proposals";
 import { formatDate } from "@/lib/format";
@@ -125,6 +125,13 @@ export default async function EditLeadPage({
                 Cancelar
               </Link>
             </div>
+          </form>
+
+          <form action={duplicateLead} className="mt-3 border-t border-slate-100 pt-3">
+            <input type="hidden" name="id" value={lead.id} />
+            <button className="btn-ghost text-xs" title="Cria um novo orçamento com os mesmos dados e itens">
+              <Icon name="file" size={14} /> Duplicar orçamento
+            </button>
           </form>
         </div>
 
