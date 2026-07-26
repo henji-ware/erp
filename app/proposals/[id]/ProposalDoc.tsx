@@ -1,10 +1,15 @@
 import { formatCurrency } from "@/lib/format";
 import {
   COMPANY,
+  FINDING_COLUMNS,
+  GREETING_PADRAO,
   NORMAS_TABLE,
   currencyInWords,
+  damageClass,
   longDate,
+  parseFindings,
   proposalNumber,
+  proposalPrice,
 } from "@/lib/proposals";
 
 type Item = { description: string; quantity: number; unitPrice: number };
@@ -21,16 +26,26 @@ type Doc = {
   contactEmail: string | null;
   siteLocation: string | null;
   showNorms: boolean;
+  greeting: string | null;
   intro: string;
   scope: string;
+  findings: string | null;
   included: string | null;
   notes: string | null;
   amount: number;
   amountLabel: string | null;
+  laborLabel: string | null;
+  laborAmount: number;
+  equipmentLabel: string | null;
+  equipmentAmount: number;
+  freightAmount: number;
   deadline: string | null;
+  fabricationDeadline: string | null;
   schedule: string | null;
   paymentTerms: string | null;
   taxes: string | null;
+  unloading: string | null;
+  surfaceTreatment: string | null;
   colors: string | null;
   floorNote: string | null;
   warranty: string | null;
@@ -58,6 +73,15 @@ function Field({ label, value }: { label: string; value: string | null }) {
   );
 }
 
+// Linha "Rótulo — R$ 0,00" da composição do preço.
+function PriceLine({ label, value }: { label: string; value: number }) {
+  return (
+    <p className="text-[10.5pt]">
+      <span className="font-semibold">{label}</span> — {formatCurrency(value)}
+    </p>
+  );
+}
+
 // Documento da proposta no padrão visual da DRR: papel timbrado com logo,
 // filete duplo, marca d'água ao fundo e rodapé com os dados da empresa.
 export function ProposalDoc({
@@ -70,7 +94,30 @@ export function ProposalDoc({
   items: Item[];
 }) {
   const itemsTotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-  const total = items.length > 0 ? itemsTotal : doc.amount;
+  const price = proposalPrice(doc, itemsTotal, items.length > 0);
+  const findings = parseFindings(doc.findings);
+
+  // Colunas opcionais só aparecem quando alguma linha as preenche, para não
+  // deixar colunas vazias na tabela impressa.
+  const showCol = FINDING_COLUMNS.map((_, i) =>
+    findings.some((f) => [f.aisle, f.location, f.level, f.maker, f.component, f.damage, f.action][i]),
+  );
+
+  // O preço é detalhado quando tem mais de uma parcela (mão de obra, PTA,
+  // frete, componentes); com uma só, mostra apenas o total.
+  const parts = [price.labor, price.equipment, price.freight, price.components].filter(
+    (v) => v > 0,
+  );
+  const showBreakdown = parts.length > 1;
+
+  // Letras das seções (A, B, C…) conforme os blocos que a proposta usa.
+  let letters = 0;
+  const nextLetter = () => String.fromCharCode(65 + letters++);
+  const scopeLetter = nextLetter();
+  const findingsLetter = findings.length > 0 ? nextLetter() : null;
+  const itemsLetter = items.length > 0 ? nextLetter() : null;
+  const priceLetter = nextLetter();
+  const conditionsLetter = nextLetter();
 
   return (
     <article className="proposal-doc">
@@ -112,7 +159,9 @@ export function ProposalDoc({
           {doc.title ? ` – ${doc.title}` : ""}
         </h1>
 
-        <p className="mb-3 text-[10.5pt] font-bold text-slate-900">Prezados (as) Senhores (as)</p>
+        <p className="mb-3 text-[10.5pt] font-bold text-slate-900">
+          {doc.greeting || GREETING_PADRAO}
+        </p>
         <p className="mb-6 whitespace-pre-line text-justify text-[10.5pt] leading-relaxed">
           {doc.intro}
         </p>
@@ -123,18 +172,71 @@ export function ProposalDoc({
           </p>
         )}
 
-        {/* A. Escopo — pode ser longo, então quebra livremente entre páginas */}
+        {/* Escopo — pode ser longo, então quebra livremente entre páginas */}
         <section className="mb-6">
-          <h2 className="mb-2 text-[11pt] font-bold text-slate-900">A. DESCRIÇÃO DOS SERVIÇOS</h2>
+          <h2 className="mb-2 text-[11pt] font-bold text-slate-900">
+            {scopeLetter}. DESCRIÇÃO DOS SERVIÇOS
+          </h2>
           <div className="whitespace-pre-line text-justify text-[10.5pt] leading-relaxed">
             {doc.scope}
           </div>
         </section>
 
-        {/* B. Itens — a tabela quebra entre páginas repetindo o cabeçalho */}
-        {items.length > 0 && (
+        {/* Não conformidades levantadas na inspeção */}
+        {findingsLetter && (
           <section className="mb-6">
-            <h2 className="mb-2 text-[11pt] font-bold text-slate-900">B. LISTA DE COMPONENTES</h2>
+            <h2 className="mb-2 text-[11pt] font-bold text-slate-900">
+              {findingsLetter}. RELAÇÃO DE NÃO CONFORMIDADES
+            </h2>
+            <table className="proposal-table">
+              <thead>
+                <tr>
+                  {FINDING_COLUMNS.map((c, i) =>
+                    showCol[i] ? <th key={c}>{c}</th> : null,
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {findings.map((f, i) => {
+                  const cells = [
+                    f.aisle,
+                    f.location,
+                    f.level,
+                    f.maker,
+                    f.component,
+                    f.damage,
+                    f.action,
+                  ];
+                  return (
+                    <tr key={i}>
+                      {cells.map((v, c) =>
+                        showCol[c] ? (
+                          <td
+                            key={c}
+                            className={`text-center ${c === 5 ? damageClass(v) : ""}`}
+                          >
+                            {v}
+                          </td>
+                        ) : null,
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <p className="mt-1 text-[9pt] text-slate-600">
+              Total de {findings.length}{" "}
+              {findings.length === 1 ? "não conformidade" : "não conformidades"} relacionadas.
+            </p>
+          </section>
+        )}
+
+        {/* Itens — a tabela quebra entre páginas repetindo o cabeçalho */}
+        {itemsLetter && (
+          <section className="mb-6">
+            <h2 className="mb-2 text-[11pt] font-bold text-slate-900">
+              {itemsLetter}. LISTA DE COMPONENTES
+            </h2>
             <table className="proposal-table">
               <thead>
                 <tr>
@@ -156,7 +258,7 @@ export function ProposalDoc({
                   </tr>
                 ))}
                 <tr className="proposal-total-row">
-                  <td colSpan={4} className="text-right">TOTAL</td>
+                  <td colSpan={4} className="text-right">TOTAL DOS COMPONENTES</td>
                   <td className="text-right">{formatCurrency(itemsTotal)}</td>
                 </tr>
               </tbody>
@@ -165,13 +267,35 @@ export function ProposalDoc({
           </section>
         )}
 
-        {/* Valor */}
-        <section className="mb-6 break-inside-avoid text-center">
-          <p className="text-[12pt] font-bold text-slate-900">
-            {doc.amountLabel ?? "VALOR TOTAL"} — {formatCurrency(total)}
-          </p>
-          <p className="text-[10pt] font-semibold">({currencyInWords(total)})</p>
-          {/* Os impostos são detalhados em CONDIÇÕES GERAIS, sem repetir aqui. */}
+        {/* Composição do preço */}
+        <section className="mb-6 break-inside-avoid">
+          <h2 className="mb-2 text-[11pt] font-bold text-slate-900">
+            {priceLetter}. VALOR DOS SERVIÇOS
+          </h2>
+          {showBreakdown && (
+            <div className="mb-3 space-y-1">
+              {price.labor > 0 && (
+                <PriceLine label={doc.laborLabel ?? "Mão de obra"} value={price.labor} />
+              )}
+              {price.equipment > 0 && (
+                <PriceLine
+                  label={doc.equipmentLabel ?? "Locação de equipamento"}
+                  value={price.equipment}
+                />
+              )}
+              {price.freight > 0 && <PriceLine label="Frete" value={price.freight} />}
+              {price.components > 0 && (
+                <PriceLine label="Fornecimento de componentes" value={price.components} />
+              )}
+            </div>
+          )}
+          <div className="text-center">
+            <p className="text-[12pt] font-bold text-slate-900">
+              {doc.amountLabel ?? "VALOR TOTAL"} — {formatCurrency(price.total)}
+            </p>
+            <p className="text-[10pt] font-semibold">({currencyInWords(price.total)})</p>
+            {/* Os impostos são detalhados em CONDIÇÕES GERAIS, sem repetir aqui. */}
+          </div>
         </section>
 
         {/* Incluso no preço */}
@@ -188,14 +312,19 @@ export function ProposalDoc({
 
         {/* Condições gerais */}
         <section className="mb-6">
-          <h2 className="mb-2 text-[11pt] font-bold text-slate-900">C. CONDIÇÕES GERAIS</h2>
+          <h2 className="mb-2 text-[11pt] font-bold text-slate-900">
+            {conditionsLetter}. CONDIÇÕES DE FORNECIMENTO
+          </h2>
           <Field label="IMPOSTOS" value={doc.taxes} />
-          <Field label="PRAZO" value={doc.deadline} />
-          <Field label="CRONOGRAMA" value={doc.schedule} />
           <Field label="CONDIÇÕES DE PAGAMENTO" value={doc.paymentTerms} />
-          <Field label="CORES" value={doc.colors} />
-          <Field label="PISO" value={doc.floorNote} />
+          <Field label="PRAZO PARA FABRICAÇÃO" value={doc.fabricationDeadline} />
+          <Field label="PRAZO PARA EXECUÇÃO DOS SERVIÇOS" value={doc.deadline} />
+          <Field label="CRONOGRAMA" value={doc.schedule} />
+          <Field label="DESCARGA DO MATERIAL" value={doc.unloading} />
           <Field label="GARANTIA" value={doc.warranty} />
+          <Field label="PISO" value={doc.floorNote} />
+          <Field label="TRATAMENTO DE SUPERFÍCIE E PINTURA" value={doc.surfaceTreatment} />
+          <Field label="CORES" value={doc.colors} />
           <Field label="CONFIRMAÇÃO DE COMPRA" value={doc.purchaseConfirmation} />
           <div className="mb-2.5">
             <p className="text-[10.5pt] font-bold text-slate-900">VALIDADE DA PROPOSTA:</p>

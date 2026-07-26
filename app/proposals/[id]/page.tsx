@@ -2,7 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, canSee } from "@/lib/auth";
-import { PROPOSAL_TYPES, PROPOSAL_TYPE_LABELS, proposalNumber } from "@/lib/proposals";
+import { formatCurrency } from "@/lib/format";
+import {
+  FINDING_COLUMNS,
+  GREETING_PADRAO,
+  MAO_DE_OBRA_LABEL,
+  PROPOSAL_TYPES,
+  PROPOSAL_TYPE_LABELS,
+  PTA_LABEL,
+  proposalNumber,
+  proposalPrice,
+} from "@/lib/proposals";
 import { PageHeader } from "../../components/ui";
 import { Icon } from "../../components/icons";
 import SubmitButton from "../../components/SubmitButton";
@@ -33,6 +43,8 @@ export default async function ProposalPage({
     quantity: it.quantity,
     unitPrice: it.unitPrice,
   }));
+  const itemsTotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+  const price = proposalPrice(proposal, itemsTotal, items.length > 0);
 
   return (
     <div className="max-w-6xl">
@@ -112,6 +124,16 @@ export default async function ProposalPage({
             </div>
 
             <div>
+              <label className="label">Vocativo</label>
+              <input
+                name="greeting"
+                defaultValue={proposal.greeting ?? ""}
+                className="input"
+                placeholder={GREETING_PADRAO}
+              />
+            </div>
+
+            <div>
               <label className="label">Introdução</label>
               <textarea name="intro" rows={3} defaultValue={proposal.intro} className="input" />
             </div>
@@ -119,6 +141,23 @@ export default async function ProposalPage({
             <div>
               <label className="label">Escopo dos serviços</label>
               <textarea name="scope" rows={12} defaultValue={proposal.scope} className="input font-mono text-xs" />
+            </div>
+
+            <div>
+              <label className="label">
+                Não conformidades — {FINDING_COLUMNS.join(" · ")}
+              </label>
+              <textarea
+                name="findings"
+                rows={6}
+                defaultValue={proposal.findings ?? ""}
+                className="input font-mono text-xs"
+                placeholder={"A\t25\t7\tMetalshop\tLongarina\tMédia\tReposicionar"}
+              />
+              <p className="mt-1 text-xs text-slate-400">
+                Uma por linha, colunas separadas por TAB (cole direto do Excel) ou por &quot;|&quot;.
+                Colunas em branco não aparecem na proposta.
+              </p>
             </div>
 
             <div>
@@ -131,34 +170,67 @@ export default async function ProposalPage({
               <textarea name="notes" rows={4} defaultValue={proposal.notes ?? ""} className="input" />
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-3 rounded-lg border border-slate-200 p-3">
+              <p className="text-sm font-semibold text-slate-700">Composição do preço</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px]">
+                <div>
+                  <label className="label">Rótulo da mão de obra</label>
+                  <input name="laborLabel" defaultValue={proposal.laborLabel ?? ""} className="input" placeholder={MAO_DE_OBRA_LABEL} />
+                </div>
+                <div>
+                  <label className="label">Mão de obra (R$)</label>
+                  <input name="laborAmount" type="number" step="0.01" min="0" defaultValue={proposal.laborAmount} className="input" />
+                </div>
+                <div>
+                  <label className="label">Rótulo do equipamento</label>
+                  <input name="equipmentLabel" defaultValue={proposal.equipmentLabel ?? ""} className="input" placeholder={PTA_LABEL} />
+                </div>
+                <div>
+                  <label className="label">Equipamento (R$)</label>
+                  <input name="equipmentAmount" type="number" step="0.01" min="0" defaultValue={proposal.equipmentAmount} className="input" />
+                </div>
+                <div>
+                  <label className="label">
+                    Componentes{proposal.lead.items.length > 0 && " — soma dos itens do orçamento"}
+                  </label>
+                  <input
+                    name="amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    defaultValue={proposal.amount}
+                    disabled={proposal.lead.items.length > 0}
+                    className={`input ${proposal.lead.items.length > 0 ? "cursor-not-allowed opacity-60" : ""}`}
+                  />
+                </div>
+                <div>
+                  <label className="label">Frete (R$)</label>
+                  <input name="freightAmount" type="number" step="0.01" min="0" defaultValue={proposal.freightAmount} className="input" />
+                </div>
+              </div>
               <div>
-                <label className="label">Rótulo do valor</label>
+                <label className="label">Rótulo do preço total</label>
                 <input name="amountLabel" defaultValue={proposal.amountLabel ?? ""} className="input" />
               </div>
-              <div>
-                <label className="label">
-                  Valor (R$){proposal.lead.items.length > 0 && " — usa a soma dos itens"}
-                </label>
-                <input
-                  name="amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  defaultValue={proposal.amount}
-                  disabled={proposal.lead.items.length > 0}
-                  className={`input ${proposal.lead.items.length > 0 ? "cursor-not-allowed opacity-60" : ""}`}
-                />
-              </div>
+              <p className="text-xs text-slate-500">
+                Preço total: <strong>{formatCurrency(price.total)}</strong> — soma de mão de obra,
+                equipamento, componentes e frete.
+              </p>
             </div>
 
             <div>
               <label className="label">Impostos</label>
               <textarea name="taxes" rows={3} defaultValue={proposal.taxes ?? ""} className="input" />
             </div>
-            <div>
-              <label className="label">Prazo</label>
-              <textarea name="deadline" rows={2} defaultValue={proposal.deadline ?? ""} className="input" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label">Prazo de execução</label>
+                <textarea name="deadline" rows={2} defaultValue={proposal.deadline ?? ""} className="input" />
+              </div>
+              <div>
+                <label className="label">Prazo de fabricação</label>
+                <textarea name="fabricationDeadline" rows={2} defaultValue={proposal.fabricationDeadline ?? ""} className="input" />
+              </div>
             </div>
             <div>
               <label className="label">Cronograma (material / montagem)</label>
@@ -170,13 +242,21 @@ export default async function ProposalPage({
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="label">Cores</label>
-                <textarea name="colors" rows={3} defaultValue={proposal.colors ?? ""} className="input" placeholder="Montante – azul…" />
+                <label className="label">Descarga do material</label>
+                <textarea name="unloading" rows={3} defaultValue={proposal.unloading ?? ""} className="input" placeholder="Por conta do cliente…" />
               </div>
               <div>
                 <label className="label">Piso</label>
                 <textarea name="floorNote" rows={3} defaultValue={proposal.floorNote ?? ""} className="input" placeholder="Resistência e nivelamento…" />
               </div>
+            </div>
+            <div>
+              <label className="label">Tratamento de superfície e pintura</label>
+              <textarea name="surfaceTreatment" rows={3} defaultValue={proposal.surfaceTreatment ?? ""} className="input" />
+            </div>
+            <div>
+              <label className="label">Cores</label>
+              <textarea name="colors" rows={3} defaultValue={proposal.colors ?? ""} className="input" placeholder="Montante – azul…" />
             </div>
             <div>
               <label className="label">Garantia</label>

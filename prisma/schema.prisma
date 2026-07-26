@@ -420,17 +420,30 @@ model Proposal {
   siteLocation  String? // local da obra, quando diferente do endereço do cliente
   showNorms     Boolean      @default(false) // inclui a tabela de normas aplicadas
   // Corpo
+  greeting      String? // vocativo ("Prezados (as) Senhores (as)")
   intro         String // "Segue nossa proposta para…"
   scope         String // escopo técnico (texto padrão por tipo, editável)
+  // Não conformidades da inspeção (propostas de manutenção): uma por linha,
+  // colunas separadas por TAB (colar do Excel) ou "|".
+  findings      String?
   included      String? // "Incluso no preço" (uma linha por item)
   notes         String? // observações numeradas
-  // Comercial
+  // Comercial — o preço total é a soma de mão de obra + equipamento + frete +
+  // componentes (itens do orçamento, ou o valor fechado quando não há itens).
   amount        Float        @default(0)
   amountLabel   String? // ex.: "VALOR PARA INSPEÇÃO DOS CONJUNTOS"
-  deadline      String? // prazo de execução/fabricação
+  laborLabel    String? // ex.: "VALOR TOTAL DA MÃO DE OBRA"
+  laborAmount   Float        @default(0)
+  equipmentLabel String? // ex.: "Locação de plataforma pantográfica (PTA)"
+  equipmentAmount Float      @default(0)
+  freightAmount Float        @default(0) // frete de entrega dos componentes
+  deadline      String? // prazo de execução dos serviços
+  fabricationDeadline String? // prazo de fabricação, quando há fornecimento
   schedule      String? // cronograma (material / montagem), quando aplicável
   paymentTerms  String?
   taxes         String?
+  unloading     String? // descarga e movimentação do material na obra
+  surfaceTreatment String? // tratamento de superfície e pintura
   colors        String? // cores dos componentes (montante, longarina, acessórios)
   floorNote     String? // cláusula de piso/nivelamento
   warranty      String? // garantia dos materiais e serviços

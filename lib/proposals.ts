@@ -33,6 +33,9 @@ export const PROPOSAL_TYPE_PREFIX: Record<string, string> = {
   MANUTENCAO: "OR-MO-",
 };
 
+// Vocativo padrão das propostas.
+export const GREETING_PADRAO = "Prezados (as) Senhores (as)";
+
 // Dados fixos do rodapé/assinatura.
 export const COMPANY = {
   name: "DRR Projetos",
@@ -53,8 +56,15 @@ export type ProposalTemplate = {
   deadline: string;
   paymentTerms: string;
   taxes: string;
+  // Rótulos das parcelas do preço (mão de obra e equipamento), quando o tipo
+  // de serviço costuma separá-las do fornecimento de componentes.
+  laborLabel?: string;
+  equipmentLabel?: string;
   // Blocos opcionais das condições gerais (usados em fornecimento/montagem).
+  fabricationDeadline?: string;
   schedule?: string;
+  unloading?: string;
+  surfaceTreatment?: string;
   colors?: string;
   floorNote?: string;
   warranty?: string;
@@ -70,6 +80,15 @@ Demais componentes – galvanizado`;
 
 export const PISO_PADRAO = `A resistência do piso é de responsabilidade exclusiva do cliente, bem como o seu nivelamento.
 Os calços que se fizerem necessários serão cobrados à parte.`;
+
+export const DESCARGA_PADRAO =
+  "A descarga do material e a sua movimentação dentro da obra correm por conta do cliente.";
+
+export const TRATAMENTO_PADRAO = `O processo da linha de tratamento de superfície é composto das seguintes etapas: remoção de carepa de laminação e óxidos existentes nas chapas. Durante as etapas de banho são utilizados desengraxantes ácidos de composição orgânica, com qualidade de não remover o aço em excesso, reduzindo a geração de efluentes; após, recebe uma camada de pintura eletrostática a pó nas cores definidas, com no mínimo 40 mícron.`;
+
+// Rótulos das parcelas do preço mais usadas nas propostas de mão de obra.
+export const MAO_DE_OBRA_LABEL = "VALOR TOTAL DA MÃO DE OBRA";
+export const PTA_LABEL = "Locação de plataforma pantográfica (PTA)";
 
 export const GARANTIA_PADRAO = `Todos os nossos materiais, quando a instalação for feita por nossa equipe especializada, possuem garantia de 03 (três) meses para equipamentos seminovos e de 12 (doze) meses para equipamentos novos, contra defeitos de fabricação e montagem.
 A garantia se limita exclusivamente ao sistema e perderá sua validade caso: haja alteração no layout do sistema ou no entre níveis sem nossa autorização expressa e por escrito; não seja feita a manutenção preventiva e corretiva do sistema; o sistema sofra golpes, batidas ou qualquer outro tipo de dano; as cargas ultrapassem o máximo especificado na oferta.
@@ -160,9 +179,9 @@ O cliente deverá fornecer a plataforma pantográfica (PTA) para a inspeção do
       "Segue nossa proposta para manutenção das estruturas porta paletes existentes na unidade do cliente, conforme solicitado por V.Sa.",
     scope: `SERVIÇOS DE MÃO DE OBRA
 
-Execução dos serviços de reposicionamento, troca e instalação de componentes das estruturas porta paletes, conforme relação de não conformidades levantada em inspeção.
+Execução dos serviços de reposicionamento, troca e instalação de componentes das estruturas porta paletes, conforme a relação de não conformidades levantada em inspeção e detalhada nesta proposta.
 
-Os componentes a serem fornecidos e/ou substituídos estão relacionados na tabela de itens desta proposta.
+Os componentes a serem fornecidos e/ou substituídos estão relacionados na lista de componentes desta proposta.
 
 ${NORMAS}`,
     included: `Imposto — 5% de ISS sobre a mão de obra
@@ -174,13 +193,22 @@ Todos os EPI's para execução do serviço`,
 O horário de trabalho compreende o normal regido pela CLT e acordo coletivo da categoria: de segunda a quinta-feira das 8h às 17h e sexta-feira das 8h às 16h, com uma hora de almoço.
 Para serviços em finais de semana, feriados e/ou fora do horário estipulado serão cobrados valores adicionais de horas extras, mediante anuência expressa e por escrito.
 Caso haja perda de um dia de trabalho por razões não imputáveis à DRR Projetos, será cobrado R$ 750,00 por pessoa/dia, acrescido de eventuais custos de transporte e hospedagem, ou R$ 150,00 por hora em paralisações parciais.`,
-    amountLabel: "VALOR TOTAL DOS SERVIÇOS",
+    amountLabel: "PREÇO TOTAL DOS SERVIÇOS",
+    laborLabel:
+      "VALOR TOTAL DA MÃO DE OBRA PARA REPOSICIONAMENTO E TROCA DOS COMPONENTES",
+    equipmentLabel: PTA_LABEL,
     deadline: "35 dias úteis a contar da data do início dos serviços.",
+    fabricationDeadline:
+      "35 dias úteis a contar da data da aprovação do projeto para fabricação.",
     paymentTerms: `Fabricação — 40% de sinal, saldo 60 dias da data da confirmação do pedido.
 Mão de obra — 20% de sinal, saldo 30/60/90 dias da data da confirmação do pedido.`,
     taxes: `ISS — 5% incluso sobre a mão de obra.
 ICMS — 18% a incluir sobre o valor dos materiais.
 IPI — 3,5% a incluir sobre o valor dos materiais.`,
+    unloading: DESCARGA_PADRAO,
+    surfaceTreatment: TRATAMENTO_PADRAO,
+    colors: CORES_PADRAO,
+    warranty: "Garantia de 12 meses contra defeitos de fabricação.",
   },
 
   MATERIAL: {
@@ -189,19 +217,20 @@ IPI — 3,5% a incluir sobre o valor dos materiais.`,
       "Segue nossa proposta para fornecimento dos componentes relacionados abaixo, conforme solicitado por V.Sa.",
     scope: `COMPONENTES
 
-Fornecimento dos componentes relacionados na tabela de itens desta proposta, fabricados conforme padrão e normas técnicas aplicáveis às estruturas de armazenagem.
+Fornecimento dos componentes relacionados na lista de componentes desta proposta, fabricados conforme padrão e normas técnicas aplicáveis às estruturas de armazenagem.
 
-TRATAMENTO DE SUPERFÍCIE, PINTURA E CORES
-O processo da linha de tratamento de superfície é composto pela remoção de carepa de laminação e óxidos existentes nas chapas. Nas etapas de banho são utilizados desengraxantes ácidos de composição orgânica; após, recebe camada de pintura eletrostática a pó com no mínimo 40 mícron.
-Cores: longarinas laranja · itens de segurança (protetores e amarração) amarelo · demais galvanizado.`,
+Os componentes são identificados por fabricante, medida, capacidade de carga e cor, conforme a estrutura porta paletes existente na unidade do cliente.`,
     included: `ART referente aos componentes fornecidos
 Garantia de 12 meses contra defeitos de fabricação`,
     notes: `O cliente fica responsável pela descarga do material e se compromete a disponibilizar área para a execução da montagem, junto ao local do serviço.
 A movimentação dos materiais dentro da obra é por conta do cliente, quando os mesmos estiverem afastados do local da obra.`,
-    amountLabel: "VALOR TOTAL DOS COMPONENTES",
+    amountLabel: "VALOR TOTAL DO FORNECIMENTO",
     deadline: "30 dias úteis da data da confirmação do pedido (fabricação).",
+    fabricationDeadline: "30 dias úteis a partir da data da confirmação do pedido.",
     paymentTerms: "100% a 45 dias da data da confirmação do pedido.",
     taxes: `ICMS e IPI a incluir sobre o valor dos materiais, conforme legislação vigente.`,
+    unloading: DESCARGA_PADRAO,
+    surfaceTreatment: TRATAMENTO_PADRAO,
     colors: CORES_PADRAO,
     warranty: "Garantia de 12 meses contra defeitos de fabricação.",
     purchaseConfirmation: CONFIRMACAO_PADRAO,
@@ -230,8 +259,11 @@ Chumbadores e parafusos
 Despesas — transporte e alimentação da equipe
 Todos os EPI's e uniformes`,
     notes: OBS_MONTAGEM,
-    amountLabel: "VALOR TOTAL DA MONTAGEM",
+    amountLabel: "PREÇO TOTAL DO FORNECIMENTO E MONTAGEM",
+    laborLabel: "VALOR TOTAL DA MÃO DE OBRA DE MONTAGEM",
     deadline: "A definir conforme cronograma aprovado, a contar do início dos serviços.",
+    fabricationDeadline:
+      "40 dias a contar da data da aprovação do projeto para fabricação.",
     paymentTerms: `Fabricação — 40% de sinal, saldo 60 dias da data da confirmação do pedido.
 Mão de obra — 20% de sinal, saldo 30/60/90 dias da data da confirmação do pedido.`,
     taxes: `ISS — 5% incluso sobre a mão de obra.
@@ -239,6 +271,8 @@ ICMS — 18% a incluir sobre o valor dos materiais.
 IPI — 3,5% a incluir sobre o valor dos materiais.`,
     schedule: `Material — 40 dias a contar da data da aprovação do projeto para fabricação.
 Montagem — 15 dias a contar da liberação da área pelo cliente.`,
+    unloading: DESCARGA_PADRAO,
+    surfaceTreatment: TRATAMENTO_PADRAO,
     colors: CORES_PADRAO,
     floorNote: PISO_PADRAO,
     warranty: GARANTIA_PADRAO,
@@ -270,6 +304,8 @@ O cliente deverá disponibilizar a área de destino livre, desimpedida e nivelad
 Componentes danificados identificados durante a desmontagem serão relacionados em proposta complementar de fornecimento.
 Serviços em finais de semana, feriados e/ou fora do horário normal terão cobrança adicional de horas extras, mediante anuência expressa e por escrito.`,
     amountLabel: "VALOR TOTAL DO REMANEJAMENTO",
+    laborLabel: "VALOR TOTAL DA MÃO DE OBRA DE REMANEJAMENTO",
+    equipmentLabel: PTA_LABEL,
     deadline: "A definir conforme cronograma aprovado, a contar do início dos serviços.",
     paymentTerms: "20% de sinal, saldo 30/60/90 dias da data da confirmação do pedido.",
     taxes: "ISS — 5% incluso sobre a mão de obra.",
@@ -296,6 +332,8 @@ Chumbadores e parafusos
 EPIs e uniformes`,
     notes: OBS_MONTAGEM,
     amountLabel: "VALOR TOTAL DO SERVIÇO",
+    laborLabel: "VALOR TOTAL DA MÃO DE OBRA",
+    equipmentLabel: PTA_LABEL,
     deadline: "Desmontagem e montagem — 10 dias.",
     paymentTerms: "50% na confirmação, saldo 30 dias da data do término dos serviços.",
     taxes: "Incluso.",
@@ -392,6 +430,81 @@ Atrasos na devolução serão cobrados proporcionalmente ao valor mensal da loca
 
 export function proposalTemplate(type: string): ProposalTemplate {
   return TEMPLATES[(type as ProposalTypeId)] ?? TEMPLATES.INSPECAO;
+}
+
+// ---- Não conformidades (relação da inspeção nas propostas de manutenção) ----
+
+export type Finding = {
+  aisle: string; // RUA
+  location: string; // LOCALIZAÇÃO
+  level: string; // NÍVEL
+  maker: string; // FABRICANTE
+  component: string; // COMPONENTE
+  damage: string; // DANO (leve / média / grave / falta)
+  action: string; // AÇÃO (reposicionar / troca / instalar)
+};
+
+export const FINDING_COLUMNS = [
+  "RUA",
+  "LOCALIZAÇÃO",
+  "NÍVEL",
+  "FABRICANTE",
+  "COMPONENTE",
+  "DANO",
+  "AÇÃO",
+] as const;
+
+// Uma não conformidade por linha, colunas separadas por TAB (colar direto do
+// Excel) ou por "|". Uma eventual linha de cabeçalho é descartada.
+export function parseFindings(text: string | null): Finding[] {
+  const rows = (text ?? "")
+    .split("\n")
+    .map((line) => line.split(/\t|\|/).map((c) => c.trim()))
+    .filter((cells) => cells.some(Boolean));
+
+  return rows
+    .filter((cells, i) => !(i === 0 && /^rua$/i.test(cells[0] ?? "")))
+    .map((c) => ({
+      aisle: c[0] ?? "",
+      location: c[1] ?? "",
+      level: c[2] ?? "",
+      maker: c[3] ?? "",
+      component: c[4] ?? "",
+      damage: c[5] ?? "",
+      action: c[6] ?? "",
+    }));
+}
+
+// Cor da célula "DANO", no padrão usado nas propostas impressas da DRR.
+export function damageClass(damage: string): string {
+  const d = damage.toLowerCase();
+  if (d.startsWith("grav")) return "bg-red-100 font-semibold text-red-800";
+  if (d.startsWith("falt")) return "bg-amber-100 font-semibold text-amber-800";
+  if (d.startsWith("méd") || d.startsWith("med")) return "bg-yellow-50 text-amber-700";
+  return "";
+}
+
+// ---- Composição do preço ----
+
+export type PriceInput = {
+  amount: number;
+  laborAmount: number;
+  equipmentAmount: number;
+  freightAmount: number;
+};
+
+// O preço total soma mão de obra, equipamento, frete e componentes. Quando o
+// orçamento tem itens, eles são a parcela de componentes; sem itens, vale o
+// valor fechado digitado na proposta.
+export function proposalPrice(doc: PriceInput, itemsTotal: number, hasItems: boolean) {
+  const components = hasItems ? itemsTotal : doc.amount;
+  return {
+    labor: doc.laborAmount,
+    equipment: doc.equipmentAmount,
+    freight: doc.freightAmount,
+    components,
+    total: doc.laborAmount + doc.equipmentAmount + doc.freightAmount + components,
+  };
 }
 
 // "26181" + revisão 2 => "26.181-R2" (formato usado nas propostas).
