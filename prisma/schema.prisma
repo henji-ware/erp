@@ -143,6 +143,7 @@ enum ProposalType {
   MONTAGEM
   REMANEJAMENTO
   DESMONTAGEM
+  SUPERVISAO
   PROJETO
   LOCACAO
 }
@@ -410,11 +411,14 @@ model Proposal {
   type          ProposalType @default(INSPECAO)
   title         String // ex.: "INSPEÇÃO ESTAMPARIA"
   // Destinatário (copiado do cliente, editável na proposta)
+  treatment     String       @default("A") // "A", "AO", "À"
   clientName    String
   clientCity    String? // "Santa Isabel/SP"
   contactName   String?
   contactPhone  String?
   contactEmail  String?
+  siteLocation  String? // local da obra, quando diferente do endereço do cliente
+  showNorms     Boolean      @default(false) // inclui a tabela de normas aplicadas
   // Corpo
   intro         String // "Segue nossa proposta para…"
   scope         String // escopo técnico (texto padrão por tipo, editável)

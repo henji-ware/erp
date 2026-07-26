@@ -1,5 +1,11 @@
 import { formatCurrency } from "@/lib/format";
-import { COMPANY, longDate, proposalNumber } from "@/lib/proposals";
+import {
+  COMPANY,
+  longDate,
+  proposalNumber,
+  currencyInWords,
+  NORMAS_TABLE,
+} from "@/lib/proposals";
 
 type Item = { description: string; quantity: number; unitPrice: number };
 
@@ -7,7 +13,10 @@ type Doc = {
   revision: number;
   type: string;
   title: string;
+  treatment: string;
   clientName: string;
+  siteLocation: string | null;
+  showNorms: boolean;
   clientCity: string | null;
   contactName: string | null;
   contactPhone: string | null;
@@ -62,12 +71,17 @@ export function ProposalDoc({
 
       {/* Destinatário */}
       <section className="mb-6">
-        <p className="text-sm text-slate-500">A</p>
+        <p className="text-sm text-slate-500">{doc.treatment || "A"}</p>
         <p className="text-lg font-bold text-slate-900">{doc.clientName}</p>
         {doc.clientCity && <p className="text-sm text-slate-600">{doc.clientCity}</p>}
         {doc.contactName && <p className="mt-2 text-sm font-semibold text-slate-800">{doc.contactName}</p>}
         {doc.contactPhone && <p className="text-sm text-slate-600">Fone: {doc.contactPhone}</p>}
         {doc.contactEmail && <p className="text-sm text-slate-600">E-mail: {doc.contactEmail}</p>}
+        {doc.siteLocation && (
+          <p className="mt-2 text-sm text-slate-600">
+            <strong>Local da obra:</strong> {doc.siteLocation}
+          </p>
+        )}
       </section>
 
       {/* Assunto */}
@@ -126,6 +140,7 @@ export function ProposalDoc({
         <p className="text-base font-bold text-slate-900">
           {doc.amountLabel ?? "VALOR TOTAL"} — {formatCurrency(total)}
         </p>
+        <p className="text-xs text-slate-600">({currencyInWords(total)})</p>
         {doc.taxes && <p className="mt-1 whitespace-pre-line text-xs text-slate-600">{doc.taxes}</p>}
       </section>
 
@@ -169,6 +184,33 @@ export function ProposalDoc({
               <li key={i}>{l}</li>
             ))}
           </ol>
+        </section>
+      )}
+
+      {/* Normas aplicadas (opcional) */}
+      {doc.showNorms && (
+        <section className="mb-6">
+          <h3 className="mb-2 text-sm font-bold text-slate-900">NORMAS APLICADAS:</h3>
+          <table className="w-full border-collapse text-[10px] leading-tight">
+            <thead>
+              <tr className="bg-slate-100">
+                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold">Nome / Código</th>
+                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold">Título</th>
+                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold">Origem</th>
+                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold">Objetivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {NORMAS_TABLE.map((n) => (
+                <tr key={n.code}>
+                  <td className="border border-slate-300 px-1.5 py-1 font-medium">{n.code}</td>
+                  <td className="border border-slate-300 px-1.5 py-1">{n.title}</td>
+                  <td className="border border-slate-300 px-1.5 py-1">{n.origin}</td>
+                  <td className="border border-slate-300 px-1.5 py-1">{n.goal}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       )}
 

@@ -73,7 +73,15 @@ export default async function ProposalPage({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-[70px_1fr_1fr] gap-3">
+              <div>
+                <label className="label">Trat.</label>
+                <select name="treatment" defaultValue={proposal.treatment} className="input">
+                  <option value="A">A</option>
+                  <option value="AO">AO</option>
+                  <option value="À">À</option>
+                </select>
+              </div>
               <div>
                 <label className="label">Cliente</label>
                 <input name="clientName" defaultValue={proposal.clientName} className="input" />
@@ -82,6 +90,10 @@ export default async function ProposalPage({
                 <label className="label">Cidade / UF</label>
                 <input name="clientCity" defaultValue={proposal.clientCity ?? ""} className="input" placeholder="Santa Isabel/SP" />
               </div>
+            </div>
+            <div>
+              <label className="label">Local da obra (se diferente)</label>
+              <input name="siteLocation" defaultValue={proposal.siteLocation ?? ""} className="input" placeholder="Ex.: Pouso Alegre/MG" />
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -171,6 +183,16 @@ export default async function ProposalPage({
                 <input name="signerEmail" defaultValue={proposal.signerEmail ?? ""} className="input" />
               </div>
             </div>
+
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                name="showNorms"
+                defaultChecked={proposal.showNorms}
+                className="h-4 w-4"
+              />
+              Incluir tabela de normas aplicadas (AISI, FEM, NBR, RMI…)
+            </label>
 
             <div className="flex flex-wrap gap-2 pt-1">
               <SubmitButton>Salvar e atualizar prévia</SubmitButton>
