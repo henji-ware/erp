@@ -161,8 +161,34 @@ export default async function ProposalPage({
               <textarea name="deadline" rows={2} defaultValue={proposal.deadline ?? ""} className="input" />
             </div>
             <div>
+              <label className="label">Cronograma (material / montagem)</label>
+              <textarea name="schedule" rows={2} defaultValue={proposal.schedule ?? ""} className="input" placeholder="Material — 40 dias… / Montagem — 15 dias…" />
+            </div>
+            <div>
               <label className="label">Condições de pagamento</label>
               <textarea name="paymentTerms" rows={3} defaultValue={proposal.paymentTerms ?? ""} className="input" />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label">Cores</label>
+                <textarea name="colors" rows={3} defaultValue={proposal.colors ?? ""} className="input" placeholder="Montante – azul…" />
+              </div>
+              <div>
+                <label className="label">Piso</label>
+                <textarea name="floorNote" rows={3} defaultValue={proposal.floorNote ?? ""} className="input" placeholder="Resistência e nivelamento…" />
+              </div>
+            </div>
+            <div>
+              <label className="label">Garantia</label>
+              <textarea name="warranty" rows={3} defaultValue={proposal.warranty ?? ""} className="input" />
+            </div>
+            <div>
+              <label className="label">Confirmação de compra</label>
+              <textarea name="purchaseConfirmation" rows={3} defaultValue={proposal.purchaseConfirmation ?? ""} className="input" />
+            </div>
+            <div>
+              <label className="label">NCM</label>
+              <input name="ncm" defaultValue={proposal.ncm ?? ""} className="input" placeholder="73.08.90.90" />
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">

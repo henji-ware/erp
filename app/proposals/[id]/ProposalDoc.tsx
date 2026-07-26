@@ -1,10 +1,10 @@
 import { formatCurrency } from "@/lib/format";
 import {
   COMPANY,
+  NORMAS_TABLE,
+  currencyInWords,
   longDate,
   proposalNumber,
-  currencyInWords,
-  NORMAS_TABLE,
 } from "@/lib/proposals";
 
 type Item = { description: string; quantity: number; unitPrice: number };
@@ -15,12 +15,12 @@ type Doc = {
   title: string;
   treatment: string;
   clientName: string;
-  siteLocation: string | null;
-  showNorms: boolean;
   clientCity: string | null;
   contactName: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
+  siteLocation: string | null;
+  showNorms: boolean;
   intro: string;
   scope: string;
   included: string | null;
@@ -28,8 +28,14 @@ type Doc = {
   amount: number;
   amountLabel: string | null;
   deadline: string | null;
+  schedule: string | null;
   paymentTerms: string | null;
   taxes: string | null;
+  colors: string | null;
+  floorNote: string | null;
+  warranty: string | null;
+  purchaseConfirmation: string | null;
+  ncm: string | null;
   validityDays: number;
   signedBy: string | null;
   signerPhone: string | null;
@@ -41,7 +47,19 @@ type Doc = {
 const lines = (s: string | null) =>
   (s ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
 
-// Documento da proposta no padrão DRR — é o que sai na impressão/PDF.
+// Bloco "RÓTULO: conteúdo" das condições gerais.
+function Field({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="mb-2.5">
+      <p className="text-[10.5pt] font-bold text-slate-900">{label}:</p>
+      <p className="whitespace-pre-line text-[10.5pt] leading-relaxed">{value}</p>
+    </div>
+  );
+}
+
+// Documento da proposta no padrão visual da DRR: papel timbrado com logo,
+// filete duplo, marca d'água ao fundo e rodapé com os dados da empresa.
 export function ProposalDoc({
   doc,
   leadNumber,
@@ -55,190 +73,211 @@ export function ProposalDoc({
   const total = items.length > 0 ? itemsTotal : doc.amount;
 
   return (
-    <article className="proposal-doc mx-auto max-w-[820px] bg-white p-10 text-slate-800 shadow-sm print:p-0 print:shadow-none">
-      {/* Cabeçalho da marca */}
-      <header className="mb-8 flex items-center justify-between border-b-2 border-slate-300 pb-4">
-        <div className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="DRR Projetos" width={64} height={64} className="object-contain" />
-          <div>
-            <p className="text-lg font-bold text-slate-900">{COMPANY.name}</p>
-            <p className="text-xs uppercase tracking-widest text-slate-500">{COMPANY.tagline}</p>
-          </div>
-        </div>
-        <p className="text-right text-xs text-slate-500">{longDate(doc.createdAt)}</p>
+    <article className="proposal-doc">
+      {/* Marca d'água (repete em todas as páginas impressas) */}
+      <div className="proposal-watermark" aria-hidden="true">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="" />
+      </div>
+
+      {/* Cabeçalho timbrado */}
+      <header className="proposal-header">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="DRR Projetos" className="proposal-logo" />
+        <div className="proposal-rule" />
       </header>
 
-      {/* Destinatário */}
-      <section className="mb-6">
-        <p className="text-sm text-slate-500">{doc.treatment || "A"}</p>
-        <p className="text-lg font-bold text-slate-900">{doc.clientName}</p>
-        {doc.clientCity && <p className="text-sm text-slate-600">{doc.clientCity}</p>}
-        {doc.contactName && <p className="mt-2 text-sm font-semibold text-slate-800">{doc.contactName}</p>}
-        {doc.contactPhone && <p className="text-sm text-slate-600">Fone: {doc.contactPhone}</p>}
-        {doc.contactEmail && <p className="text-sm text-slate-600">E-mail: {doc.contactEmail}</p>}
+      <div className="proposal-body">
+        <p className="mb-6 text-right text-[10.5pt]">{longDate(doc.createdAt)}</p>
+
+        {/* Destinatário */}
+        <section className="mb-6">
+          <p className="text-[10.5pt]">{doc.treatment || "A"}</p>
+          <p className="text-[13pt] font-bold text-slate-900">{doc.clientName}</p>
+          {doc.clientCity && <p className="text-[10.5pt]">{doc.clientCity}</p>}
+          {doc.contactName && (
+            <p className="mt-3 text-[10.5pt] font-bold text-slate-900">{doc.contactName}</p>
+          )}
+          {doc.contactPhone && <p className="text-[10.5pt]">Fone: {doc.contactPhone}</p>}
+          {doc.contactEmail && (
+            <p className="text-[10.5pt]">
+              E-mail: <span className="text-blue-700 underline">{doc.contactEmail}</span>
+            </p>
+          )}
+        </section>
+
+        {/* Assunto */}
+        <h1 className="mb-5 text-[11pt] font-bold italic text-slate-900">
+          Proposta N° {proposalNumber(leadNumber, doc.revision, doc.type)}
+          {doc.title ? ` – ${doc.title}` : ""}
+        </h1>
+
+        <p className="mb-3 text-[10.5pt] font-bold text-slate-900">Prezados (as) Senhores (as)</p>
+        <p className="mb-6 whitespace-pre-line text-justify text-[10.5pt] leading-relaxed">
+          {doc.intro}
+        </p>
+
         {doc.siteLocation && (
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mb-5 text-[10.5pt]">
             <strong>Local da obra:</strong> {doc.siteLocation}
           </p>
         )}
-      </section>
 
-      {/* Assunto */}
-      <h1 className="mb-5 text-base font-bold italic text-slate-900">
-        Proposta N° {proposalNumber(leadNumber, doc.revision, doc.type)} — {doc.title}
-      </h1>
-
-      <p className="mb-3 text-sm font-semibold text-slate-800">Prezados (as) Senhores (as),</p>
-      <p className="mb-6 whitespace-pre-line text-sm leading-relaxed">{doc.intro}</p>
-
-      {/* A. Escopo */}
-      <section className="mb-6 break-inside-avoid">
-        <h2 className="mb-2 text-sm font-bold text-slate-900">A. ESCOPO DOS SERVIÇOS</h2>
-        <div className="whitespace-pre-line text-sm leading-relaxed">{doc.scope}</div>
-      </section>
-
-      {/* Itens (quando o orçamento tem itens) */}
-      {items.length > 0 && (
+        {/* A. Escopo */}
         <section className="mb-6 break-inside-avoid">
-          <h2 className="mb-2 text-sm font-bold text-slate-900">B. RELAÇÃO DE ITENS</h2>
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="bg-slate-100">
-                <th className="border border-slate-300 px-2 py-1 text-left font-semibold">Item</th>
-                <th className="border border-slate-300 px-2 py-1 text-left font-semibold">Descrição</th>
-                <th className="border border-slate-300 px-2 py-1 text-center font-semibold">Qtde</th>
-                <th className="border border-slate-300 px-2 py-1 text-right font-semibold">V. unit.</th>
-                <th className="border border-slate-300 px-2 py-1 text-right font-semibold">V. total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it, i) => (
-                <tr key={i}>
-                  <td className="border border-slate-300 px-2 py-1 text-center">{i + 1}</td>
-                  <td className="border border-slate-300 px-2 py-1">{it.description}</td>
-                  <td className="border border-slate-300 px-2 py-1 text-center">{it.quantity}</td>
-                  <td className="border border-slate-300 px-2 py-1 text-right">{formatCurrency(it.unitPrice)}</td>
-                  <td className="border border-slate-300 px-2 py-1 text-right">
-                    {formatCurrency(it.unitPrice * it.quantity)}
-                  </td>
+          <h2 className="mb-2 text-[11pt] font-bold text-slate-900">A. DESCRIÇÃO DOS SERVIÇOS</h2>
+          <div className="whitespace-pre-line text-justify text-[10.5pt] leading-relaxed">
+            {doc.scope}
+          </div>
+        </section>
+
+        {/* B. Itens */}
+        {items.length > 0 && (
+          <section className="mb-6 break-inside-avoid">
+            <h2 className="mb-2 text-[11pt] font-bold text-slate-900">B. LISTA DE COMPONENTES</h2>
+            <table className="proposal-table">
+              <thead>
+                <tr>
+                  <th className="w-12 text-center">ITEM</th>
+                  <th>DESCRIÇÃO</th>
+                  <th className="w-16 text-center">QUANT.</th>
+                  <th className="w-24 text-right">V$ UNT.</th>
+                  <th className="w-28 text-right">V$ TOTAL</th>
                 </tr>
+              </thead>
+              <tbody>
+                {items.map((it, i) => (
+                  <tr key={i}>
+                    <td className="text-center">{i + 1}</td>
+                    <td>{it.description}</td>
+                    <td className="text-center">{it.quantity}</td>
+                    <td className="text-right">{formatCurrency(it.unitPrice)}</td>
+                    <td className="text-right">{formatCurrency(it.unitPrice * it.quantity)}</td>
+                  </tr>
+                ))}
+                <tr className="proposal-total-row">
+                  <td colSpan={4} className="text-right">TOTAL</td>
+                  <td className="text-right">{formatCurrency(itemsTotal)}</td>
+                </tr>
+              </tbody>
+            </table>
+            {doc.ncm && <p className="mt-1 text-[9pt] text-slate-600">NCM: {doc.ncm}</p>}
+          </section>
+        )}
+
+        {/* Valor */}
+        <section className="mb-6 break-inside-avoid text-center">
+          <p className="text-[12pt] font-bold text-slate-900">
+            {doc.amountLabel ?? "VALOR TOTAL"} — {formatCurrency(total)}
+          </p>
+          <p className="text-[10pt] font-semibold">({currencyInWords(total)})</p>
+          {doc.taxes && (
+            <p className="mt-1 whitespace-pre-line text-[9.5pt] text-slate-700">{doc.taxes}</p>
+          )}
+        </section>
+
+        {/* Incluso no preço */}
+        {lines(doc.included).length > 0 && (
+          <section className="mb-6 break-inside-avoid">
+            <h3 className="mb-1 text-[10.5pt] font-bold text-slate-900">Incluso no preço:</h3>
+            <ul className="space-y-0.5 text-[10.5pt]">
+              {lines(doc.included).map((l, i) => (
+                <li key={i}>✓ {l}</li>
               ))}
-              <tr className="bg-slate-50 font-bold">
-                <td className="border border-slate-300 px-2 py-1 text-right" colSpan={4}>
-                  TOTAL
-                </td>
-                <td className="border border-slate-300 px-2 py-1 text-right">{formatCurrency(itemsTotal)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-      )}
-
-      {/* Valor */}
-      <section className="mb-6 break-inside-avoid text-center">
-        <p className="text-base font-bold text-slate-900">
-          {doc.amountLabel ?? "VALOR TOTAL"} — {formatCurrency(total)}
-        </p>
-        <p className="text-xs text-slate-600">({currencyInWords(total)})</p>
-        {doc.taxes && <p className="mt-1 whitespace-pre-line text-xs text-slate-600">{doc.taxes}</p>}
-      </section>
-
-      {/* Incluso no preço */}
-      {lines(doc.included).length > 0 && (
-        <section className="mb-6 break-inside-avoid">
-          <h3 className="mb-1 text-sm font-bold text-slate-900">Incluso no preço:</h3>
-          <ul className="space-y-0.5 text-sm">
-            {lines(doc.included).map((l, i) => (
-              <li key={i}>✓ {l}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Condições */}
-      <section className="mb-6 break-inside-avoid">
-        <h2 className="mb-2 text-sm font-bold text-slate-900">C. CONDIÇÕES DE FORNECIMENTO</h2>
-        {doc.deadline && (
-          <p className="mb-2 text-sm">
-            <strong>PRAZO:</strong> <span className="whitespace-pre-line">{doc.deadline}</span>
-          </p>
+            </ul>
+          </section>
         )}
-        {doc.paymentTerms && (
-          <p className="mb-2 text-sm">
-            <strong>CONDIÇÕES DE PAGAMENTO:</strong>{" "}
-            <span className="whitespace-pre-line">{doc.paymentTerms}</span>
-          </p>
-        )}
-        <p className="text-sm">
-          <strong>VALIDADE DA PROPOSTA:</strong> {doc.validityDays} dias a partir desta data.
-        </p>
-      </section>
 
-      {/* Observações */}
-      {lines(doc.notes).length > 0 && (
-        <section className="mb-6 break-inside-avoid">
-          <h3 className="mb-1 text-sm font-bold text-slate-900">Observações:</h3>
-          <ol className="list-decimal space-y-1 pl-5 text-sm">
-            {lines(doc.notes).map((l, i) => (
-              <li key={i}>{l}</li>
-            ))}
-          </ol>
-        </section>
-      )}
-
-      {/* Normas aplicadas (opcional) */}
-      {doc.showNorms && (
+        {/* Condições gerais */}
         <section className="mb-6">
-          <h3 className="mb-2 text-sm font-bold text-slate-900">NORMAS APLICADAS:</h3>
-          <table className="w-full border-collapse text-[10px] leading-tight">
-            <thead>
-              <tr className="bg-slate-100">
-                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold">Nome / Código</th>
-                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold">Título</th>
-                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold">Origem</th>
-                <th className="border border-slate-300 px-1.5 py-1 text-left font-semibold">Objetivo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {NORMAS_TABLE.map((n) => (
-                <tr key={n.code}>
-                  <td className="border border-slate-300 px-1.5 py-1 font-medium">{n.code}</td>
-                  <td className="border border-slate-300 px-1.5 py-1">{n.title}</td>
-                  <td className="border border-slate-300 px-1.5 py-1">{n.origin}</td>
-                  <td className="border border-slate-300 px-1.5 py-1">{n.goal}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <h2 className="mb-2 text-[11pt] font-bold text-slate-900">C. CONDIÇÕES GERAIS</h2>
+          <Field label="IMPOSTOS" value={doc.taxes} />
+          <Field label="PRAZO" value={doc.deadline} />
+          <Field label="CRONOGRAMA" value={doc.schedule} />
+          <Field label="CONDIÇÕES DE PAGAMENTO" value={doc.paymentTerms} />
+          <Field label="CORES" value={doc.colors} />
+          <Field label="PISO" value={doc.floorNote} />
+          <Field label="GARANTIA" value={doc.warranty} />
+          <Field label="CONFIRMAÇÃO DE COMPRA" value={doc.purchaseConfirmation} />
+          <div className="mb-2.5">
+            <p className="text-[10.5pt] font-bold text-slate-900">VALIDADE DA PROPOSTA:</p>
+            <p className="text-[10.5pt]">
+              A proposta é válida por {doc.validityDays} dias a partir desta data.
+            </p>
+          </div>
         </section>
-      )}
 
-      {/* Fecho e assinatura */}
-      <section className="mt-10 break-inside-avoid">
-        <p className="mb-6 text-sm">
-          Sem mais para o momento, colocamo-nos à disposição para os esclarecimentos que se
-          fizerem necessários.
-        </p>
-        <p className="mb-4 text-sm">Atenciosamente,</p>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="" width={52} height={52} className="mb-1 object-contain" />
-        <p className="text-sm font-bold italic text-slate-900">
-          {doc.signedBy ?? "DRR Projetos"}
-        </p>
-        {doc.signerPhone && <p className="text-sm text-slate-600">Fone: {doc.signerPhone}</p>}
-        {doc.signerEmail && <p className="text-sm text-slate-600">E-mail: {doc.signerEmail}</p>}
-        <p className="mt-4 text-xs font-semibold italic text-green-700">
-          Antes de imprimir, pense na responsabilidade com o meio ambiente.
-        </p>
-      </section>
+        {/* Observações */}
+        {lines(doc.notes).length > 0 && (
+          <section className="mb-6">
+            <h3 className="mb-1 text-[10.5pt] font-bold underline">OBSERVAÇÕES GERAIS</h3>
+            <ol className="list-decimal space-y-1.5 pl-5 text-justify text-[10.5pt] leading-relaxed">
+              {lines(doc.notes).map((l, i) => (
+                <li key={i}>{l}</li>
+              ))}
+            </ol>
+          </section>
+        )}
 
-      {/* Rodapé (repete em todas as páginas impressas) */}
-      <div className="report-footer">
-        <span>{COMPANY.city} — Fone: {COMPANY.phone}</span>
-        <span>{COMPANY.email}</span>
-        <span>{COMPANY.site}</span>
+        {/* Normas aplicadas */}
+        {doc.showNorms && (
+          <section className="mb-6 break-inside-avoid">
+            <h2 className="mb-2 text-[11pt] font-bold text-slate-900">NORMAS APLICADAS</h2>
+            <table className="proposal-table">
+              <thead>
+                <tr>
+                  <th className="w-32">Nome / Código</th>
+                  <th>Título</th>
+                  <th className="w-24">Origem</th>
+                  <th className="w-36">Objetivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {NORMAS_TABLE.map((n) => (
+                  <tr key={n.code}>
+                    <td>{n.code}</td>
+                    <td>{n.title}</td>
+                    <td>{n.origin}</td>
+                    <td>{n.goal}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
+
+        {/* Fecho e assinatura */}
+        <section className="mt-8 break-inside-avoid">
+          <p className="mb-5 text-justify text-[10.5pt] leading-relaxed">
+            Sem mais para o momento, colocamo-nos à disposição para os esclarecimentos que se
+            fizerem necessários.
+          </p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="" className="mb-1 h-12 object-contain" />
+          <p className="text-[10.5pt] font-bold italic text-slate-900">
+            {doc.signedBy ?? COMPANY.name}
+          </p>
+          {doc.signerPhone && <p className="text-[10.5pt]">Fone: {doc.signerPhone}</p>}
+          {doc.signerEmail && (
+            <p className="text-[10.5pt]">
+              E-mail: <span className="text-blue-700 underline">{doc.signerEmail}</span>
+            </p>
+          )}
+          <p className="mt-3 text-[9.5pt] font-bold italic text-green-700">
+            Antes de imprimir, pense na responsabilidade com o meio ambiente.
+          </p>
+        </section>
       </div>
+
+      {/* Rodapé timbrado (repete em todas as páginas impressas) */}
+      <footer className="proposal-footer">
+        <div className="proposal-rule" />
+        <p>
+          {COMPANY.city} – Fones: {COMPANY.phone}
+        </p>
+        <p>e-mail: {COMPANY.email}</p>
+        <p>{COMPANY.site}</p>
+      </footer>
     </article>
   );
 }

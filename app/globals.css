@@ -224,6 +224,99 @@ html {
 }
 
 /* =========================================================================
+   PROPOSTA — papel timbrado DRR (tela e impressão)
+   ========================================================================= */
+
+.proposal-doc {
+  position: relative;
+  width: 100%;
+  max-width: 210mm;
+  margin: 0 auto;
+  background: #ffffff;
+  color: #1e293b;
+  font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+  padding: 14mm 16mm 22mm;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 8px 24px -8px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+/* Marca d'água: logo grande e translúcida ao fundo */
+.proposal-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 0;
+}
+.proposal-watermark img {
+  width: 70%;
+  max-width: 130mm;
+  opacity: 0.07;
+  object-fit: contain;
+}
+
+.proposal-header {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  margin-bottom: 6mm;
+}
+.proposal-logo {
+  height: 20mm;
+  margin: 0 auto 2mm;
+  object-fit: contain;
+}
+/* Filete duplo (vermelho sobre azul) do papel timbrado */
+.proposal-rule {
+  height: 3px;
+  background: #c8102e;
+  border-bottom: 2px solid #1f3864;
+}
+
+.proposal-body {
+  position: relative;
+  z-index: 1;
+}
+
+.proposal-footer {
+  position: relative;
+  z-index: 1;
+  margin-top: 8mm;
+  text-align: center;
+  font-size: 8.5pt;
+  color: #475569;
+}
+.proposal-footer .proposal-rule {
+  margin-bottom: 2mm;
+}
+
+/* Tabelas no padrão das propostas: cabeçalho azul-marinho, bordas finas */
+.proposal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+}
+.proposal-table th,
+.proposal-table td {
+  border: 1px solid #94a3b8;
+  padding: 3px 6px;
+  vertical-align: middle;
+}
+.proposal-table thead th {
+  background: #1f3864;
+  color: #ffffff;
+  font-weight: 700;
+  text-align: center;
+}
+.proposal-table .proposal-total-row td {
+  background: #1f3864;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* =========================================================================
    SIDEBAR — mobile drawer + desktop collapse
    ========================================================================= */
 
@@ -475,14 +568,53 @@ html.no-anim *::after {
   .grid {
     break-inside: avoid;
   }
-  /* Proposta: só o documento vai para o papel, ocupando a página inteira */
+  /* ---- Proposta impressa: papel timbrado em todas as páginas ---- */
   .proposal-doc {
     max-width: none !important;
+    width: auto !important;
+    margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;
+    overflow: visible !important;
   }
-  .proposal-doc table {
-    font-size: 9.5pt;
+  /* Margens da folha reservam espaço para o timbre e o rodapé fixos */
+  @page {
+    margin: 34mm 16mm 26mm;
+  }
+  /* Cabeçalho, rodapé e marca d'água fixos => repetem em cada página */
+  .proposal-header {
+    position: fixed;
+    top: -30mm;
+    left: 0;
+    right: 0;
+    margin: 0;
+  }
+  .proposal-logo {
+    height: 17mm;
+  }
+  .proposal-footer {
+    position: fixed;
+    bottom: -22mm;
+    left: 0;
+    right: 0;
+    margin: 0;
+  }
+  .proposal-watermark {
+    position: fixed;
+    inset: 0;
+  }
+  .proposal-watermark img {
+    width: 60%;
+    opacity: 0.06;
+  }
+  .proposal-body {
+    font-size: 10.5pt;
+  }
+  .proposal-table {
+    break-inside: auto;
+  }
+  .proposal-table thead {
+    display: table-header-group;
   }
   .break-inside-avoid {
     break-inside: avoid;

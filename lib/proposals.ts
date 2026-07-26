@@ -53,7 +53,32 @@ export type ProposalTemplate = {
   deadline: string;
   paymentTerms: string;
   taxes: string;
+  // Blocos opcionais das condições gerais (usados em fornecimento/montagem).
+  schedule?: string;
+  colors?: string;
+  floorNote?: string;
+  warranty?: string;
+  purchaseConfirmation?: string;
+  ncm?: string;
 };
+
+// Blocos reutilizados nas condições gerais (texto padrão das propostas DRR).
+export const CORES_PADRAO = `Montante – azul
+Longarinas – laranja
+Acessórios e itens de segurança – amarelo
+Demais componentes – galvanizado`;
+
+export const PISO_PADRAO = `A resistência do piso é de responsabilidade exclusiva do cliente, bem como o seu nivelamento.
+Os calços que se fizerem necessários serão cobrados à parte.`;
+
+export const GARANTIA_PADRAO = `Todos os nossos materiais, quando a instalação for feita por nossa equipe especializada, possuem garantia de 03 (três) meses para equipamentos seminovos e de 12 (doze) meses para equipamentos novos, contra defeitos de fabricação e montagem.
+A garantia se limita exclusivamente ao sistema e perderá sua validade caso: haja alteração no layout do sistema ou no entre níveis sem nossa autorização expressa e por escrito; não seja feita a manutenção preventiva e corretiva do sistema; o sistema sofra golpes, batidas ou qualquer outro tipo de dano; as cargas ultrapassem o máximo especificado na oferta.
+Alterações de layout durante a montagem serão cobradas à parte e somente após aprovação do nosso departamento de projetos.`;
+
+export const CONFIRMACAO_PADRAO = `A contagem do prazo de embarque começa a partir da data em que forem cumpridas, pelo cliente, as seguintes condições:
+• Aprovação expressa e por escrito, mencionando o nº de nossa proposta;
+• Projetos (desenhos) aprovados e assinados;
+• Pagamento do sinal.`;
 
 // Texto de normas usado nas propostas técnicas.
 const NORMAS =
@@ -177,6 +202,10 @@ A movimentação dos materiais dentro da obra é por conta do cliente, quando os
     deadline: "30 dias úteis da data da confirmação do pedido (fabricação).",
     paymentTerms: "100% a 45 dias da data da confirmação do pedido.",
     taxes: `ICMS e IPI a incluir sobre o valor dos materiais, conforme legislação vigente.`,
+    colors: CORES_PADRAO,
+    warranty: "Garantia de 12 meses contra defeitos de fabricação.",
+    purchaseConfirmation: CONFIRMACAO_PADRAO,
+    ncm: "73.08.90.90",
   },
 
   MONTAGEM: {
@@ -208,6 +237,12 @@ Mão de obra — 20% de sinal, saldo 30/60/90 dias da data da confirmação do p
     taxes: `ISS — 5% incluso sobre a mão de obra.
 ICMS — 18% a incluir sobre o valor dos materiais.
 IPI — 3,5% a incluir sobre o valor dos materiais.`,
+    schedule: `Material — 40 dias a contar da data da aprovação do projeto para fabricação.
+Montagem — 15 dias a contar da liberação da área pelo cliente.`,
+    colors: CORES_PADRAO,
+    floorNote: PISO_PADRAO,
+    warranty: GARANTIA_PADRAO,
+    purchaseConfirmation: CONFIRMACAO_PADRAO,
   },
 
   REMANEJAMENTO: {

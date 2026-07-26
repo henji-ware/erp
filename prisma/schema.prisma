@@ -428,8 +428,14 @@ model Proposal {
   amount        Float        @default(0)
   amountLabel   String? // ex.: "VALOR PARA INSPEÇÃO DOS CONJUNTOS"
   deadline      String? // prazo de execução/fabricação
+  schedule      String? // cronograma (material / montagem), quando aplicável
   paymentTerms  String?
   taxes         String?
+  colors        String? // cores dos componentes (montante, longarina, acessórios)
+  floorNote     String? // cláusula de piso/nivelamento
+  warranty      String? // garantia dos materiais e serviços
+  purchaseConfirmation String? // condições para início do prazo (confirmação de compra)
+  ncm           String? // NCM dos produtos fornecidos
   validityDays  Int          @default(10)
   signedBy      String? // responsável que assina
   signerPhone   String?
