@@ -226,8 +226,8 @@ export function ProposalDoc({
         <p className="text-sm font-bold italic text-slate-900">
           {doc.signedBy ?? "DRR Projetos"}
         </p>
-        <p className="text-sm text-slate-600">Fone: {doc.signerPhone ?? COMPANY.phone}</p>
-        <p className="text-sm text-slate-600">E-mail: {doc.signerEmail ?? COMPANY.email}</p>
+        {doc.signerPhone && <p className="text-sm text-slate-600">Fone: {doc.signerPhone}</p>}
+        {doc.signerEmail && <p className="text-sm text-slate-600">E-mail: {doc.signerEmail}</p>}
         <p className="mt-4 text-xs font-semibold italic text-green-700">
           Antes de imprimir, pense na responsabilidade com o meio ambiente.
         </p>
