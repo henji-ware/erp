@@ -123,17 +123,17 @@ export function ProposalDoc({
           </p>
         )}
 
-        {/* A. Escopo */}
-        <section className="mb-6 break-inside-avoid">
+        {/* A. Escopo — pode ser longo, então quebra livremente entre páginas */}
+        <section className="mb-6">
           <h2 className="mb-2 text-[11pt] font-bold text-slate-900">A. DESCRIÇÃO DOS SERVIÇOS</h2>
           <div className="whitespace-pre-line text-justify text-[10.5pt] leading-relaxed">
             {doc.scope}
           </div>
         </section>
 
-        {/* B. Itens */}
+        {/* B. Itens — a tabela quebra entre páginas repetindo o cabeçalho */}
         {items.length > 0 && (
-          <section className="mb-6 break-inside-avoid">
+          <section className="mb-6">
             <h2 className="mb-2 text-[11pt] font-bold text-slate-900">B. LISTA DE COMPONENTES</h2>
             <table className="proposal-table">
               <thead>
@@ -219,9 +219,9 @@ export function ProposalDoc({
           </section>
         )}
 
-        {/* Normas aplicadas */}
+        {/* Normas aplicadas — tabela longa, quebra livremente */}
         {doc.showNorms && (
-          <section className="mb-6 break-inside-avoid">
+          <section className="mb-6">
             <h2 className="mb-2 text-[11pt] font-bold text-slate-900">NORMAS APLICADAS</h2>
             <table className="proposal-table">
               <thead>
@@ -272,10 +272,7 @@ export function ProposalDoc({
       {/* Rodapé timbrado (repete em todas as páginas impressas) */}
       <footer className="proposal-footer">
         <div className="proposal-rule" />
-        <p>
-          {COMPANY.city} – Fones: {COMPANY.phone}
-        </p>
-        <p>e-mail: {COMPANY.email}</p>
+        <p>{COMPANY.city}</p>
         <p>{COMPANY.site}</p>
       </footer>
     </article>

@@ -298,11 +298,16 @@ html {
   border-collapse: collapse;
   font-size: 9.5pt;
 }
+.proposal-table {
+  table-layout: auto;
+}
 .proposal-table th,
 .proposal-table td {
   border: 1px solid #94a3b8;
   padding: 3px 6px;
   vertical-align: middle;
+  /* Descrições longas quebram em vez de esticar/estourar a tabela */
+  overflow-wrap: anywhere;
 }
 .proposal-table thead th {
   background: #1f3864;
@@ -577,27 +582,35 @@ html.no-anim *::after {
     box-shadow: none !important;
     overflow: visible !important;
   }
-  /* Margens da folha reservam espaço para o timbre e o rodapé fixos */
+  /* Margens da folha reservam espaço para o timbre e o rodapé fixos.
+     Os elementos fixos ficam DENTRO dessa margem, com folga para a área
+     não-imprimível da impressora (evita corte nas bordas). */
   @page {
-    margin: 34mm 16mm 26mm;
+    margin: 30mm 15mm 22mm;
   }
   /* Cabeçalho, rodapé e marca d'água fixos => repetem em cada página */
   .proposal-header {
     position: fixed;
-    top: -30mm;
+    top: -24mm;
     left: 0;
     right: 0;
+    height: 20mm;
     margin: 0;
+    overflow: hidden;
   }
   .proposal-logo {
-    height: 17mm;
+    height: 15mm;
+    margin-bottom: 1.5mm;
   }
   .proposal-footer {
     position: fixed;
-    bottom: -22mm;
+    bottom: -16mm;
     left: 0;
     right: 0;
+    height: 14mm;
     margin: 0;
+    overflow: hidden;
+    line-height: 1.35;
   }
   .proposal-watermark {
     position: fixed;
@@ -609,12 +622,24 @@ html.no-anim *::after {
   }
   .proposal-body {
     font-size: 10.5pt;
+    /* Texto longo nunca estoura a largura útil da folha */
+    overflow-wrap: break-word;
   }
   .proposal-table {
     break-inside: auto;
+    width: 100% !important;
   }
   .proposal-table thead {
     display: table-header-group;
+  }
+  .proposal-table tr {
+    break-inside: avoid;
+  }
+  /* Títulos não ficam órfãos no fim da página */
+  .proposal-body h1,
+  .proposal-body h2,
+  .proposal-body h3 {
+    break-after: avoid;
   }
   .break-inside-avoid {
     break-inside: avoid;
