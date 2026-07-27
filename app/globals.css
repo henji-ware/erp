@@ -228,6 +228,22 @@ html {
    ========================================================================= */
 
 .proposal-doc {
+  /* A proposta é sempre uma folha branca: fixa a paleta clara aqui para que
+     o texto (slate-900, slate-600…) não acompanhe o tema/modo escuro e suma
+     no fundo branco. Mesmos valores usados na impressão. */
+  --c-slate-50: #f8fafc;
+  --c-slate-100: #f1f5f9;
+  --c-slate-200: #e2e8f0;
+  --c-slate-300: #cbd5e1;
+  --c-slate-400: #64748b;
+  --c-slate-500: #475569;
+  --c-slate-600: #334155;
+  --c-slate-700: #1e293b;
+  --c-slate-800: #111827;
+  --c-slate-900: #0a1628;
+  --c-surface: #ffffff;
+  color-scheme: light;
+
   position: relative;
   width: 100%;
   max-width: 210mm;
