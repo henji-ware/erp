@@ -156,6 +156,16 @@ export default async function LeadsPage({
 
                   <div className="mt-3 space-y-2">
                     <StageSelect id={l.id} stage={l.stage} />
+                    {/* "Cliente" ocupa a linha toda: junto dos ícones ele não
+                        cabia na coluna estreita e empurrava o excluir pra fora. */}
+                    {stage !== "WON" && (
+                      <form action={convertLeadToCustomer}>
+                        <input type="hidden" name="id" value={l.id} />
+                        <button className="btn-ghost w-full gap-1 px-2 py-1 text-xs" title="Converter em cliente">
+                          <Icon name="arrowRight" size={14} /> Cliente
+                        </button>
+                      </form>
+                    )}
                     <div className="flex items-center gap-1">
                       <ShareToggle entity="lead" id={l.id} shared={l.shared} canToggle={isAdmin(user) || l.ownerId === user?.id} />
                       <Link
@@ -165,15 +175,7 @@ export default async function LeadsPage({
                       >
                         <Icon name="edit" size={14} />
                       </Link>
-                      {stage !== "WON" && (
-                        <form action={convertLeadToCustomer} className="flex-1">
-                          <input type="hidden" name="id" value={l.id} />
-                          <button className="btn-ghost w-full px-2 py-1 text-xs" title="Converter em cliente">
-                            <Icon name="arrowRight" size={14} /> Cliente
-                          </button>
-                        </form>
-                      )}
-                      <form action={deleteLead}>
+                      <form action={deleteLead} className="ml-auto">
                         <input type="hidden" name="id" value={l.id} />
                         <button className="btn-danger px-2 py-1 text-xs" title="Excluir">
                           <Icon name="close" size={14} />
