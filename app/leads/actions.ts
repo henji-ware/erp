@@ -16,18 +16,23 @@ async function canEditLead(id: number): Promise<boolean> {
   return !!lead && lead.ownerId === user?.id;
 }
 
-// Próximo número sequencial do orçamento: AAMMNN, reinicia a cada mês.
+// Numeração das obras no padrão da DRR: AA + sequencial de 3 dígitos, onde AA
+// é o ano de abertura e o sequencial é CONTÍNUO — não reinicia a cada ano nem
+// a cada mês (ex.: 25177, 25178, 26179, 26180…).
+const LEAD_COUNTER_KEY = "obra";
+
+// Última obra numerada fora do sistema (26193). O primeiro orçamento criado
+// aqui continua a partir dela.
+const LEAD_NUMBER_START = 194;
+
 async function nextLeadNumber(): Promise<string> {
-  const now = new Date();
-  const yy = String(now.getFullYear()).slice(2);
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const key = `${yy}${mm}`;
+  const yy = String(new Date().getFullYear()).slice(2);
   const counter = await prisma.counter.upsert({
-    where: { key },
-    create: { key, value: 1 },
+    where: { key: LEAD_COUNTER_KEY },
+    create: { key: LEAD_COUNTER_KEY, value: LEAD_NUMBER_START },
     update: { value: { increment: 1 } },
   });
-  return `${key}${String(counter.value).padStart(2, "0")}`;
+  return `${yy}${String(counter.value).padStart(3, "0")}`;
 }
 
 export async function createLead(formData: FormData) {

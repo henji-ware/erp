@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import "./globals.css";
 import Sidebar from "./components/Sidebar";
 import { getCurrentUser } from "@/lib/auth";
 import { getAlerts, alertText } from "@/lib/alerts";
+import { isPublicPath, PATHNAME_HEADER, SESSION_END_PATH } from "@/lib/routes";
 import {
   DEFAULT_THEME,
   isValidTheme,
@@ -26,7 +28,16 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [user, store] = await Promise.all([getCurrentUser(), cookies()]);
+  const [user, store, head] = await Promise.all([getCurrentUser(), cookies(), headers()]);
+
+  // O middleware só confere a assinatura do cookie. Se a conta foi desativada
+  // ou excluída depois do login, o token continua válido mas não há usuário —
+  // encerra a sessão em vez de mostrar o sistema vazio.
+  const pathname = head.get(PATHNAME_HEADER) ?? "";
+  if (!user && pathname && !isPublicPath(pathname)) {
+    redirect(SESSION_END_PATH);
+  }
+
   // Avisos de prazo para o sino (mesma regra do e-mail diário).
   const alerts = user
     ? (await getAlerts(user)).map((a) => ({
