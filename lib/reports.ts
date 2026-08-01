@@ -27,8 +27,12 @@ export function rangeLabel(r: Range): string {
   return `${f.format(r.from)} — ${f.format(r.to)}`;
 }
 
+// Data no formato do <input type="date">. Usa as partes locais: toISOString()
+// converte para UTC e, no fuso do Brasil, à noite devolveria o dia seguinte.
 export function toInputDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
 function monthBuckets(range: Range) {

@@ -46,12 +46,20 @@ export async function setRentalStatus(formData: FormData) {
   if (!id || !RENTAL_STATUSES.includes(status as (typeof RENTAL_STATUSES)[number])) return;
   if (!(await allowed(id))) return;
 
+  const rental = await prisma.rental.findUnique({
+    where: { id },
+    select: { returnedAt: true },
+  });
+  if (!rental) return;
+
   await prisma.rental.update({
     where: { id },
     data: {
       status: asEnum(RENTAL_STATUSES, status, "ACTIVE"),
-      // Ao marcar como devolvido, registra a data de devolução.
-      returnedAt: status === "RETURNED" ? new Date() : null,
+      // Ao marcar como devolvido, registra a data — mas preserva a data já
+      // gravada, senão reenviar o status trocaria a devolução para hoje.
+      returnedAt:
+        status === "RETURNED" ? (rental.returnedAt ?? new Date()) : null,
     },
   });
   await logAudit({ action: "STATUS", entity: "Locação", entityId: id, summary: `Status → ${RENTAL_STATUS_LABELS[status]}` });

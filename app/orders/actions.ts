@@ -85,10 +85,13 @@ export async function updateOrderStatus(formData: FormData) {
   const wasActive = ACTIVE.includes(order.status);
   const willActive = ACTIVE.includes(next);
 
-  if (order.status === "DRAFT" && willActive) {
+  // Os efeitos seguem a transição entre "ativo" e "inativo", não o status de
+  // origem: reativar um pedido cancelado precisa baixar o estoque de novo, e
+  // voltar para rascunho precisa devolvê-lo.
+  if (!wasActive && willActive) {
     await applyConfirm(id); // baixa estoque + gera conta a receber
   }
-  if (wasActive && next === "CANCELLED") {
+  if (wasActive && !willActive) {
     await reverseConfirm(id); // devolve estoque + cancela conta a receber
   }
 

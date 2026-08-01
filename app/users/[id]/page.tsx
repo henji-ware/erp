@@ -36,6 +36,12 @@ export default async function EditUserPage({
               Este e-mail já está em uso por outro usuário.
             </p>
           )}
+          {error === "lastadmin" && (
+            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600">
+              Este é o único administrador ativo. Promova outro usuário a
+              administrador antes de mudar o papel ou desativar esta conta.
+            </p>
+          )}
           <div>
             <label className="label">Nome *</label>
             <input name="name" required defaultValue={user.name} className="input" />

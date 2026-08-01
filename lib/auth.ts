@@ -26,10 +26,13 @@ export async function getCurrentUser() {
   const token = store.get(SESSION_COOKIE)?.value;
   const userId = await verifyToken(token);
   if (!userId) return null;
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: Number(userId) },
     select: { id: true, name: true, email: true, role: true, active: true },
   });
+  // O cookie vale 7 dias: sem esta checagem, desativar um usuário só teria
+  // efeito no próximo login. Inativo (ou excluído) perde a sessão na hora.
+  return user?.active ? user : null;
 }
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
@@ -45,7 +48,10 @@ export function isAdmin(user: { role: string } | null | undefined): boolean {
 export function crmScope(
   user: { id: number; role: string } | null | undefined,
 ): { OR?: ({ ownerId: number } | { shared: boolean })[] } {
-  if (!user || user.role === "ADMIN") return {};
+  // Sem usuário (sessão de conta excluída/desativada) não é "vê tudo": filtra
+  // por um dono que não existe, então a consulta não devolve nada.
+  if (!user) return { OR: [{ ownerId: -1 }] };
+  if (user.role === "ADMIN") return {};
   return { OR: [{ ownerId: user.id }, { shared: true }] };
 }
 
@@ -57,9 +63,10 @@ export function canSee(
   user: { id: number; role: string } | null | undefined,
   record: { ownerId: number | null; shared: boolean },
 ): boolean {
+  if (!user) return false;
   if (isAdmin(user)) return true;
   if (record.shared) return true;
-  return !!user && record.ownerId === user.id;
+  return record.ownerId === user.id;
 }
 
 // O usuário pode editar/excluir? (admin ou dono — compartilhado não dá edição)

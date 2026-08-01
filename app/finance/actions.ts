@@ -81,12 +81,17 @@ export async function updateTransaction(formData: FormData) {
   if (!(await allowed(id))) return;
 
   const dueRaw = String(formData.get("dueDate") ?? "");
+  // Com parcelas, valor e vencimento ficam desabilitados no formulário e o
+  // navegador não os envia. Sem esta checagem o valor do lançamento seria
+  // gravado como 0 ao editar só a descrição.
+  const amountRaw = formData.get("amount");
+
   await prisma.transaction.update({
     where: { id },
     data: {
       description,
       type: asEnum(TX_TYPES, type, "RECEIVABLE"),
-      amount: num(formData.get("amount")),
+      ...(amountRaw === null ? {} : { amount: num(amountRaw) }),
       dueDate: dueRaw ? new Date(dueRaw) : undefined,
       customerId: type === "RECEIVABLE" ? Number(formData.get("customerId")) || null : null,
       supplierId: type === "PAYABLE" ? Number(formData.get("supplierId")) || null : null,
@@ -226,10 +231,13 @@ export async function updateInstallment(formData: FormData) {
   if (!inst || !(await allowed(inst.transactionId))) return;
 
   const dueRaw = String(formData.get("dueDate") ?? "");
+  const amountRaw = formData.get("amount");
   await prisma.installment.update({
     where: { id },
     data: {
-      amount: num(formData.get("amount")),
+      // Parcela quitada tem os campos desabilitados: sem valor enviado,
+      // mantém o que está gravado em vez de zerar.
+      ...(amountRaw === null ? {} : { amount: num(amountRaw) }),
       ...(dueRaw ? { dueDate: new Date(dueRaw) } : {}),
     },
   });

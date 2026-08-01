@@ -61,6 +61,8 @@ export default async function CustomersPage({
           leads: { where: { deletedAt: null } },
           transactions: { where: { deletedAt: null } },
           appointments: { where: { deletedAt: null } },
+          rentals: { where: { deletedAt: null } },
+          maintenanceContracts: { where: { deletedAt: null } },
         },
       },
     },
@@ -138,7 +140,9 @@ export default async function CustomersPage({
                     c._count.inspections +
                     c._count.leads +
                     c._count.transactions +
-                    c._count.appointments;
+                    c._count.appointments +
+                    c._count.rentals +
+                    c._count.maintenanceContracts;
                   return (
                   <tr key={c.id} className="border-b border-slate-50 last:border-0">
                     <td className="td">

@@ -102,6 +102,10 @@ export async function updateProposal(formData: FormData) {
   const current = await prisma.proposal.findUnique({ where: { id } });
   if (!current || !(await canEditLead(current.leadId))) return;
 
+  // Com itens no orçamento o campo de valor fica desabilitado e o navegador
+  // não o envia — sem isso, salvar zeraria o valor fechado já digitado.
+  const amountRaw = formData.get("amount");
+
   await prisma.proposal.update({
     where: { id },
     data: {
@@ -121,7 +125,7 @@ export async function updateProposal(formData: FormData) {
       findings: str(formData.get("findings")),
       included: str(formData.get("included")),
       notes: str(formData.get("notes")),
-      amount: num(formData.get("amount")),
+      amount: amountRaw === null ? current.amount : num(amountRaw),
       amountLabel: str(formData.get("amountLabel")),
       laborLabel: str(formData.get("laborLabel")),
       laborAmount: num(formData.get("laborAmount")),

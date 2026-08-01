@@ -1,8 +1,15 @@
 import { NextRequest } from "next/server";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getReportData, parseRange } from "@/lib/reports";
 
 // Exporta relatórios em CSV (separador ";" + BOM => abre direto no Excel pt-BR).
 export async function GET(req: NextRequest) {
+  // Mesma restrição da página /reports: os dados são consolidados da empresa
+  // inteira, sem escopo por dono.
+  if (!isAdmin(await getCurrentUser())) {
+    return new Response("Sem permissão", { status: 403 });
+  }
+
   const sp = req.nextUrl.searchParams;
   const type = sp.get("type") ?? "abc";
   const range = parseRange({
@@ -48,7 +55,10 @@ export async function GET(req: NextRequest) {
 }
 
 function cell(v: string | number): string {
-  const s = String(v);
+  let s = String(v);
+  // Nomes de cliente/produto começando com = + - @ seriam interpretados como
+  // fórmula ao abrir no Excel; o apóstrofo força texto.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[";\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

@@ -75,12 +75,15 @@ export async function updateUser(formData: FormData) {
     redirect(`/users/${id}?error=email`);
   }
 
-  // Não permite remover o último admin (evita travar o sistema).
-  if (role !== "ADMIN") {
+  const active = formData.get("active") === "on";
+
+  // Não permite deixar o sistema sem administrador ativo — nem trocando o
+  // papel, nem desativando a conta (as duas rotas tiram o último admin).
+  if (role !== "ADMIN" || !active) {
     const current = await prisma.user.findUnique({ where: { id } });
-    if (current?.role === "ADMIN") {
+    if (current?.role === "ADMIN" && current.active) {
       const admins = await prisma.user.count({ where: { role: "ADMIN", active: true } });
-      if (admins <= 1) return;
+      if (admins <= 1) redirect(`/users/${id}?error=lastadmin`);
     }
   }
 
@@ -90,7 +93,7 @@ export async function updateUser(formData: FormData) {
       name,
       email,
       role,
-      active: formData.get("active") === "on",
+      active,
       emailVerified: formData.get("emailVerified") === "on",
       ...(password.length >= 4 ? { passwordHash: hashPassword(password) } : {}),
     },

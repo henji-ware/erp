@@ -74,6 +74,8 @@ export async function deleteCustomer(formData: FormData) {
           leads: { where: { deletedAt: null } },
           transactions: { where: { deletedAt: null } },
           appointments: { where: { deletedAt: null } },
+          rentals: { where: { deletedAt: null } },
+          maintenanceContracts: { where: { deletedAt: null } },
         },
       },
     },
@@ -86,7 +88,9 @@ export async function deleteCustomer(formData: FormData) {
     c._count.inspections +
     c._count.leads +
     c._count.transactions +
-    c._count.appointments;
+    c._count.appointments +
+    c._count.rentals +
+    c._count.maintenanceContracts;
   if (linked > 0) return;
 
   // Soft delete: vai para a Lixeira (recuperável), não some de vez.

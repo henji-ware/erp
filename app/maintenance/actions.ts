@@ -65,7 +65,11 @@ export async function completeVisit(formData: FormData) {
   const c = await prisma.maintenanceContract.findUnique({ where: { id } });
   if (!c) return;
 
-  const base = c.nextVisit ?? new Date();
+  // A visita acabou de ser feita: conta a partir de hoje quando o contrato já
+  // estava atrasado, senão a próxima cairia numa data passada e continuaria
+  // vencida. Em dia, mantém a cadência do cronograma.
+  const now = new Date();
+  const base = c.nextVisit && c.nextVisit > now ? c.nextVisit : now;
   const days = MAINTENANCE_FREQUENCY_DAYS[c.frequency] ?? 30;
   const next = new Date(base);
   next.setDate(next.getDate() + days);

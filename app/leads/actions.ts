@@ -310,21 +310,27 @@ export async function convertLeadToCustomer(formData: FormData) {
   if (!id) return;
   if (!(await canEditLead(id))) return;
 
-  const lead = await prisma.lead.findUnique({ where: { id } });
+  const lead = await prisma.lead.findUnique({
+    where: { id },
+    include: { customer: { select: { id: true, name: true } } },
+  });
   if (!lead) return;
 
   const user = await getCurrentUser();
-  const customer = await prisma.customer.create({
-    data: {
-      name: lead.name,
-      email: lead.email,
-      phone: lead.phone,
-      document: lead.document,
-      // Herda o dono do orçamento (senão quem converteu não veria o cliente).
-      ownerId: lead.ownerId ?? user?.id ?? null,
-      shared: lead.shared,
-    },
-  });
+  // Já vinculado a um cliente: reaproveita em vez de criar um cadastro duplicado.
+  const customer =
+    lead.customer ??
+    (await prisma.customer.create({
+      data: {
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
+        document: lead.document,
+        // Herda o dono do orçamento (senão quem converteu não veria o cliente).
+        ownerId: lead.ownerId ?? user?.id ?? null,
+        shared: lead.shared,
+      },
+    }));
 
   await prisma.lead.update({
     where: { id },
