@@ -7,6 +7,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-inter)", "Inter", "sans-serif"],
+        heading: ["var(--font-outfit)", "Outfit", "sans-serif"],
+      },
       colors: {
         // Cores diretas controladas por CSS: o modo define a base neutra e o
         // tema a tinge (via color-mix), então "slate"/"white" mudam por tema.
