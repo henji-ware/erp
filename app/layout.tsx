@@ -1,4 +1,3 @@
-import { Inter, Outfit } from "next/font/google";
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -16,18 +15,6 @@ import {
   MODE_COOKIE,
   ANIM_COOKIE,
 } from "@/lib/theme";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  variable: "--font-outfit",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "DRR Projetos e Equipamentos — Gestão",
@@ -72,9 +59,9 @@ export default async function RootLayout({
       lang="pt-BR"
       data-theme={theme}
       data-mode={mode}
-      className={`${inter.variable} ${outfit.variable} ${animOff ? "no-anim" : ""}`}
+      className={animOff ? "no-anim" : ""}
     >
-      <body className={inter.className}>
+      <body>
         <div id="app-shell" className="flex h-screen flex-col overflow-hidden md:flex-row">
           <Sidebar userName={user?.name} isAdmin={user?.role === "ADMIN"} alerts={alerts} />
           <main className="flex-1 overflow-y-auto">
