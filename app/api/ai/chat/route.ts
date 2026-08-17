@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { executeAICompletion, streamAICompletion } from "@/lib/ai/client";
 import { buildSystemPromptWithERPContext, getERPContextForAI } from "@/lib/ai/context";
 import { errorMessage, requireUser } from "@/lib/ai/guard";
+import { isAdmin } from "@/lib/auth";
 import { AIMessage, AIProviderId } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
       systemPrompt: buildSystemPromptWithERPContext(await getERPContextForAI(), auth.user.name),
       temperature: 0.6,
       maxTokens: 3000,
+      isAdmin: isAdmin(auth.user),
     };
 
     // Modo padrão: resposta em streaming, para o usuário ver o texto saindo.

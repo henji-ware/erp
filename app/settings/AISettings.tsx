@@ -8,8 +8,11 @@ import { Icon } from "../components/icons";
 
 export default function AISettings({
   initialSettings,
+  isAdmin = false,
 }: {
   initialSettings?: AISettingsData;
+  /** Só administrador mexe no .env do servidor; para os demais isso é ruído. */
+  isAdmin?: boolean;
 }) {
   const { settings, setSettings, loaded } = useAISettings();
   const [selectedProvider, setSelectedProvider] = useState<AIProviderId>(
@@ -224,9 +227,15 @@ export default function AISettings({
       {/* Aviso de onde a chave é guardada */}
       <p className="text-xs text-slate-500 leading-relaxed rounded-lg border border-slate-200 bg-slate-50 p-3">
         A chave fica salva <strong>somente neste navegador</strong> e vai ao servidor apenas no
-        momento de cada consulta — nunca em cookie. Para uma chave compartilhada pela equipe,
-        defina a variável de ambiente no servidor e deixe o campo em branco: ela passa a valer
-        para todo mundo, sem ninguém precisar colar nada aqui.
+        momento de cada consulta — nunca em cookie. Ela vale só para a sua conta: quem entrar
+        com outro usuário nesta máquina não usa a sua chave.
+        {isAdmin && (
+          <>
+            {" "}
+            Para uma chave única da equipe, defina a variável de ambiente no servidor e deixe o
+            campo em branco.
+          </>
+        )}
       </p>
 
       {/* Grade de provedores */}
@@ -377,7 +386,9 @@ export default function AISettings({
                 </p>
               )}
               <p className="mt-1 text-xs text-slate-500">
-                Já definida no <code className="font-mono">.env</code> do servidor? Deixe em branco e ela será usada.
+                {isAdmin
+                  ? "Já definida no .env do servidor? Deixe em branco e ela será usada."
+                  : "Deixe em branco se a empresa já fornece uma chave configurada no servidor."}
               </p>
             </div>
           )}

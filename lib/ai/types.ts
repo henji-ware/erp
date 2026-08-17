@@ -59,6 +59,8 @@ export interface AICompletionOptions {
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
+  /** Ajusta as mensagens de erro: só administrador recebe dica sobre o .env. */
+  isAdmin?: boolean;
 }
 
 export interface AICompletionResult {

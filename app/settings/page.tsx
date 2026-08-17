@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 import {
   DEFAULT_THEME,
   isValidTheme,
@@ -21,22 +21,27 @@ import { getServerAISettings } from "@/lib/ai/server-settings";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const [store, user, counts, aiSettings] = await Promise.all([
+  const [store, user, aiSettings] = await Promise.all([
     cookies(),
     getCurrentUser(),
-    Promise.all([
-      // Contadores do sistema: ignoram itens arquivados (Lixeira).
-      prisma.customer.count({ where: { deletedAt: null } }),
-      prisma.product.count({ where: { deletedAt: null } }),
-      prisma.order.count({ where: { deletedAt: null } }),
-      prisma.supplier.count({ where: { deletedAt: null } }),
-      prisma.transaction.count({ where: { deletedAt: null } }),
-      prisma.employee.count(),
-      prisma.appointment.count({ where: { deletedAt: null } }),
-      prisma.auditLog.count(),
-    ]),
     getServerAISettings(),
   ]);
+  const admin = isAdmin(user);
+
+  // Contadores do sistema (ignoram a Lixeira) só são exibidos para
+  // administradores — então nem são consultados para os demais.
+  const counts = admin
+    ? await Promise.all([
+        prisma.customer.count({ where: { deletedAt: null } }),
+        prisma.product.count({ where: { deletedAt: null } }),
+        prisma.order.count({ where: { deletedAt: null } }),
+        prisma.supplier.count({ where: { deletedAt: null } }),
+        prisma.transaction.count({ where: { deletedAt: null } }),
+        prisma.employee.count(),
+        prisma.appointment.count({ where: { deletedAt: null } }),
+        prisma.auditLog.count(),
+      ])
+    : [0, 0, 0, 0, 0, 0, 0, 0];
 
   const themeCookie = store.get(THEME_COOKIE)?.value;
   const current = isValidTheme(themeCookie) ? themeCookie! : DEFAULT_THEME;
@@ -63,7 +68,7 @@ export default async function SettingsPage() {
             hint: "Escolha o provedor e o modelo usados pelo DeskHelper AI e pelo assistente de propostas.",
             content: (
               <div className="card p-6">
-                <AISettings initialSettings={aiSettings} />
+                <AISettings initialSettings={aiSettings} isAdmin={admin} />
               </div>
             ),
           },
@@ -94,25 +99,35 @@ export default async function SettingsPage() {
             icon: "reports",
             content: (
               <div className="card p-6">
+                {/* Números do sistema inteiro, infraestrutura e comandos de
+                    terminal são assunto de administrador. Para os demais fica
+                    só a informação da própria conta. */}
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
                   <Info label="Usuário" value={user?.name ?? "—"} />
                   <Info label="E-mail" value={user?.email ?? "—"} />
+                  <Info label="Perfil" value={admin ? "Administrador" : "Colaborador"} />
                   <Info label="Versão" value="0.6.0" />
-                  <Info label="Banco de dados" value="PostgreSQL (Neon)" />
-                  <Info label="Clientes" value={String(customers)} />
-                  <Info label="Funcionários" value={String(employees)} />
-                  <Info label="Fornecedores" value={String(suppliers)} />
-                  <Info label="Produtos/Serviços" value={String(products)} />
-                  <Info label="Pedidos" value={String(orders)} />
-                  <Info label="Agendamentos" value={String(appointments)} />
-                  <Info label="Lançamentos" value={String(transactions)} />
-                  <Info label="Eventos de auditoria" value={String(auditLogs)} />
+                  {admin && (
+                    <>
+                      <Info label="Banco de dados" value="PostgreSQL (Neon)" />
+                      <Info label="Clientes" value={String(customers)} />
+                      <Info label="Funcionários" value={String(employees)} />
+                      <Info label="Fornecedores" value={String(suppliers)} />
+                      <Info label="Produtos/Serviços" value={String(products)} />
+                      <Info label="Pedidos" value={String(orders)} />
+                      <Info label="Agendamentos" value={String(appointments)} />
+                      <Info label="Lançamentos" value={String(transactions)} />
+                      <Info label="Eventos de auditoria" value={String(auditLogs)} />
+                    </>
+                  )}
                 </dl>
 
-                <p className="mt-6 rounded-lg bg-slate-100 px-3 py-2.5 text-sm text-slate-600">
-                  As ferramentas de desenvolvimento (gerar/recriar dados) ficam no terminal, via{" "}
-                  <code className="font-mono text-slate-800">npm run db:reset</code>.
-                </p>
+                {admin && (
+                  <p className="mt-6 rounded-lg bg-slate-100 px-3 py-2.5 text-sm text-slate-600">
+                    As ferramentas de desenvolvimento (gerar/recriar dados) ficam no terminal, via{" "}
+                    <code className="font-mono text-slate-800">npm run db:reset</code>.
+                  </p>
+                )}
               </div>
             ),
           },

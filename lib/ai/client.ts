@@ -111,9 +111,13 @@ export function resolveCall(options: AICompletionOptions): ResolvedCall {
   assertSafeBaseUrl(provider, baseUrl);
 
   if (providerConfig.requiresApiKey && !apiKey) {
+    // Mandar um colaborador "definir a variável no servidor" não ajuda: ele não
+    // tem esse acesso. A dica de .env fica só para administrador.
     throw new Error(
       `Chave de API não configurada para ${providerConfig.name}. ` +
-        `Defina ${providerConfig.keyEnvVar} no servidor ou informe a chave em Configurações > Inteligência Artificial.`
+        (options.isAdmin
+          ? `Informe a chave em Configurações > Inteligência Artificial ou defina ${providerConfig.keyEnvVar} no servidor.`
+          : "Informe a chave em Configurações > Inteligência Artificial, ou peça ao administrador para configurá-la.")
     );
   }
 

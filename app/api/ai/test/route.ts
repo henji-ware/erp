@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { executeAICompletion } from "@/lib/ai/client";
 import { errorMessage, requireUser } from "@/lib/ai/guard";
+import { isAdmin } from "@/lib/auth";
 import { AIProviderId } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
       maxTokens: 64,
       temperature: 0.1,
       signal: req.signal,
+      isAdmin: isAdmin(auth.user),
       onRetry: () => {
         retries++;
       },
