@@ -163,17 +163,17 @@ export default function ProposalAIAssistant({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Cabeçalho */}
-            <div className="flex items-center justify-between px-5 py-4 bg-slate-900 text-white border-b border-slate-800">
+            <div className="flex items-center justify-between px-5 py-4 surface-dark border-b">
               <div className="flex items-center gap-2.5 min-w-0">
                 <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-400 text-base"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl on-dark-chip"
                   aria-hidden
                 >
                   <Icon name="ai" size={16} />
                 </span>
                 <div className="min-w-0">
                   <h3 className="text-sm font-bold">Assistente de IA · Elaboração de proposta</h3>
-                  <p className="text-xs text-slate-400 truncate">
+                  <p className="text-xs surface-dark-muted truncate">
                     {clientName} · {title} ({proposalType})
                   </p>
                 </div>
@@ -182,7 +182,7 @@ export default function ProposalAIAssistant({
                 type="button"
                 onClick={() => setIsOpen(false)}
                 aria-label="Fechar"
-                className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded surface-dark-muted on-dark-hover transition-colors"
               >
                 <Icon name="close" size={16} />
               </button>
@@ -192,7 +192,7 @@ export default function ProposalAIAssistant({
               {/* Provedor e modelo */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                 <div>
-                  <label htmlFor="prop-provider" className="label text-[11px] mb-1">
+                  <label htmlFor="prop-provider" className="label text-xs mb-1">
                     Provedor de IA
                   </label>
                   <select
@@ -213,7 +213,7 @@ export default function ProposalAIAssistant({
                 </div>
 
                 <div>
-                  <label htmlFor="prop-model" className="label text-[11px] mb-1">
+                  <label htmlFor="prop-model" className="label text-xs mb-1">
                     Modelo
                   </label>
                   <select
@@ -256,7 +256,7 @@ export default function ProposalAIAssistant({
                         <Icon name={t.icon} size={13} />
                         {t.label}
                       </p>
-                      <p className="text-[10px] text-slate-400 font-normal mt-0.5">{t.desc}</p>
+                      <p className="text-[11px] text-slate-500 font-normal mt-0.5">{t.desc}</p>
                     </button>
                   ))}
                 </div>
@@ -314,7 +314,7 @@ export default function ProposalAIAssistant({
                 <div className="space-y-2 pt-1 animate-fade-in">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-slate-800">Resultado gerado</span>
-                    <span className="text-[11px] text-slate-400">Revise antes de aplicar</span>
+                    <span className="text-xs text-slate-500">Revise antes de aplicar</span>
                   </div>
 
                   <textarea

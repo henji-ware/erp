@@ -150,17 +150,17 @@ export default function AISettings({
   return (
     <div className="space-y-6">
       {/* Provedor ativo */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-900 text-white shadow-lg border border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl surface-dark border shadow-lg">
         <div>
           <div className="flex items-center gap-2">
             <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-wider surface-dark-muted">
               Provedor padrão do ERP
             </p>
           </div>
-          <p className="mt-1 text-lg font-bold text-white flex flex-wrap items-center gap-2">
+          <p className="mt-1 text-lg font-bold flex flex-wrap items-center gap-2">
             {AI_PROVIDERS[settings.activeProvider]?.name}
-            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 font-mono font-normal">
+            <span className="text-xs px-2 py-0.5 rounded-full on-dark-chip font-mono font-normal">
               {settings.defaultModels[settings.activeProvider] ||
                 AI_PROVIDERS[settings.activeProvider]?.defaultModel}
             </span>
@@ -174,7 +174,7 @@ export default function AISettings({
       </div>
 
       {/* Aviso de onde a chave é guardada */}
-      <p className="text-[11px] text-slate-500 leading-relaxed rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs text-slate-500 leading-relaxed rounded-lg border border-slate-200 bg-slate-50 p-3">
         As chaves de API ficam salvas <strong>somente neste navegador</strong> e são enviadas ao
         servidor apenas no momento de cada consulta — nunca em cookie. Para uma chave compartilhada
         por toda a equipe, defina a variável de ambiente correspondente no servidor e deixe o campo
@@ -209,11 +209,11 @@ export default function AISettings({
                   />
                 )}
                 <span className="text-xs font-bold text-slate-800">{p.name.split(" ")[0]}</span>
-                <span className="text-[11px] text-slate-400 truncate w-full mt-0.5">
+                <span className="text-xs text-slate-500 truncate w-full mt-0.5">
                   {p.name.includes(" ") ? p.name.split(" ").slice(1).join(" ") : p.tagline.slice(0, 18)}
                 </span>
                 {hasKey && (
-                  <span className="mt-2 inline-flex items-center gap-1 text-[10px] text-emerald-600 font-medium">
+                  <span className="mt-2 inline-flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     Chave salva
                   </span>
@@ -231,7 +231,7 @@ export default function AISettings({
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-bold text-slate-900">{currentConfig?.name}</h3>
               <span
-                className={`text-[11px] px-2.5 py-0.5 rounded-full border font-medium ${currentConfig?.badgeColor}`}
+                className={`text-xs px-2.5 py-0.5 rounded-full border font-medium ${currentConfig?.badgeColor}`}
               >
                 {currentConfig?.tagline}
               </span>
@@ -275,7 +275,7 @@ export default function AISettings({
                         setKeyDraft("");
                         commitKey("");
                       }}
-                      className="text-[11px] text-red-600 hover:underline"
+                      className="text-xs text-red-600 hover:underline"
                     >
                       Remover
                     </button>
@@ -283,17 +283,27 @@ export default function AISettings({
                   <button
                     type="button"
                     onClick={() => setShowKey(!showKey)}
-                    className="text-[11px] text-slate-500 hover:text-slate-800 underline"
+                    className="text-xs text-slate-500 hover:text-slate-800 underline"
                   >
                     {showKey ? "Ocultar" : "Mostrar"}
                   </button>
                 </div>
               </div>
+              {/* type="text" + máscara por CSS, de propósito: com type="password"
+                  o navegador trata o campo como login e preenche sozinho com a
+                  senha salva do site — o gerenciador de senhas não sabe que aqui
+                  se espera uma chave de API. Os data-* desligam 1Password,
+                  LastPass e Dashlane. */}
               <input
                 id="ai-key"
-                type={showKey ? "text" : "password"}
+                type="text"
+                name="drr-ai-provider-key"
                 autoComplete="off"
                 spellCheck={false}
+                data-1p-ignore
+                data-lpignore="true"
+                data-bwignore
+                data-form-type="other"
                 value={currentKey}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -302,9 +312,15 @@ export default function AISettings({
                 }}
                 onBlur={(e) => commitKey(e.target.value)}
                 placeholder={`Cole sua ${currentConfig.keyEnvVar} ou deixe em branco`}
-                className="input text-xs font-mono"
+                className={`input text-xs ${showKey ? "font-mono" : "input-secret"}`}
               />
-              <p className="mt-1 text-[11px] text-slate-400">
+              {currentKey && !/^(sk-|gsk_|xai-|csk-|AIza|co-|or-|[A-Za-z0-9_-]{24,})/.test(currentKey.trim()) && (
+                <p className="mt-1 text-xs text-amber-600">
+                  Isto não parece uma chave de API. Se o navegador preencheu o campo
+                  com uma senha salva, clique em Remover.
+                </p>
+              )}
+              <p className="mt-1 text-xs text-slate-500">
                 Já configurada no <code className="font-mono">.env</code> do servidor? Deixe em branco.
               </p>
             </div>
@@ -328,7 +344,7 @@ export default function AISettings({
               placeholder={currentConfig?.defaultBaseUrl || "https://api.openai.com"}
               className="input text-xs font-mono"
             />
-            <p className="mt-1 text-[11px] text-slate-400">
+            <p className="mt-1 text-xs text-slate-500">
               Padrão: <code className="font-mono">{currentConfig?.defaultBaseUrl || "padrão do serviço"}</code>
             </p>
           </div>
@@ -371,7 +387,7 @@ export default function AISettings({
               {testResult.msg}
             </span>
             {testResult.latency !== undefined && (
-              <span className="font-mono text-[11px] font-semibold shrink-0">
+              <span className="font-mono text-xs font-semibold shrink-0">
                 {testResult.latency}ms
               </span>
             )}
@@ -384,7 +400,7 @@ export default function AISettings({
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
               Modelos disponíveis ({models.length})
             </h4>
-            <span className="text-[11px] text-slate-400">Clique para definir como padrão</span>
+            <span className="text-xs text-slate-500">Clique para definir como padrão</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
@@ -406,28 +422,28 @@ export default function AISettings({
                     <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5 min-w-0">
                       <span className="truncate">{m.name}</span>
                       {m.isNew && (
-                        <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 font-semibold">
+                        <span className="shrink-0 text-[11px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 font-semibold">
                           Novo
                         </span>
                       )}
                     </span>
                     {isCurrent ? (
-                      <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-900">
+                      <span className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-slate-900">
                         {/* Só o ponto usa a cor do tema: como texto ela fica com
                             contraste baixo sobre o fundo claro do cartão. */}
                         <span className="h-1.5 w-1.5 rounded-full bg-brand-600" />
                         Ativo
                       </span>
                     ) : (
-                      <span className="shrink-0 text-[11px] text-slate-400 font-mono">
+                      <span className="shrink-0 text-xs text-slate-500 font-mono">
                         {m.contextWindow || ""}
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-[11px] text-slate-500 line-clamp-2">
+                  <p className="mt-1 text-xs text-slate-500 line-clamp-2">
                     {m.description || m.id}
                   </p>
-                  <div className="mt-1.5 text-[10px] font-mono text-slate-400 truncate">{m.id}</div>
+                  <div className="mt-1.5 text-[11px] font-mono text-slate-500 truncate">{m.id}</div>
                 </button>
               );
             })}

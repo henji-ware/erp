@@ -71,7 +71,7 @@ export default async function RootLayout({
           </main>
         </div>
         {/* Só para quem está logado: na tela de login não há ERP para consultar
-            e o Copilot chamaria uma API que responde 401. */}
+            e o DeskHelper AI chamaria uma API que responde 401. */}
         {user && (
           <>
             <CommandPalette />

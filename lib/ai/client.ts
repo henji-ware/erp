@@ -68,7 +68,7 @@ export function resolveCall(options: AICompletionOptions): ResolvedCall {
  * Anthropic e Gemini exigem que a conversa comece com o usuário e alterne os
  * papéis; mandar duas mensagens seguidas do mesmo papel devolve HTTP 400.
  * Aqui as consecutivas viram uma só e um "assistant" inicial é descartado —
- * é a mensagem de boas-vindas fixa do Copilot, que não é histórico real.
+ * é a mensagem de boas-vindas fixa do DeskHelper AI, que não é histórico real.
  */
 function normalizeHistory(all: AIMessage[]): AIMessage[] {
   const out: AIMessage[] = [];
@@ -409,7 +409,7 @@ async function callOpenAICompatible(
 }
 
 // ----------------------------------------------------------------------------
-// Streaming — o Copilot mostra a resposta saindo em vez de um spinner longo
+// Streaming — o DeskHelper AI mostra a resposta saindo em vez de um spinner longo
 // ----------------------------------------------------------------------------
 
 async function* readSSE(res: Response): AsyncGenerator<string> {

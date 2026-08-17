@@ -16,7 +16,7 @@ interface ChatEntry extends AIMessage {
 const WELCOME: ChatEntry = {
   role: "assistant",
   content:
-    "Olá! Sou o Copilot de IA da **DRR Projetos e Equipamentos**.\n\n" +
+    "Olá! Sou o DeskHelper AI da **DRR Projetos e Equipamentos**.\n\n" +
     "Posso ajudar com resumos de vendas, contas a pagar/receber, normas técnicas (NR12, ABNT NBR 15524), inspeções pendentes ou redigir mensagens comerciais.\n\n" +
     "Como posso ajudar hoje?",
 };
@@ -29,9 +29,16 @@ const QUICK_PROMPTS: Array<{ icon: IconName; label: string; text: string }> = [
   { icon: "bulb", label: "Oportunidades", text: "Analise os leads em aberto e sugira ações comerciais para acelerar o fechamento." },
 ];
 
+const DEFAULT_SIZE = { w: 500, h: 620 };
+const MIN_SIZE = { w: 340, h: 380 };
+const SIZE_KEY = "drr_copilot_size";
+
+const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), Math.max(min, max));
+
 export default function CopilotWidget() {
   const { settings } = useAISettings();
   const [isOpen, setIsOpen] = useState(false);
+  const [size, setSize] = useState(DEFAULT_SIZE);
   const [messages, setMessages] = useState<ChatEntry[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -83,10 +90,83 @@ export default function CopilotWidget() {
   // Cancela a geração em curso se o componente sair da tela.
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  // Recupera o tamanho escolhido antes e mantém a janela dentro da tela quando
+  // o navegador é redimensionado.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SIZE_KEY);
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (typeof s?.w === "number" && typeof s?.h === "number") setSize(s);
+      }
+    } catch {
+      // valor inválido: fica no padrão
+    }
+
+    const onResize = () =>
+      setSize((s) => ({
+        w: clamp(s.w, MIN_SIZE.w, window.innerWidth - 32),
+        h: clamp(s.h, MIN_SIZE.h, window.innerHeight - 32),
+      }));
+    window.addEventListener("resize", onResize);
+    onResize();
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const stop = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
   }, []);
+
+  // Redimensionamento: o tamanho fica guardado por navegador, para não ter que
+  // reajustar a janela toda vez que abrir.
+  const resetSize = useCallback(() => {
+    setSize(DEFAULT_SIZE);
+    try {
+      localStorage.removeItem(SIZE_KEY);
+    } catch {
+      // localStorage indisponível
+    }
+  }, []);
+
+  const startResize = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const handle = e.currentTarget;
+      handle.setPointerCapture(e.pointerId);
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startW = size.w;
+      const startH = size.h;
+
+      const onMove = (ev: PointerEvent) => {
+        // Ancorado embaixo à direita: arrastar para a esquerda/cima aumenta.
+        setSize({
+          w: clamp(startW - (ev.clientX - startX), MIN_SIZE.w, window.innerWidth - 32),
+          h: clamp(startH - (ev.clientY - startY), MIN_SIZE.h, window.innerHeight - 32),
+        });
+      };
+
+      const onUp = () => {
+        handle.removeEventListener("pointermove", onMove);
+        handle.removeEventListener("pointerup", onUp);
+        handle.removeEventListener("pointercancel", onUp);
+        setSize((s) => {
+          try {
+            localStorage.setItem(SIZE_KEY, JSON.stringify(s));
+          } catch {
+            // localStorage indisponível
+          }
+          return s;
+        });
+      };
+
+      handle.addEventListener("pointermove", onMove);
+      handle.addEventListener("pointerup", onUp);
+      handle.addEventListener("pointercancel", onUp);
+    },
+    [size.w, size.h]
+  );
 
   const handleSend = async (customText?: string) => {
     const textToSend = (customText ?? input).trim();
@@ -210,45 +290,42 @@ export default function CopilotWidget() {
     }
   };
 
-  const shortModel = creds.model.split(/[-/]/).slice(0, 2).join("-") || "IA";
-
+  // Sem botão flutuante: o DeskHelper AI é aberto pela sidebar ou pelo Ctrl+K.
+  // Fechado, este componente não desenha nada.
   return (
     <>
-      {!isOpen && (
-        <button
-          type="button"
-          onClick={() => setIsOpen(true)}
-          aria-label="Abrir o Copilot de IA"
-          className="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-brand-600 text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 border border-indigo-400/30"
-        >
-          <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-sm font-semibold tracking-wide flex items-center gap-1.5">
-            <Icon name="ai" size={15} /> Copilot IA
-          </span>
-          <span className="hidden sm:inline text-[10px] font-mono bg-white/20 px-2 py-0.5 rounded-full">
-            {shortModel}
-          </span>
-        </button>
-      )}
-
       {isOpen && (
         <div
           role="dialog"
-          aria-label="Copilot de IA"
-          className="fixed bottom-4 right-4 z-50 w-[95vw] sm:w-[460px] md:w-[500px] h-[620px] max-h-[85vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden animate-fade-in-up"
+          aria-label="DeskHelper AI"
+          style={{ width: size.w, height: size.h }}
+          className="fixed bottom-4 right-4 z-50 max-w-[95vw] max-h-[88vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden animate-fade-in-up"
         >
+          {/* Puxador de redimensionamento. O painel é ancorado embaixo à
+              direita, então arrastar este canto para cima/esquerda aumenta. */}
+          <div
+            onPointerDown={startResize}
+            onDoubleClick={resetSize}
+            role="separator"
+            aria-label="Redimensionar a janela do DeskHelper AI"
+            title="Arraste para redimensionar (duplo clique restaura)"
+            className="absolute top-0 left-0 z-20 h-5 w-5 cursor-nwse-resize touch-none"
+          >
+            <span className="absolute top-1.5 left-1.5 h-2.5 w-2.5 border-l-2 border-t-2 border-white/45 rounded-tl-sm" />
+          </div>
+
           {/* Cabeçalho */}
-          <div className="flex items-center justify-between px-4 py-3 bg-slate-900 text-white border-b border-slate-800">
+          <div className="flex items-center justify-between px-4 py-3 pl-6 surface-dark border-b">
             <div className="flex items-center gap-2">
               <span
-                className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-400 text-sm"
+                className="flex h-7 w-7 items-center justify-center rounded-lg on-dark-chip"
                 aria-hidden
               >
                 <Icon name="ai" size={15} />
               </span>
               <div>
-                <h2 className="text-xs font-bold leading-tight">Copilot de IA · DRR</h2>
-                <p className="text-[10px] text-slate-400">Conectado aos dados do ERP</p>
+                <h2 className="text-sm font-bold leading-tight">DeskHelper AI · DRR</h2>
+                <p className="text-[11px] surface-dark-muted">Conectado aos dados do ERP</p>
               </div>
             </div>
 
@@ -258,7 +335,7 @@ export default function CopilotWidget() {
                 onClick={() => setMessages([WELCOME])}
                 title="Limpar conversa"
                 disabled={loading}
-                className="px-2 py-1 rounded text-slate-400 hover:text-white hover:bg-white/10 text-xs disabled:opacity-40 transition-colors"
+                className="px-2 py-1 rounded surface-dark-muted on-dark-hover text-xs disabled:opacity-40 transition-colors"
               >
                 Limpar
               </button>
@@ -266,7 +343,7 @@ export default function CopilotWidget() {
                 type="button"
                 onClick={() => setIsOpen(false)}
                 aria-label="Fechar Copilot"
-                className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded surface-dark-muted on-dark-hover transition-colors"
               >
                 <Icon name="close" size={15} />
               </button>
@@ -275,7 +352,7 @@ export default function CopilotWidget() {
 
           {/* Seletor rápido de provedor e modelo */}
           <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 border-b border-slate-200 text-xs">
-            <span className="text-[11px] font-medium text-slate-500 shrink-0">Modelo:</span>
+            <span className="text-xs font-medium text-slate-500 shrink-0">Modelo:</span>
             <select
               value={creds.provider}
               aria-label="Provedor de IA"
@@ -283,7 +360,7 @@ export default function CopilotWidget() {
                 setProviderOverride(e.target.value as AIProviderId);
                 setModelOverride("");
               }}
-              className="bg-white text-slate-800 text-[11px] font-semibold rounded-lg px-2 py-1 border border-slate-300 outline-none focus:border-brand-500 max-w-[40%]"
+              className="bg-white text-slate-800 text-xs font-semibold rounded-lg px-2 py-1 border border-slate-300 outline-none focus:border-brand-500 max-w-[40%]"
             >
               {Object.values(AI_PROVIDERS).map((p) => (
                 <option key={p.id} value={p.id}>
@@ -296,7 +373,7 @@ export default function CopilotWidget() {
               value={creds.model}
               aria-label="Modelo de IA"
               onChange={(e) => setModelOverride(e.target.value)}
-              className="flex-1 min-w-0 bg-white text-slate-800 text-[11px] font-mono rounded-lg px-2 py-1 border border-slate-300 outline-none focus:border-brand-500"
+              className="flex-1 min-w-0 bg-white text-slate-800 text-xs font-mono rounded-lg px-2 py-1 border border-slate-300 outline-none focus:border-brand-500"
             >
               {/* O modelo salvo pode ser um ID digitado à mão, fora do catálogo. */}
               {creds.model && !providerConfig?.models.some((m) => m.id === creds.model) && (
@@ -311,7 +388,7 @@ export default function CopilotWidget() {
           </div>
 
           {/* Mensagens */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3.5 text-xs bg-slate-50/40">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3.5 text-[13px] bg-slate-50/40">
             {messages.map((m, idx) => {
               const isUser = m.role === "user";
               return (
@@ -333,7 +410,7 @@ export default function CopilotWidget() {
                   </div>
 
                   {!isUser && (
-                    <div className="flex items-center gap-2 mt-1 px-1 text-[10px] text-slate-400">
+                    <div className="flex items-center gap-2 mt-1 px-1 text-[11px] text-slate-500">
                       {m.latencyMs !== undefined && (
                         <span title={m.modelUsed}>
                           {(m.latencyMs / 1000).toFixed(1)}s · {m.modelUsed || creds.model}
@@ -368,7 +445,7 @@ export default function CopilotWidget() {
                 <button
                   type="button"
                   onClick={stop}
-                  className="mt-1 px-1 text-[10px] text-slate-400 hover:text-red-600 underline font-medium"
+                  className="mt-1 px-1 text-[11px] text-slate-500 hover:text-red-600 underline font-medium"
                 >
                   Parar geração
                 </button>
@@ -378,14 +455,14 @@ export default function CopilotWidget() {
           </div>
 
           {/* Perguntas rápidas */}
-          <div className="px-3 py-1.5 flex gap-1.5 overflow-x-auto border-t border-slate-100 bg-slate-50/60 no-scrollbar">
+          <div className="px-3 py-2 flex flex-wrap gap-1.5 border-t border-slate-100 bg-slate-50/60">
             {QUICK_PROMPTS.map((p) => (
               <button
                 key={p.label}
                 type="button"
                 onClick={() => handleSend(p.text)}
                 disabled={loading}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-40 transition-colors"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-40 transition-colors"
               >
                 <Icon name={p.icon} size={11} />
                 {p.label}
@@ -407,13 +484,13 @@ export default function CopilotWidget() {
                 }
               }}
               placeholder="Pergunte sobre o ERP ou peça um texto… (Enter envia, Shift+Enter quebra linha)"
-              className="flex-1 resize-none rounded-xl p-2.5 text-xs border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+              className="flex-1 resize-none rounded-xl p-2.5 text-[13px] border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
             />
             <button
               type="button"
               onClick={() => (loading ? stop() : handleSend())}
               disabled={!loading && !input.trim()}
-              className={`h-10 px-3.5 rounded-xl font-medium text-xs flex items-center justify-center transition-colors shadow-sm ${
+              className={`h-10 px-4 rounded-xl font-semibold text-[13px] flex items-center justify-center transition-colors shadow-sm ${
                 loading
                   ? "bg-red-600 hover:bg-red-700 text-white"
                   : "bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white"

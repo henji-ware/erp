@@ -101,30 +101,40 @@ export default function Sidebar({
 
       {/* Quick Search & AI Trigger */}
       <div className="px-3 pb-2 space-y-1.5">
+        {/* Recolhida, a barra vira só ícones: o rótulo some e o atalho "Ctrl K"
+            precisa sair junto, senão ele quebra em duas linhas e vaza. */}
         <button
           type="button"
+          title="Buscar no ERP (Ctrl K)"
           onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
-          className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-medium bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 transition-colors border border-slate-200/80"
+          className={`w-full flex items-center gap-2 rounded-xl py-2 text-xs font-medium bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 transition-colors border border-slate-200/80 ${
+            collapsed ? "justify-center px-0" : "justify-between px-3"
+          }`}
         >
-          <span className="flex items-center gap-2">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <span className="flex items-center gap-2 min-w-0">
+            <svg className="shrink-0" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <span className={`sidebar-label ${collapsed ? "sidebar-label-hidden" : ""}`}>Buscar...</span>
           </span>
-          <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-400 shadow-sm">
-            Ctrl K
-          </kbd>
+          {!collapsed && (
+            <kbd className="shrink-0 whitespace-nowrap text-[10px] font-mono px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-500 shadow-sm">
+              Ctrl K
+            </kbd>
+          )}
         </button>
 
         <button
           type="button"
+          title="Abrir o DeskHelper AI"
           onClick={() => window.dispatchEvent(new CustomEvent("open-drr-copilot"))}
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-indigo-500/10 to-brand-500/10 text-indigo-500 hover:bg-indigo-500/20 border border-indigo-500/20 transition-all"
+          className={`w-full flex items-center gap-2.5 rounded-xl py-2 text-xs font-semibold bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 border border-indigo-500/20 transition-colors ${
+            collapsed ? "justify-center px-0" : "px-3"
+          }`}
         >
           <Icon name="ai" size={15} />
-          <span className={`sidebar-label ${collapsed ? "sidebar-label-hidden" : ""}`}>Copilot IA</span>
+          <span className={`sidebar-label ${collapsed ? "sidebar-label-hidden" : ""}`}>DeskHelper AI</span>
         </button>
       </div>
 

@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
           } catch (error) {
             send({
               type: "error",
-              error: errorMessage(error, "Erro ao processar sua solicitação no Copilot de IA."),
+              error: errorMessage(error, "Erro ao processar sua solicitação no DeskHelper AI."),
             });
           } finally {
             if (!closed) {
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("[API AI Chat Error]:", error);
     return NextResponse.json(
-      { ok: false, error: errorMessage(error, "Erro ao processar sua solicitação no Copilot de IA.") },
+      { ok: false, error: errorMessage(error, "Erro ao processar sua solicitação no DeskHelper AI.") },
       { status: 500 }
     );
   }

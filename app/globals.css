@@ -719,3 +719,71 @@ html.no-anim *::after {
   box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.25);
 }
 
+/* =========================================================================
+   SUPERFÍCIES ESCURAS (cabeçalhos do Copilot, banner de IA)
+
+   Não use `bg-slate-900 text-white` para isto. Aqui `slate` e `white` são
+   tokens que acompanham o modo: no escuro, slate-900 fica quase branco e
+   white fica quase preto — ou seja, o painel inverte e some.
+
+   Estas classes montam uma superfície escura em qualquer modo, tingida com
+   o --tint do tema (azul no DRR, verde no Sage, vinho no Rubi…), e usam
+   branco literal no texto.
+   ========================================================================= */
+.surface-dark {
+  background-color: color-mix(in srgb, var(--tint) 42%, #070a12);
+  color: #f5f7fa;
+  border-color: color-mix(in srgb, var(--tint) 55%, transparent);
+}
+
+.surface-dark-muted {
+  color: color-mix(in srgb, #f5f7fa 62%, transparent);
+}
+
+/* Botões e teclas dentro de superfícies escuras — branco literal, para não
+   depender do token `white`, que inverte com o modo. */
+.on-dark-ghost {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.on-dark-ghost:hover {
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+.on-dark-accent {
+  background-color: var(--accent);
+  color: rgb(var(--accent-fg));
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, #ffffff);
+}
+.on-dark-accent:hover {
+  background-color: var(--accent-strong);
+}
+
+.on-dark-kbd {
+  background-color: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.on-dark-chip {
+  background-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: color-mix(in srgb, var(--accent) 45%, #ffffff);
+}
+
+.on-dark-hover:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+/* Campo de segredo mascarado SEM usar type="password".
+   Com type="password" o navegador entende que é um campo de login e preenche
+   sozinho com a senha salva do site — foi assim que a senha do usuário acabou
+   dentro do campo de chave de API. Mascarando via CSS o campo continua sendo
+   type="text" e fica fora dessa heurística de autofill. */
+.input-secret {
+  -webkit-text-security: disc;
+  text-security: disc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.08em;
+}
+

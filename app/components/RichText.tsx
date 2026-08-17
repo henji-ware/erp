@@ -32,7 +32,7 @@ function renderInline(text: string, keyPrefix: string): Inline[] {
       out.push(
         // Neutro de propósito: a cor de destaque do tema (âmbar no DRR) sobre
         // cinza-claro fica com contraste baixo demais para texto.
-        <code key={key} className="px-1 py-0.5 rounded bg-slate-100 text-[0.92em] font-mono text-slate-800">
+        <code key={key} className="px-1 py-0.5 rounded bg-slate-100 text-[0.95em] font-mono text-slate-800">
           {token.slice(1, -1)}
         </code>
       );
@@ -91,9 +91,9 @@ export function RichText({ text }: { text: string }) {
       blocks.push(
         <pre
           key={`b${key++}`}
-          className="my-2 p-2.5 rounded-lg bg-slate-900 text-slate-100 overflow-x-auto text-[11px] leading-relaxed"
+          className="my-2 p-2.5 rounded-lg bg-slate-900 text-slate-100 overflow-x-auto text-xs leading-relaxed"
         >
-          {lang && <div className="text-[9px] uppercase tracking-wider text-slate-400 mb-1">{lang}</div>}
+          {lang && <div className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">{lang}</div>}
           <code className="font-mono whitespace-pre">{body.join("\n")}</code>
         </pre>
       );
@@ -133,7 +133,7 @@ export function RichText({ text }: { text: string }) {
         i++;
       }
       blocks.push(
-        <ul key={`b${key++}`} className="my-1.5 space-y-1 pl-4 list-disc marker:text-slate-400">
+        <ul key={`b${key++}`} className="my-1.5 space-y-1 pl-4 list-disc marker:text-slate-500">
           {items.map((it, n) => (
             <li key={n}>{renderInline(it, `ul${key}-${n}`)}</li>
           ))}
@@ -150,7 +150,7 @@ export function RichText({ text }: { text: string }) {
         i++;
       }
       blocks.push(
-        <ol key={`b${key++}`} className="my-1.5 space-y-1 pl-5 list-decimal marker:text-slate-400">
+        <ol key={`b${key++}`} className="my-1.5 space-y-1 pl-5 list-decimal marker:text-slate-500">
           {items.map((it, n) => (
             <li key={n}>{renderInline(it, `ol${key}-${n}`)}</li>
           ))}
@@ -185,5 +185,5 @@ export function RichText({ text }: { text: string }) {
     );
   }
 
-  return <div className="text-[12px] leading-relaxed">{blocks}</div>;
+  return <div className="text-[13px] leading-relaxed">{blocks}</div>;
 }

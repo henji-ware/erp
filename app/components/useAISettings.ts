@@ -46,9 +46,9 @@ export function saveAISettings(next: AISettingsData) {
 }
 
 /**
- * Configuração de IA compartilhada pelo Copilot, pelo assistente de propostas e
+ * Configuração de IA compartilhada pelo DeskHelper AI, pelo assistente de propostas e
  * pela tela de Configurações. Antes cada um lia o localStorage no mount e nunca
- * mais — trocar o modelo nas Configurações não chegava no Copilot já aberto.
+ * mais — trocar o modelo nas Configurações não chegava no DeskHelper AI já aberto.
  */
 export function useAISettings() {
   // Começa no padrão para o HTML do servidor bater com o do cliente; o valor

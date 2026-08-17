@@ -9,8 +9,7 @@ import {
   LEAD_STAGE_LABELS,
   APPOINTMENT_TYPE_LABELS,
 } from "@/lib/format";
-import { StatCard, Badge } from "./components/ui";
-import AIQuickActions from "./components/AIQuickActions";
+import { PageHeader, StatCard, Badge } from "./components/ui";
 import { Icon, type IconName } from "./components/icons";
 import { getCurrentUser, crmScope } from "@/lib/auth";
 
@@ -102,48 +101,10 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            Dashboard
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Visão geral inteligente — projetos, inspeções, vendas, locações e financeiro
-          </p>
-        </div>
-
-        {/* Quick Action Trigger */}
-        <div className="flex items-center gap-2">
-          <Link
-            href="/settings"
-            className="btn-secondary btn-sm flex items-center gap-1.5"
-            title="Configurar IA"
-          >
-            <Icon name="settings" size={14} />
-            <span>Configurar modelos de IA</span>
-          </Link>
-        </div>
-      </div>
-
-      {/* Banner de Boas-Vindas e IA */}
-      <div className="mb-6 p-5 rounded-2xl bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 text-white shadow-xl border border-indigo-500/20 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-300">
-              DRR Copilot & Assistentes de IA Ativos
-            </span>
-          </div>
-          <h2 className="text-lg font-bold text-white">
-            Bem-vindo(a), {user?.name || "Colaborador"}
-          </h2>
-          <p className="text-xs text-indigo-200/80 max-w-xl mt-1">
-            Consulte dados em tempo real, gere escopos de propostas técnicas e busque rapidamente qualquer registro pressionando <kbd className="font-mono bg-white/20 px-1.5 py-0.5 rounded text-white text-[10px]">Ctrl + K</kbd>.
-          </p>
-        </div>
-
-        <AIQuickActions />
-      </div>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Visão geral — projetos, inspeções, vendas, locações e financeiro"
+      />
 
       {/* Painel de pendências */}
       {alerts.length > 0 && (
