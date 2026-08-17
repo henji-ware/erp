@@ -56,7 +56,6 @@ export default async function ProposalPage({
           action={
             <div className="flex flex-wrap items-center gap-2">
               <ProposalAIAssistant
-                proposalId={proposal.id}
                 proposalType={proposal.type}
                 clientName={proposal.clientName}
                 title={proposal.title}
@@ -79,7 +78,7 @@ export default async function ProposalPage({
           <form action={updateProposal} className="card space-y-3 p-5">
             <input type="hidden" name="id" value={proposal.id} />
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-slate-800 dark:text-slate-100">Dados da proposta</h2>
+              <h2 className="font-semibold text-slate-800">Dados da proposta</h2>
               <span className="text-xs text-slate-400">R{proposal.revision}</span>
             </div>
 

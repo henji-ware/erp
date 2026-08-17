@@ -186,8 +186,18 @@ html {
     @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-100;
   }
 
+  /* Alias do ghost: usado pelos painéis de IA como ação secundária. */
+  .btn-secondary {
+    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-100;
+  }
+
   .btn-danger {
     @apply btn text-red-600 hover:bg-red-500/10;
+  }
+
+  /* Modificador de tamanho — combina com btn-primary/secondary/ghost. */
+  .btn-sm {
+    @apply gap-1.5 rounded-lg px-3 py-1.5 text-xs;
   }
 
   .card {

@@ -70,8 +70,14 @@ export default async function RootLayout({
             <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">{children}</div>
           </main>
         </div>
-        <CommandPalette />
-        <CopilotWidget />
+        {/* Só para quem está logado: na tela de login não há ERP para consultar
+            e o Copilot chamaria uma API que responde 401. */}
+        {user && (
+          <>
+            <CommandPalette />
+            <CopilotWidget />
+          </>
+        )}
       </body>
     </html>
   );

@@ -104,7 +104,7 @@ export default function Sidebar({
         <button
           type="button"
           onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
-          className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-700/60 transition-colors border border-slate-200/80 dark:border-slate-700/60"
+          className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-medium bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 transition-colors border border-slate-200/80"
         >
           <span className="flex items-center gap-2">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -113,17 +113,17 @@ export default function Sidebar({
             </svg>
             <span className={`sidebar-label ${collapsed ? "sidebar-label-hidden" : ""}`}>Buscar...</span>
           </span>
-          <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-400 shadow-2xs">
-            ⌘K
+          <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-400 shadow-sm">
+            Ctrl K
           </kbd>
         </button>
 
         <button
           type="button"
           onClick={() => window.dispatchEvent(new CustomEvent("open-drr-copilot"))}
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-indigo-500/10 to-brand-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20 border border-indigo-500/20 transition-all"
+          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-indigo-500/10 to-brand-500/10 text-indigo-500 hover:bg-indigo-500/20 border border-indigo-500/20 transition-all"
         >
-          <span className="text-sm">✨</span>
+          <Icon name="ai" size={15} />
           <span className={`sidebar-label ${collapsed ? "sidebar-label-hidden" : ""}`}>Copilot IA</span>
         </button>
       </div>

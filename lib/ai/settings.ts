@@ -1,7 +1,16 @@
-import { AI_PROVIDERS, DEFAULT_AI_PROVIDER } from "./providers";
+import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, isAIProviderId } from "./providers";
 import { AIProviderId, AISettingsData } from "./types";
 
+/**
+ * Cookie com as preferências de IA — provedor ativo, modelo padrão e URLs base.
+ * NÃO guarda chaves de API: cookie é enviado em toda requisição e é legível por
+ * qualquer script da página. As chaves ficam só no localStorage do navegador e
+ * são enviadas apenas no corpo das chamadas para /api/ai/*.
+ */
 export const AI_SETTINGS_COOKIE = "drr_ai_settings";
+
+/** Chave do localStorage (preferências + chaves de API). */
+export const AI_SETTINGS_STORAGE_KEY = "drr_ai_settings";
 
 export function getDefaultAISettings(): AISettingsData {
   const defaultModels: Partial<Record<AIProviderId, string>> = {};
@@ -18,28 +27,68 @@ export function getDefaultAISettings(): AISettingsData {
   };
 }
 
+function asStringMap(value: unknown): Partial<Record<AIProviderId, string>> {
+  const out: Partial<Record<AIProviderId, string>> = {};
+  if (!value || typeof value !== "object") return out;
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (isAIProviderId(k) && typeof v === "string" && v.trim()) out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * Lê o JSON salvo (cookie ou localStorage) de forma defensiva: dados de origem
+ * não confiável, podendo estar corrompidos, antigos ou com provedores que não
+ * existem mais. Qualquer campo inválido volta ao padrão em vez de derrubar a
+ * página de configurações.
+ */
 export function parseAISettings(rawJson?: string): AISettingsData {
   const defaults = getDefaultAISettings();
   if (!rawJson) return defaults;
 
+  // O cookie é gravado com encodeURIComponent no navegador. Dependendo da
+  // versão do Next, cookies().get() pode devolver o valor ainda codificado.
+  let raw = rawJson;
+  if (raw.startsWith("%7B")) {
+    try {
+      raw = decodeURIComponent(raw);
+    } catch {
+      return defaults;
+    }
+  }
+
+  let parsed: Record<string, unknown>;
   try {
-    const parsed = JSON.parse(rawJson);
-    return {
-      activeProvider: parsed.activeProvider || defaults.activeProvider,
-      defaultModels: { ...defaults.defaultModels, ...(parsed.defaultModels || {}) },
-      apiKeys: { ...(parsed.apiKeys || {}) },
-      customBaseUrls: { ...(parsed.customBaseUrls || {}) },
-      customModels: { ...(parsed.customModels || {}) },
-    };
+    parsed = JSON.parse(raw);
   } catch {
     return defaults;
   }
+  if (!parsed || typeof parsed !== "object") return defaults;
+
+  const customModels: Partial<Record<AIProviderId, string[]>> = {};
+  if (parsed.customModels && typeof parsed.customModels === "object") {
+    for (const [k, v] of Object.entries(parsed.customModels as Record<string, unknown>)) {
+      if (isAIProviderId(k) && Array.isArray(v)) {
+        customModels[k] = v.filter((m): m is string => typeof m === "string");
+      }
+    }
+  }
+
+  return {
+    activeProvider: isAIProviderId(parsed.activeProvider)
+      ? parsed.activeProvider
+      : defaults.activeProvider,
+    defaultModels: { ...defaults.defaultModels, ...asStringMap(parsed.defaultModels) },
+    apiKeys: asStringMap(parsed.apiKeys),
+    customBaseUrls: asStringMap(parsed.customBaseUrls),
+    customModels,
+  };
 }
 
 /**
- * Obtém a chave de API efetiva para um determinado provedor:
- * 1. Chave configurada na sessão/cookie do usuário
- * 2. Chave definida no ambiente (.env)
+ * Chave de API efetiva:
+ * 1. A que o usuário digitou nas Configurações (fica no navegador dele);
+ * 2. A variável de ambiente do servidor (.env), quando existir.
  */
 export function getEffectiveApiKey(
   providerId: AIProviderId,
@@ -50,30 +99,16 @@ export function getEffectiveApiKey(
   }
 
   const envVar = AI_PROVIDERS[providerId]?.keyEnvVar;
-  if (envVar && process.env[envVar]) {
-    return process.env[envVar]?.trim();
-  }
+  const fromEnv = envVar ? process.env[envVar]?.trim() : undefined;
+  if (fromEnv) return fromEnv;
 
-  // Fallbacks comuns
-  if (providerId === "openai" && process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY.trim();
-  if (providerId === "anthropic" && process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY.trim();
-  if (providerId === "gemini" && (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)) {
-    return (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)?.trim();
-  }
-  if (providerId === "groq" && process.env.GROQ_API_KEY) return process.env.GROQ_API_KEY.trim();
-  if (providerId === "deepseek" && process.env.DEEPSEEK_API_KEY) return process.env.DEEPSEEK_API_KEY.trim();
-  if (providerId === "mistral" && process.env.MISTRAL_API_KEY) return process.env.MISTRAL_API_KEY.trim();
-  if (providerId === "xai" && process.env.XAI_API_KEY) return process.env.XAI_API_KEY.trim();
-  if (providerId === "cohere" && process.env.COHERE_API_KEY) return process.env.COHERE_API_KEY.trim();
-  if (providerId === "openrouter" && process.env.OPENROUTER_API_KEY) return process.env.OPENROUTER_API_KEY.trim();
+  // Único alias que não é derivável do keyEnvVar do provedor.
+  if (providerId === "gemini") return process.env.GOOGLE_API_KEY?.trim() || undefined;
 
   return undefined;
 }
 
-export function getEffectiveBaseUrl(
-  providerId: AIProviderId,
-  userBaseUrl?: string
-): string {
+export function getEffectiveBaseUrl(providerId: AIProviderId, userBaseUrl?: string): string {
   if (userBaseUrl && userBaseUrl.trim().length > 0) {
     return userBaseUrl.trim().replace(/\/+$/, "");
   }
@@ -83,4 +118,34 @@ export function getEffectiveBaseUrl(
   }
 
   return AI_PROVIDERS[providerId]?.defaultBaseUrl || "https://api.openai.com";
+}
+
+const PRIVATE_HOST =
+  /^(localhost|127\.|0\.0\.0\.0|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?|.*\.local)$|^\[?(fc|fd)/i;
+
+/**
+ * A URL base vem do navegador e é buscada pelo servidor — sem validação isso é
+ * um SSRF que enxerga a rede interna da VPS. Provedores locais (Ollama, LM
+ * Studio) são a exceção declarada em `allowsPrivateHost`.
+ */
+export function assertSafeBaseUrl(providerId: AIProviderId, baseUrl: string): void {
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    throw new Error(`URL base inválida para ${AI_PROVIDERS[providerId]?.name || providerId}.`);
+  }
+
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error("A URL base precisa usar http:// ou https://.");
+  }
+
+  if (AI_PROVIDERS[providerId]?.allowsPrivateHost) return;
+
+  if (PRIVATE_HOST.test(url.hostname)) {
+    throw new Error(
+      `Endereços de rede interna não são permitidos para ${AI_PROVIDERS[providerId]?.name || providerId}. ` +
+        "Use os provedores Ollama ou Custom para servidores locais."
+    );
+  }
 }

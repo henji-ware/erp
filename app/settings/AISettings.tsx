@@ -1,110 +1,94 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AI_PROVIDERS } from "@/lib/ai/providers";
 import { AIModelInfo, AIProviderId, AISettingsData } from "@/lib/ai/types";
-import { AI_SETTINGS_COOKIE, getDefaultAISettings } from "@/lib/ai/settings";
+import { useAISettings } from "../components/useAISettings";
+import { Icon } from "../components/icons";
 
 export default function AISettings({
   initialSettings,
 }: {
   initialSettings?: AISettingsData;
 }) {
-  const [settings, setSettings] = useState<AISettingsData>(
-    initialSettings || getDefaultAISettings()
+  const { settings, setSettings, loaded } = useAISettings();
+  const [selectedProvider, setSelectedProvider] = useState<AIProviderId>(
+    initialSettings?.activeProvider || "gemini"
   );
-  const [selectedProvider, setSelectedProvider] = useState<AIProviderId>("gemini");
   const [loadingModels, setLoadingModels] = useState(false);
-  const [modelsMap, setModelsMap] = useState<Record<string, AIModelInfo[]>>({});
-  const [testingKey, setTestingKey] = useState(false);
-  const [testResult, setTestResult] = useState<{
-    ok: boolean;
-    msg: string;
-    latency?: number;
-  } | null>(null);
-  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [modelsMap, setModelsMap] = useState<Partial<Record<AIProviderId, AIModelInfo[]>>>({});
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string; latency?: number } | null>(null);
+  const [savedAt, setSavedAt] = useState(0);
   const [showKey, setShowKey] = useState(false);
+  const [manualModel, setManualModel] = useState("");
 
-  // Carrega configurações salvas no localStorage/cookie ao montar
-  useEffect(() => {
-    try {
-      const local = localStorage.getItem("drr_ai_settings");
-      if (local) {
-        const parsed = JSON.parse(local);
-        setSettings((prev) => ({
-          ...prev,
-          ...parsed,
-          apiKeys: { ...prev.apiKeys, ...parsed.apiKeys },
-          defaultModels: { ...prev.defaultModels, ...parsed.defaultModels },
-          customBaseUrls: { ...prev.customBaseUrls, ...parsed.customBaseUrls },
-        }));
-        if (parsed.activeProvider) {
-          setSelectedProvider(parsed.activeProvider);
-        }
-      }
-    } catch {}
-  }, []);
+  // Rascunhos locais dos campos de texto: gravar a cada tecla escrevia o
+  // localStorage e o cookie caractere por caractere e piscava o aviso de
+  // "salvo". Agora o commit acontece ao sair do campo ou após uma pausa.
+  const [keyDraft, setKeyDraft] = useState<string | null>(null);
+  const [urlDraft, setUrlDraft] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentConfig = AI_PROVIDERS[selectedProvider];
-  const activeModel =
-    settings.defaultModels[selectedProvider] || currentConfig?.defaultModel;
-  const currentApiKey = settings.apiKeys[selectedProvider] || "";
-  const currentBaseUrl = settings.customBaseUrls[selectedProvider] || "";
-  const currentModels =
-    modelsMap[selectedProvider] || currentConfig?.models || [];
+  const activeModel = settings.defaultModels[selectedProvider] || currentConfig?.defaultModel || "";
+  const storedKey = settings.apiKeys[selectedProvider] || "";
+  const storedUrl = settings.customBaseUrls[selectedProvider] || "";
+  const currentKey = keyDraft ?? storedKey;
+  const currentUrl = urlDraft ?? storedUrl;
 
-  const saveSettings = (newSettings: AISettingsData) => {
-    setSettings(newSettings);
-    try {
-      localStorage.setItem("drr_ai_settings", JSON.stringify(newSettings));
-      // Salva no cookie para Server Actions / Server Components
-      document.cookie = `${AI_SETTINGS_COOKIE}=${encodeURIComponent(
-        JSON.stringify(newSettings)
-      )}; path=/; max-age=31536000; SameSite=Lax`;
-    } catch {}
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+  const models = useMemo(
+    () => modelsMap[selectedProvider] || currentConfig?.models || [],
+    [modelsMap, selectedProvider, currentConfig]
+  );
+
+  // Assim que o localStorage é lido, o painel abre no provedor que está ativo.
+  useEffect(() => {
+    if (loaded) setSelectedProvider(settings.activeProvider);
+    // só na carga inicial: depois quem manda é o clique do usuário
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
+
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
+
+  const commit = (patch: Partial<AISettingsData>) => {
+    setSettings({ ...settings, ...patch });
+    setSavedAt(Date.now());
   };
 
-  const handleKeyChange = (val: string) => {
-    const next = {
-      ...settings,
-      apiKeys: {
-        ...settings.apiKeys,
-        [selectedProvider]: val,
-      },
-    };
-    saveSettings(next);
+  const commitKey = (value: string) => {
+    setKeyDraft(null);
+    if (value === storedKey) return;
+    commit({ apiKeys: { ...settings.apiKeys, [selectedProvider]: value } });
   };
 
-  const handleBaseUrlChange = (val: string) => {
-    const next = {
-      ...settings,
-      customBaseUrls: {
-        ...settings.customBaseUrls,
-        [selectedProvider]: val,
-      },
-    };
-    saveSettings(next);
+  const commitUrl = (value: string) => {
+    setUrlDraft(null);
+    if (value === storedUrl) return;
+    commit({ customBaseUrls: { ...settings.customBaseUrls, [selectedProvider]: value } });
   };
 
-  const handleModelSelect = (modelId: string) => {
-    const next = {
-      ...settings,
-      defaultModels: {
-        ...settings.defaultModels,
-        [selectedProvider]: modelId,
-      },
-    };
-    saveSettings(next);
+  const scheduleCommit = (fn: () => void) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(fn, 800);
   };
 
-  const handleSetActiveProvider = (provId: AIProviderId) => {
-    const next = {
-      ...settings,
-      activeProvider: provId,
-    };
-    saveSettings(next);
+  const selectModel = (modelId: string) => {
+    const id = modelId.trim();
+    if (!id) return;
+    commit({ defaultModels: { ...settings.defaultModels, [selectedProvider]: id } });
+  };
+
+  const switchProvider = (id: AIProviderId) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setKeyDraft(null);
+    setUrlDraft(null);
+    setSelectedProvider(id);
+    setTestResult(null);
+    setShowKey(false);
+    setManualModel("");
   };
 
   const fetchLiveModels = async () => {
@@ -116,37 +100,24 @@ export default function AISettings({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           provider: selectedProvider,
-          apiKey: currentApiKey,
-          baseUrl: currentBaseUrl,
+          apiKey: currentKey,
+          baseUrl: currentUrl,
         }),
       });
-
       const data = await res.json();
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Não foi possível carregar modelos.");
-      }
+      if (!res.ok || !data.ok) throw new Error(data.error || "Não foi possível carregar modelos.");
 
-      setModelsMap((prev) => ({
-        ...prev,
-        [selectedProvider]: data.models,
-      }));
-
-      setTestResult({
-        ok: true,
-        msg: `✅ ${data.count} modelos disponíveis carregados com sucesso da API!`,
-      });
+      setModelsMap((prev) => ({ ...prev, [selectedProvider]: data.models }));
+      setTestResult({ ok: true, msg: `${data.count} modelos carregados da sua conta.` });
     } catch (err: any) {
-      setTestResult({
-        ok: false,
-        msg: `❌ ${err.message}`,
-      });
+      setTestResult({ ok: false, msg: err.message });
     } finally {
       setLoadingModels(false);
     }
   };
 
   const testConnection = async () => {
-    setTestingKey(true);
+    setTesting(true);
     setTestResult(null);
     try {
       const res = await fetch("/api/ai/test", {
@@ -155,60 +126,64 @@ export default function AISettings({
         body: JSON.stringify({
           provider: selectedProvider,
           model: activeModel,
-          apiKey: currentApiKey,
-          baseUrl: currentBaseUrl,
+          apiKey: currentKey,
+          baseUrl: currentUrl,
         }),
       });
-
       const data = await res.json();
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Falha na conexão.");
-      }
+      if (!res.ok || !data.ok) throw new Error(data.error || "Falha na conexão.");
 
       setTestResult({
         ok: true,
         latency: data.latencyMs,
-        msg: `✅ Conectado com sucesso ao ${data.model} em ${data.latencyMs}ms!`,
+        msg: `Conectado a ${data.model}.`,
       });
     } catch (err: any) {
-      setTestResult({
-        ok: false,
-        msg: `❌ ${err.message}`,
-      });
+      setTestResult({ ok: false, msg: err.message });
     } finally {
-      setTestingKey(false);
+      setTesting(false);
     }
   };
 
+  const justSaved = savedAt > 0 && Date.now() - savedAt < 2500;
+
   return (
     <div className="space-y-6">
-      {/* Header com Provedor Ativo */}
+      {/* Provedor ativo */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-900 text-white shadow-lg border border-slate-800">
         <div>
           <div className="flex items-center gap-2">
-            <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Provedor Padrão Ativo no ERP
+              Provedor padrão do ERP
             </p>
           </div>
-          <p className="mt-1 text-lg font-bold text-white flex items-center gap-2">
-            {AI_PROVIDERS[settings.activeProvider]?.name || "Gemini"}
-            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-300 font-mono font-normal">
+          <p className="mt-1 text-lg font-bold text-white flex flex-wrap items-center gap-2">
+            {AI_PROVIDERS[settings.activeProvider]?.name}
+            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 font-mono font-normal">
               {settings.defaultModels[settings.activeProvider] ||
                 AI_PROVIDERS[settings.activeProvider]?.defaultModel}
             </span>
           </p>
         </div>
-        {savedSuccess && (
-          <span className="text-xs text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 animate-fade-in">
-            ✓ Configurações salvas automaticamente
+        {justSaved && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 animate-fade-in">
+            <Icon name="check" size={12} /> Salvo
           </span>
         )}
       </div>
 
-      {/* Grid de Provedores */}
+      {/* Aviso de onde a chave é guardada */}
+      <p className="text-[11px] text-slate-500 leading-relaxed rounded-lg border border-slate-200 bg-slate-50 p-3">
+        As chaves de API ficam salvas <strong>somente neste navegador</strong> e são enviadas ao
+        servidor apenas no momento de cada consulta — nunca em cookie. Para uma chave compartilhada
+        por toda a equipe, defina a variável de ambiente correspondente no servidor e deixe o campo
+        em branco.
+      </p>
+
+      {/* Grade de provedores */}
       <div>
-        <label className="label mb-2 font-medium">Selecione o Provedor para Configurar:</label>
+        <label className="label mb-2 font-medium">Provedor a configurar</label>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
           {Object.values(AI_PROVIDERS).map((p) => {
             const isSelected = selectedProvider === p.id;
@@ -219,28 +194,28 @@ export default function AISettings({
               <button
                 key={p.id}
                 type="button"
-                onClick={() => {
-                  setSelectedProvider(p.id);
-                  setTestResult(null);
-                }}
+                onClick={() => switchProvider(p.id)}
+                aria-pressed={isSelected}
                 className={`relative flex flex-col items-start p-3 rounded-xl border text-left transition-all ${
                   isSelected
                     ? "border-brand-500 bg-brand-500/5 shadow-md ring-2 ring-brand-500/20"
-                    : "border-slate-200 hover:border-slate-300 bg-white dark:bg-slate-900/50"
+                    : "border-slate-200 hover:border-slate-300 bg-white"
                 }`}
               >
                 {isDefault && (
-                  <span className="absolute top-2 right-2 flex h-2 w-2 rounded-full bg-emerald-500" title="Provedor Ativo" />
+                  <span
+                    className="absolute top-2 right-2 flex h-2 w-2 rounded-full bg-emerald-500"
+                    title="Provedor ativo"
+                  />
                 )}
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  {p.name.split(" ")[0]}
-                </span>
+                <span className="text-xs font-bold text-slate-800">{p.name.split(" ")[0]}</span>
                 <span className="text-[11px] text-slate-400 truncate w-full mt-0.5">
-                  {p.name.includes(" ") ? p.name.split(" ").slice(1).join(" ") : p.tagline.slice(0, 16)}
+                  {p.name.includes(" ") ? p.name.split(" ").slice(1).join(" ") : p.tagline.slice(0, 18)}
                 </span>
                 {hasKey && (
-                  <span className="mt-2 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                    ● Chave salva
+                  <span className="mt-2 inline-flex items-center gap-1 text-[10px] text-emerald-600 font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Chave salva
                   </span>
                 )}
               </button>
@@ -249,172 +224,202 @@ export default function AISettings({
         </div>
       </div>
 
-      {/* Painel do Provedor Selecionado */}
-      <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 dark:bg-slate-900/30 dark:border-slate-800 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800 pb-4">
+      {/* Painel do provedor */}
+      <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                {currentConfig.name}
-              </h3>
-              <span className={`text-[11px] px-2.5 py-0.5 rounded-full border font-medium ${currentConfig.badgeColor}`}>
-                {currentConfig.tagline}
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-bold text-slate-900">{currentConfig?.name}</h3>
+              <span
+                className={`text-[11px] px-2.5 py-0.5 rounded-full border font-medium ${currentConfig?.badgeColor}`}
+              >
+                {currentConfig?.tagline}
               </span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">{currentConfig.description}</p>
+            <p className="mt-1 text-xs text-slate-500">{currentConfig?.description}</p>
           </div>
 
           <button
             type="button"
-            onClick={() => handleSetActiveProvider(selectedProvider)}
-            className={`btn-sm ${
+            onClick={() => commit({ activeProvider: selectedProvider })}
+            disabled={settings.activeProvider === selectedProvider}
+            className={
               settings.activeProvider === selectedProvider
-                ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                : "btn-secondary"
-            }`}
+                ? "btn btn-sm bg-emerald-600 text-white disabled:opacity-100 shrink-0"
+                : "btn-secondary btn-sm shrink-0"
+            }
           >
-            {settings.activeProvider === selectedProvider
-              ? "✓ Provedor Principal"
-              : "Definir como Principal"}
+            {settings.activeProvider === selectedProvider ? (
+              <>
+                <Icon name="check" size={13} /> Provedor principal
+              </>
+            ) : (
+              "Definir como principal"
+            )}
           </button>
         </div>
 
-        {/* Inputs de Chave e Base URL */}
+        {/* Chave e URL base */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {currentConfig.requiresApiKey && (
+          {currentConfig?.requiresApiKey && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="label text-xs">
+                <label htmlFor="ai-key" className="label text-xs mb-0">
                   Chave de API ({currentConfig.keyEnvVar})
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setShowKey(!showKey)}
-                  className="text-[11px] text-slate-500 hover:text-slate-800 underline"
-                >
-                  {showKey ? "Ocultar" : "Mostrar"}
-                </button>
+                <div className="flex items-center gap-2">
+                  {storedKey && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setKeyDraft("");
+                        commitKey("");
+                      }}
+                      className="text-[11px] text-red-600 hover:underline"
+                    >
+                      Remover
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowKey(!showKey)}
+                    className="text-[11px] text-slate-500 hover:text-slate-800 underline"
+                  >
+                    {showKey ? "Ocultar" : "Mostrar"}
+                  </button>
+                </div>
               </div>
-              <div className="relative">
-                <input
-                  type={showKey ? "text" : "password"}
-                  value={currentApiKey}
-                  onChange={(e) => handleKeyChange(e.target.value)}
-                  placeholder={`Cole sua ${currentConfig.keyEnvVar} ou deixe vazio se estiver no .env`}
-                  className="input text-xs font-mono pr-8"
-                />
-              </div>
+              <input
+                id="ai-key"
+                type={showKey ? "text" : "password"}
+                autoComplete="off"
+                spellCheck={false}
+                value={currentKey}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setKeyDraft(v);
+                  scheduleCommit(() => commitKey(v));
+                }}
+                onBlur={(e) => commitKey(e.target.value)}
+                placeholder={`Cole sua ${currentConfig.keyEnvVar} ou deixe em branco`}
+                className="input text-xs font-mono"
+              />
               <p className="mt-1 text-[11px] text-slate-400">
-                Se já configurada no <code className="font-mono">.env</code> do servidor, você pode deixar este campo em branco.
+                Já configurada no <code className="font-mono">.env</code> do servidor? Deixe em branco.
               </p>
             </div>
           )}
 
           <div>
-            <label className="label text-xs mb-1">
-              URL Base da API (Endpoint Customizado)
+            <label htmlFor="ai-url" className="label text-xs mb-1">
+              URL base da API (endpoint customizado)
             </label>
             <input
+              id="ai-url"
               type="text"
-              value={currentBaseUrl}
-              onChange={(e) => handleBaseUrlChange(e.target.value)}
-              placeholder={currentConfig.defaultBaseUrl || "https://api.openai.com/v1"}
+              spellCheck={false}
+              value={currentUrl}
+              onChange={(e) => {
+                const v = e.target.value;
+                setUrlDraft(v);
+                scheduleCommit(() => commitUrl(v));
+              }}
+              onBlur={(e) => commitUrl(e.target.value)}
+              placeholder={currentConfig?.defaultBaseUrl || "https://api.openai.com"}
               className="input text-xs font-mono"
             />
             <p className="mt-1 text-[11px] text-slate-400">
-              Padrão: <code className="font-mono">{currentConfig.defaultBaseUrl || "Padrão do serviço"}</code>
+              Padrão: <code className="font-mono">{currentConfig?.defaultBaseUrl || "padrão do serviço"}</code>
             </p>
           </div>
         </div>
 
-        {/* Ações de Teste e Busca de Modelos */}
-        <div className="flex flex-wrap items-center gap-2 pt-2">
+        {/* Ações */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           <button
             type="button"
             onClick={fetchLiveModels}
             disabled={loadingModels}
-            className="btn-secondary btn-sm flex items-center gap-1.5"
+            className="btn-secondary btn-sm"
           >
-            {loadingModels ? (
-              <span className="inline-block animate-spin">⟳</span>
-            ) : (
-              <span>🔄</span>
-            )}
-            Carregar modelos disponíveis na minha conta
+            {loadingModels ? "Carregando…" : "Carregar modelos da minha conta"}
           </button>
 
           <button
             type="button"
             onClick={testConnection}
-            disabled={testingKey}
-            className="btn-primary btn-sm flex items-center gap-1.5"
+            disabled={testing}
+            className="btn-primary btn-sm"
           >
-            {testingKey ? (
-              <span className="inline-block animate-spin">⟳</span>
-            ) : (
-              <span>⚡</span>
-            )}
-            Testar Conexão e Latência
+            {testing ? "Testando…" : "Testar conexão"}
           </button>
         </div>
 
-        {/* Feedback de Teste */}
         {testResult && (
           <div
-            className={`p-3 rounded-xl text-xs flex items-center justify-between animate-fade-in ${
+            role="status"
+            className={`p-3 rounded-xl text-xs flex items-start justify-between gap-3 animate-fade-in border ${
               testResult.ok
-                ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                : "bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800"
+                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                : "bg-red-50 text-red-800 border-red-200"
             }`}
           >
-            <span>{testResult.msg}</span>
-            {testResult.latency && (
-              <span className="font-mono text-[11px] font-semibold">
+            <span className="flex items-start gap-1.5 leading-relaxed">
+              <span className="mt-0.5 shrink-0">
+                <Icon name={testResult.ok ? "check" : "close"} size={13} />
+              </span>
+              {testResult.msg}
+            </span>
+            {testResult.latency !== undefined && (
+              <span className="font-mono text-[11px] font-semibold shrink-0">
                 {testResult.latency}ms
               </span>
             )}
           </div>
         )}
 
-        {/* Lista Completa de Modelos */}
-        <div className="space-y-3 pt-2">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Modelos Disponíveis ({currentModels.length})
+        {/* Modelos */}
+        <div className="space-y-3 pt-1">
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              Modelos disponíveis ({models.length})
             </h4>
-            <span className="text-[11px] text-slate-400">
-              Clique em um modelo para defini-lo como padrão
-            </span>
+            <span className="text-[11px] text-slate-400">Clique para definir como padrão</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
-            {currentModels.map((m) => {
+            {models.map((m) => {
               const isCurrent = activeModel === m.id;
               return (
-                <div
+                <button
                   key={m.id}
-                  onClick={() => handleModelSelect(m.id)}
-                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                  type="button"
+                  onClick={() => selectModel(m.id)}
+                  aria-pressed={isCurrent}
+                  className={`p-3 rounded-xl border text-left transition-all ${
                     isCurrent
-                      ? "border-brand-500 bg-brand-500/10 dark:bg-brand-500/20 ring-1 ring-brand-500/30"
-                      : "border-slate-200 dark:border-slate-800 hover:border-slate-300 bg-white dark:bg-slate-900/60"
+                      ? "border-brand-500 bg-brand-500/10 ring-1 ring-brand-500/30"
+                      : "border-slate-200 hover:border-slate-300 bg-white"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                      {m.name}
+                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5 min-w-0">
+                      <span className="truncate">{m.name}</span>
                       {m.isNew && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold">
+                        <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 font-semibold">
                           Novo
                         </span>
                       )}
                     </span>
                     {isCurrent ? (
-                      <span className="text-[11px] font-semibold text-brand-600 dark:text-brand-400">
-                        ● Ativo
+                      <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-900">
+                        {/* Só o ponto usa a cor do tema: como texto ela fica com
+                            contraste baixo sobre o fundo claro do cartão. */}
+                        <span className="h-1.5 w-1.5 rounded-full bg-brand-600" />
+                        Ativo
                       </span>
                     ) : (
-                      <span className="text-[11px] text-slate-400 font-mono">
+                      <span className="shrink-0 text-[11px] text-slate-400 font-mono">
                         {m.contextWindow || ""}
                       </span>
                     )}
@@ -422,32 +427,45 @@ export default function AISettings({
                   <p className="mt-1 text-[11px] text-slate-500 line-clamp-2">
                     {m.description || m.id}
                   </p>
-                  <div className="mt-1.5 text-[10px] font-mono text-slate-400 truncate">
-                    ID: {m.id}
-                  </div>
-                </div>
+                  <div className="mt-1.5 text-[10px] font-mono text-slate-400 truncate">{m.id}</div>
+                </button>
               );
             })}
           </div>
 
-          {/* Campo para Digitar ID Customizado */}
-          <div className="pt-2">
-            <label className="label text-xs mb-1">
-              Ou digite manualmente um identificador de modelo:
+          {/* ID manual */}
+          <div className="pt-1">
+            <label htmlFor="ai-manual" className="label text-xs mb-1">
+              Ou informe manualmente o identificador de um modelo
             </label>
             <div className="flex gap-2">
               <input
+                id="ai-manual"
                 type="text"
-                placeholder="Ex: claude-3-7-sonnet-20250219 ou gpt-4.5-preview"
-                className="input text-xs font-mono flex-1"
+                spellCheck={false}
+                value={manualModel}
+                onChange={(e) => setManualModel(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    const val = (e.target as HTMLInputElement).value.trim();
-                    if (val) handleModelSelect(val);
+                    selectModel(manualModel);
+                    setManualModel("");
                   }
                 }}
+                placeholder="Ex.: claude-sonnet-5 ou gpt-4o"
+                className="input text-xs font-mono flex-1"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  selectModel(manualModel);
+                  setManualModel("");
+                }}
+                disabled={!manualModel.trim()}
+                className="btn-secondary btn-sm shrink-0"
+              >
+                Usar
+              </button>
             </div>
           </div>
         </div>

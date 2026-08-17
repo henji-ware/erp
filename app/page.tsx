@@ -9,7 +9,8 @@ import {
   LEAD_STAGE_LABELS,
   APPOINTMENT_TYPE_LABELS,
 } from "@/lib/format";
-import { PageHeader, StatCard, Badge } from "./components/ui";
+import { StatCard, Badge } from "./components/ui";
+import AIQuickActions from "./components/AIQuickActions";
 import { Icon, type IconName } from "./components/icons";
 import { getCurrentUser, crmScope } from "@/lib/auth";
 
@@ -103,7 +104,7 @@ export default async function DashboardPage() {
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             Dashboard
           </h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -118,8 +119,8 @@ export default async function DashboardPage() {
             className="btn-secondary btn-sm flex items-center gap-1.5"
             title="Configurar IA"
           >
-            <span>⚙️</span>
-            <span>Configurar Modelos</span>
+            <Icon name="settings" size={14} />
+            <span>Configurar modelos de IA</span>
           </Link>
         </div>
       </div>
@@ -141,24 +142,7 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <div className="relative z-10 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== "undefined") {
-                window.dispatchEvent(new CustomEvent("open-command-palette"));
-              }
-            }}
-            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm border border-white/10 transition-all flex items-center gap-2"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <span>Buscar no ERP</span>
-            <kbd className="font-mono bg-white/20 px-1 py-0.5 rounded text-[10px]">⌘K</kbd>
-          </button>
-        </div>
+        <AIQuickActions />
       </div>
 
       {/* Painel de pendências */}

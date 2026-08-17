@@ -33,7 +33,16 @@ export interface AIProviderConfig {
   requiresApiKey: boolean;
   defaultModel: string;
   models: AIModelInfo[];
-  modelsEndpoint?: string;
+  /**
+   * Alguns provedores rejeitam `temperature` com HTTP 400 (a geração atual da
+   * Anthropic, por exemplo). Quando false, o parâmetro nunca é enviado.
+   */
+  supportsTemperature?: boolean;
+  /**
+   * Libera endereços de rede interna na URL base. Só vale para provedores
+   * locais (Ollama, LM Studio); nos demais isso seria um vetor de SSRF.
+   */
+  allowsPrivateHost?: boolean;
 }
 
 export interface AIMessage {
@@ -64,10 +73,21 @@ export interface AICompletionResult {
   };
 }
 
+export interface AICompletionOptionsWithStream extends AICompletionOptions {
+  signal?: AbortSignal;
+}
+
 export interface AISettingsData {
   activeProvider: AIProviderId;
   defaultModels: Partial<Record<AIProviderId, string>>;
+  /**
+   * Só existe no navegador (localStorage). Nunca é gravado em cookie: cookie
+   * viaja em toda requisição e é legível por qualquer script da página.
+   */
   apiKeys: Partial<Record<AIProviderId, string>>;
   customBaseUrls: Partial<Record<AIProviderId, string>>;
   customModels: Partial<Record<AIProviderId, string[]>>;
 }
+
+/** O subconjunto não sensível que pode ser persistido em cookie para o SSR. */
+export type AIPublicSettings = Omit<AISettingsData, "apiKeys">;

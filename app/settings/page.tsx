@@ -57,11 +57,11 @@ export default async function SettingsPage() {
       {/* Inteligência Artificial & Modelos */}
       <section className="card mb-6 p-6">
         <div className="mb-4 flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-            ✨
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-500">
+            <Icon name="ai" size={15} />
           </span>
           <div>
-            <h2 className="font-semibold text-slate-800 dark:text-slate-100">
+            <h2 className="font-semibold text-slate-800">
               Inteligência Artificial & Provedores
             </h2>
             <p className="text-xs text-slate-400">

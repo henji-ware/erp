@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AI_PROVIDERS } from "@/lib/ai/providers";
 import { AIProviderId } from "@/lib/ai/types";
+import { activeCredentials, useAISettings } from "../../components/useAISettings";
+import { Icon, type IconName } from "../../components/icons";
 
 interface ProposalAIAssistantProps {
-  proposalId: number;
   proposalType: string;
   clientName: string;
   title: string;
@@ -15,8 +16,16 @@ interface ProposalAIAssistantProps {
   onApplyScope?: (text: string) => void;
 }
 
+type GenerationType = "scope" | "commercial" | "findings" | "full";
+
+const TYPES: Array<{ id: GenerationType; icon: IconName; label: string; desc: string }> = [
+  { id: "scope", icon: "clipboard", label: "Escopo técnico", desc: "Etapas e normas NR12/ABNT" },
+  { id: "commercial", icon: "briefcase", label: "Termos comerciais", desc: "Garantia e condições" },
+  { id: "findings", icon: "inspection", label: "Análise de riscos", desc: "Laudo verde/amarelo/vermelho" },
+  { id: "full", icon: "pen", label: "Revisar e polir", desc: "Melhorar o texto atual" },
+];
+
 export default function ProposalAIAssistant({
-  proposalId,
   proposalType,
   clientName,
   title,
@@ -25,59 +34,49 @@ export default function ProposalAIAssistant({
   findings,
   onApplyScope,
 }: ProposalAIAssistantProps) {
+  const { settings } = useAISettings();
   const [isOpen, setIsOpen] = useState(false);
-  const [generationType, setGenerationType] = useState<"scope" | "commercial" | "findings" | "full">("scope");
+  const [generationType, setGenerationType] = useState<GenerationType>("scope");
   const [customInstructions, setCustomInstructions] = useState("");
-  const [selectedProvider, setSelectedProvider] = useState<AIProviderId>("gemini");
-  const [selectedModel, setSelectedModel] = useState<string>("gemini-2.0-flash");
-  const [apiKey, setApiKey] = useState<string>("");
+  const [providerOverride, setProviderOverride] = useState<AIProviderId | "">("");
+  const [modelOverride, setModelOverride] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [generatedText, setGeneratedText] = useState("");
-  const [appliedSuccess, setAppliedSuccess] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const abortRef = useRef<AbortController | null>(null);
 
-  // Carrega configurações salvas de IA
+  const creds = activeCredentials(settings, {
+    provider: providerOverride || undefined,
+    model: modelOverride || undefined,
+  });
+  const providerConfig = AI_PROVIDERS[creds.provider];
+
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   useEffect(() => {
-    try {
-      const local = localStorage.getItem("drr_ai_settings");
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (parsed.activeProvider) {
-          setSelectedProvider(parsed.activeProvider);
-          const model =
-            parsed.defaultModels?.[parsed.activeProvider] ||
-            AI_PROVIDERS[parsed.activeProvider as AIProviderId]?.defaultModel;
-          if (model) setSelectedModel(model);
-          if (parsed.apiKeys?.[parsed.activeProvider]) {
-            setApiKey(parsed.apiKeys[parsed.activeProvider]);
-          }
-        }
-      }
-    } catch {}
-  }, []);
-
-  const handleProviderChange = (newProv: AIProviderId) => {
-    setSelectedProvider(newProv);
-    const defModel = AI_PROVIDERS[newProv]?.defaultModel || "default";
-    setSelectedModel(defModel);
-    try {
-      const local = localStorage.getItem("drr_ai_settings");
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (parsed.apiKeys?.[newProv]) setApiKey(parsed.apiKeys[newProv]);
-        else setApiKey("");
-      }
-    } catch {}
-  };
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !loading) setIsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, loading]);
 
   const handleGenerate = async () => {
     setLoading(true);
+    setError("");
+    setFeedback("");
     setGeneratedText("");
-    setAppliedSuccess(false);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       const res = await fetch("/api/ai/proposal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           type: generationType,
           proposalType,
@@ -87,21 +86,22 @@ export default function ProposalAIAssistant({
           currentScope,
           findings,
           customInstructions,
-          provider: selectedProvider,
-          model: selectedModel,
-          apiKey,
+          provider: creds.provider,
+          model: creds.model,
+          apiKey: creds.apiKey,
+          baseUrl: creds.baseUrl,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Erro ao gerar proposta com IA.");
-      }
+      if (!res.ok || !data.ok) throw new Error(data.error || "Erro ao gerar texto com IA.");
+      if (!data.text?.trim()) throw new Error("O modelo devolveu um texto vazio. Tente outro modelo.");
 
       setGeneratedText(data.text);
     } catch (err: any) {
-      alert(`Erro na geração: ${err.message}`);
+      if (err?.name !== "AbortError") setError(err.message);
     } finally {
+      abortRef.current = null;
       setLoading(false);
     }
   };
@@ -109,23 +109,36 @@ export default function ProposalAIAssistant({
   const handleApplyToForm = () => {
     if (!generatedText) return;
 
-    // Tenta encontrar o textarea do escopo ou aciona callback
     if (onApplyScope) {
       onApplyScope(generatedText);
-    } else {
-      const scopeTextarea = document.querySelector('textarea[name="scope"]') as HTMLTextAreaElement;
-      if (scopeTextarea) {
-        scopeTextarea.value = generatedText;
-        scopeTextarea.dispatchEvent(new Event("input", { bubbles: true }));
-      }
+      setFeedback("Texto inserido no escopo. Não esqueça de salvar a proposta.");
+      return;
     }
 
-    navigator.clipboard.writeText(generatedText);
-    setAppliedSuccess(true);
-    setTimeout(() => {
-      setAppliedSuccess(false);
-      setIsOpen(false);
-    }, 1200);
+    // Sem callback: escreve direto no textarea do formulário. O setter nativo é
+    // necessário porque o React ignora a atribuição direta em .value.
+    const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="scope"]');
+    if (!textarea) {
+      setError("Campo de escopo não encontrado nesta tela. Use o botão Copiar.");
+      return;
+    }
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype,
+      "value"
+    )?.set;
+    setter?.call(textarea, generatedText);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.focus();
+    setFeedback("Texto inserido no escopo. Não esqueça de salvar a proposta.");
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(generatedText);
+      setFeedback("Texto copiado para a área de transferência.");
+    } catch {
+      setError("O navegador bloqueou a cópia automática. Selecione o texto e copie manualmente.");
+    }
   };
 
   return (
@@ -133,26 +146,34 @@ export default function ProposalAIAssistant({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-xs font-semibold border border-indigo-200 dark:border-indigo-800 transition-colors shadow-xs"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold border border-indigo-200 transition-colors shadow-sm"
       >
-        <span>✨</span> Assistente de IA para Propostas
+        <Icon name="ai" size={14} /> Assistente de IA
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+          onClick={() => !loading && setIsOpen(false)}
+        >
           <div
-            className="w-full max-w-3xl rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh] animate-fade-in-up"
+            role="dialog"
+            aria-label="Assistente de IA para propostas"
+            className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
+            {/* Cabeçalho */}
             <div className="flex items-center justify-between px-5 py-4 bg-slate-900 text-white border-b border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-400 text-base">
-                  ✨
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-400 text-base"
+                  aria-hidden
+                >
+                  <Icon name="ai" size={16} />
                 </span>
-                <div>
-                  <h3 className="text-sm font-bold">Assistente de IA · Elaboração de Proposta</h3>
-                  <p className="text-xs text-slate-400">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold">Assistente de IA · Elaboração de proposta</h3>
+                  <p className="text-xs text-slate-400 truncate">
                     {clientName} · {title} ({proposalType})
                   </p>
                 </div>
@@ -160,21 +181,27 @@ export default function ProposalAIAssistant({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1 rounded text-slate-400 hover:text-white text-base leading-none"
+                aria-label="Fechar"
+                className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
               >
-                ✕
+                <Icon name="close" size={16} />
               </button>
             </div>
 
-            {/* Controles de Configuração e Provedor */}
             <div className="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
-              {/* Seletor de Modelo */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+              {/* Provedor e modelo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                 <div>
-                  <label className="label text-[11px] mb-1">Provedor de IA:</label>
+                  <label htmlFor="prop-provider" className="label text-[11px] mb-1">
+                    Provedor de IA
+                  </label>
                   <select
-                    value={selectedProvider}
-                    onChange={(e) => handleProviderChange(e.target.value as AIProviderId)}
+                    id="prop-provider"
+                    value={creds.provider}
+                    onChange={(e) => {
+                      setProviderOverride(e.target.value as AIProviderId);
+                      setModelOverride("");
+                    }}
                     className="input text-xs font-semibold"
                   >
                     {Object.values(AI_PROVIDERS).map((p) => (
@@ -186,13 +213,19 @@ export default function ProposalAIAssistant({
                 </div>
 
                 <div>
-                  <label className="label text-[11px] mb-1">Modelo Selecionado:</label>
+                  <label htmlFor="prop-model" className="label text-[11px] mb-1">
+                    Modelo
+                  </label>
                   <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
+                    id="prop-model"
+                    value={creds.model}
+                    onChange={(e) => setModelOverride(e.target.value)}
                     className="input text-xs font-mono"
                   >
-                    {AI_PROVIDERS[selectedProvider]?.models.map((m) => (
+                    {creds.model && !providerConfig?.models.some((m) => m.id === creds.model) && (
+                      <option value={creds.model}>{creds.model}</option>
+                    )}
+                    {providerConfig?.models.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.name}
                       </option>
@@ -201,104 +234,106 @@ export default function ProposalAIAssistant({
                 </div>
               </div>
 
-              {/* Tipo de Geração */}
+              {/* Tipo de geração */}
               <div>
-                <label className="label text-xs mb-1.5 font-semibold text-slate-800 dark:text-slate-200">
-                  O que você deseja que a IA elabore?
-                </label>
+                <span className="label text-xs mb-1.5 font-semibold text-slate-800 block">
+                  O que a IA deve elaborar?
+                </span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { id: "scope", label: "📋 Escopo Técnico", desc: "Etapas e Normas NR12/ABNT" },
-                    { id: "commercial", label: "💼 Termos Comerciais", desc: "Garantia e Condições" },
-                    { id: "findings", label: "🔍 Análise de Riscos", desc: "Laudo Verde/Amarelo/Verm." },
-                    { id: "full", label: "✍️ Revisar & Polir", desc: "Melhorar texto atual" },
-                  ].map((t) => (
+                  {TYPES.map((t) => (
                     <button
                       key={t.id}
                       type="button"
-                      onClick={() => setGenerationType(t.id as any)}
+                      onClick={() => setGenerationType(t.id)}
+                      aria-pressed={generationType === t.id}
                       className={`p-2.5 rounded-xl border text-left transition-all ${
                         generationType === t.id
-                          ? "border-brand-500 bg-brand-500/10 text-brand-700 dark:text-brand-300 font-semibold"
-                          : "border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                          ? "border-brand-500 bg-brand-500/10 text-brand-700 font-semibold"
+                          : "border-slate-200 hover:border-slate-300 bg-white text-slate-700"
                       }`}
                     >
-                      <p className="text-xs">{t.label}</p>
+                      <p className="text-xs flex items-center gap-1.5">
+                        <Icon name={t.icon} size={13} />
+                        {t.label}
+                      </p>
                       <p className="text-[10px] text-slate-400 font-normal mt-0.5">{t.desc}</p>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Instruções Adicionais */}
+              {/* Instruções */}
               <div>
-                <label className="label text-xs mb-1">
-                  Instruções Adicionais / Particularidades da Obra:
+                <label htmlFor="prop-instructions" className="label text-xs mb-1">
+                  Instruções adicionais / particularidades da obra
                 </label>
                 <textarea
+                  id="prop-instructions"
                   rows={2}
                   value={customInstructions}
                   onChange={(e) => setCustomInstructions(e.target.value)}
-                  placeholder="Ex: enfatizar garantia estendida de 3 anos, entrega em até 10 dias úteis e inclusão de ART por engenheiro civil habilitado..."
+                  placeholder="Ex.: enfatizar garantia estendida de 3 anos, entrega em até 10 dias úteis, ART por engenheiro habilitado…"
                   className="input text-xs"
                 />
               </div>
 
-              {/* Botão Gerar */}
               <button
                 type="button"
                 onClick={handleGenerate}
                 disabled={loading}
-                className="btn-primary w-full py-2.5 flex items-center justify-center gap-2 text-xs font-semibold shadow-sm"
+                className="btn-primary w-full py-2.5 text-xs font-semibold"
               >
                 {loading ? (
-                  <>
-                    <span className="inline-block animate-spin">⟳</span> Gerando com {selectedModel}...
-                  </>
+                  `Gerando com ${creds.model}…`
                 ) : (
                   <>
-                    <span>✨</span> Gerar Texto com IA
+                    <Icon name="ai" size={14} /> Gerar texto com IA
                   </>
                 )}
               </button>
 
-              {/* Resultado Gerado */}
+              {error && (
+                <div
+                  role="alert"
+                  className="p-3 rounded-xl bg-red-50 text-red-800 border border-red-200 text-xs leading-relaxed"
+                >
+                  {error}
+                </div>
+              )}
+              {feedback && (
+                <div
+                  role="status"
+                  className="p-3 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs"
+                >
+                  {feedback}
+                </div>
+              )}
+
+              {/* Resultado */}
               {generatedText && (
-                <div className="space-y-2 pt-2 animate-fade-in">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      Resultado Gerado pela IA:
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      Revise antes de aplicar
-                    </span>
+                <div className="space-y-2 pt-1 animate-fade-in">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-800">Resultado gerado</span>
+                    <span className="text-[11px] text-slate-400">Revise antes de aplicar</span>
                   </div>
 
                   <textarea
-                    rows={8}
+                    rows={10}
                     value={generatedText}
                     onChange={(e) => setGeneratedText(e.target.value)}
-                    className="input text-xs font-mono leading-relaxed"
+                    className="input text-xs leading-relaxed"
                   />
 
-                  <div className="flex items-center justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(generatedText);
-                        alert("Texto copiado para a área de transferência!");
-                      }}
-                      className="btn-secondary btn-sm"
-                    >
-                      Copiar Texto
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                    <button type="button" onClick={handleCopy} className="btn-secondary btn-sm">
+                      Copiar texto
                     </button>
-
                     <button
                       type="button"
                       onClick={handleApplyToForm}
-                      className="btn-primary btn-sm bg-emerald-600 hover:bg-emerald-700 text-white"
+                      className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white"
                     >
-                      {appliedSuccess ? "✓ Inserido no Escopo!" : "Inserir no Escopo da Proposta"}
+                      Inserir no escopo da proposta
                     </button>
                   </div>
                 </div>

@@ -42,7 +42,7 @@ export function StatCard({
   label,
   value,
   hint,
-  accent = "text-slate-900 dark:text-white",
+  accent = "text-slate-900",
   delay = 0,
   icon,
 }: {
@@ -66,7 +66,7 @@ export function StatCard({
           <p className={`mt-2 text-2xl font-bold tracking-tight ${accent}`}>{value}</p>
         </div>
         {icon && (
-          <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+          <div className="p-2.5 rounded-xl bg-slate-100 text-slate-600">
             {icon}
           </div>
         )}
@@ -76,25 +76,3 @@ export function StatCard({
   );
 }
 
-export function LiveBadge({
-  children,
-  color = "emerald",
-}: {
-  children: React.ReactNode;
-  color?: "emerald" | "amber" | "red" | "blue" | "indigo";
-}) {
-  const colorMap = {
-    emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 dot-emerald-500",
-    amber: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800 dot-amber-500",
-    red: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border-red-200 dark:border-red-800 dot-red-500",
-    blue: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800 dot-blue-500",
-    indigo: "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 dot-indigo-500",
-  };
-
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${colorMap[color] || colorMap.emerald}`}>
-      <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-      {children}
-    </span>
-  );
-}

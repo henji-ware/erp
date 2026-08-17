@@ -1,5 +1,18 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * NÃO use o prefixo `dark:` neste projeto.
+ *
+ * O claro/escuro aqui não é a classe .dark do Tailwind: é o atributo
+ * data-mode no <html>, que troca as variáveis CSS de `slate`/`white`
+ * (ver globals.css). Ou seja, `bg-white` e `text-slate-900` já viram a versão
+ * escura sozinhos — e um `dark:text-white` por cima renderiza texto quase preto
+ * no escuro, porque `white` aponta para a superfície do modo.
+ *
+ * Para cores de destaque (indigo, emerald, amber…), que não são tokens, use
+ * opacidade em vez de variante: `bg-emerald-500/10 text-emerald-600`
+ * funciona nos dois modos.
+ */
 const config: Config = {
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",

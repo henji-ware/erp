@@ -71,12 +71,19 @@ export async function getERPContextForAI(): Promise<ERPContextData> {
       where: { deletedAt: null, status: { not: "CANCELLED" } },
       select: { total: true },
     }),
+    // Só as vencidas: é o que o prompt usa, e carregar toda a carteira em
+    // aberto (com os pagamentos de cada título) a cada mensagem do chat pesa
+    // demais conforme a base cresce.
     prisma.transaction.findMany({
-      where: { deletedAt: null, type: "RECEIVABLE", status: { not: "PAID" } },
+      where: { deletedAt: null, type: "RECEIVABLE", status: { not: "PAID" }, dueDate: { lt: now } },
+      orderBy: { dueDate: "asc" },
+      take: 50,
       include: { payments: true, customer: { select: { name: true } } },
     }),
     prisma.transaction.findMany({
-      where: { deletedAt: null, type: "PAYABLE", status: { not: "PAID" } },
+      where: { deletedAt: null, type: "PAYABLE", status: { not: "PAID" }, dueDate: { lt: now } },
+      orderBy: { dueDate: "asc" },
+      take: 50,
       include: { payments: true, supplier: { select: { name: true } } },
     }),
     prisma.lead.findMany({
@@ -112,10 +119,11 @@ export async function getERPContextForAI(): Promise<ERPContextData> {
   const openLeadsValue = openLeads.reduce((s, l) => s + l.value, 0);
   const ordersRevenue = orders.reduce((s, o) => s + o.total, 0);
 
-  const overdueReceivables = receivables.filter((t) => t.dueDate < now);
+  // A consulta já trouxe apenas os títulos vencidos.
+  const overdueReceivables = receivables;
   const overdueReceivablesValue = overdueReceivables.reduce((s, t) => s + remaining(t), 0);
 
-  const overduePayables = payables.filter((t) => t.dueDate < now);
+  const overduePayables = payables;
   const overduePayablesValue = overduePayables.reduce((s, t) => s + remaining(t), 0);
 
   const overdueBills = [
