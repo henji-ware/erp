@@ -13,14 +13,13 @@ export const AI_SETTINGS_COOKIE = "drr_ai_settings";
 export const AI_SETTINGS_STORAGE_KEY = "drr_ai_settings";
 
 export function getDefaultAISettings(): AISettingsData {
-  const defaultModels: Partial<Record<AIProviderId, string>> = {};
-  for (const [id, config] of Object.entries(AI_PROVIDERS)) {
-    defaultModels[id as AIProviderId] = config.defaultModel;
-  }
-
+  // defaultModels começa VAZIO de propósito. Pré-preencher com o catálogo do
+  // código fazia todo provedor parecer configurado e "inventava" um modelo
+  // (ex.: OpenRouter aparecia com anthropic/claude-sonnet-4.5 sem chave
+  // nenhuma). Modelo só existe depois de vir da API do usuário.
   return {
     activeProvider: DEFAULT_AI_PROVIDER,
-    defaultModels,
+    defaultModels: {},
     apiKeys: {},
     customBaseUrls: {},
     customModels: {},
@@ -78,7 +77,7 @@ export function parseAISettings(rawJson?: string): AISettingsData {
     activeProvider: isAIProviderId(parsed.activeProvider)
       ? parsed.activeProvider
       : defaults.activeProvider,
-    defaultModels: { ...defaults.defaultModels, ...asStringMap(parsed.defaultModels) },
+    defaultModels: asStringMap(parsed.defaultModels),
     apiKeys: asStringMap(parsed.apiKeys),
     customBaseUrls: asStringMap(parsed.customBaseUrls),
     customModels,

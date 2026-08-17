@@ -36,7 +36,6 @@ export async function POST(req: NextRequest) {
         {
           ok: false,
           error: `Informe uma chave de API para carregar os modelos disponíveis no ${providerConfig.name}.`,
-          fallbackModels: providerConfig.models,
         },
         { status: 400 }
       );
@@ -100,7 +99,7 @@ async function fetchLiveModels(
               : undefined,
           })
         );
-      return list.length > 0 ? list : preConfigured;
+      return list;
     }
 
     // A Anthropic expõe /v1/models, mas com autenticação por x-api-key.
@@ -117,7 +116,7 @@ async function fetchLiveModels(
       const list: AIModelInfo[] = (data.data || []).map((m: any) =>
         decorate(m.id, preConfigured, { name: m.display_name })
       );
-      return list.length > 0 ? list : preConfigured;
+      return list;
     }
 
     case "ollama": {
@@ -133,7 +132,7 @@ async function fetchLiveModels(
         description: "Modelo instalado localmente via Ollama.",
         tier: "flagship" as const,
       }));
-      return list.length > 0 ? list : preConfigured;
+      return list;
     }
 
     case "openrouter": {
@@ -154,7 +153,7 @@ async function fetchLiveModels(
               : undefined,
           })
         );
-      return list.length > 0 ? list : preConfigured;
+      return list;
     }
 
     default: {
@@ -185,7 +184,7 @@ async function fetchLiveModels(
         )
         .map((id: string) => decorate(id, preConfigured));
 
-      return list.length > 0 ? list : preConfigured;
+      return list;
     }
   }
 }

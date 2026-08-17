@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AI_PROVIDERS } from "@/lib/ai/providers";
 import { AIMessage, AIProviderId } from "@/lib/ai/types";
-import { activeCredentials, availableModels, useAISettings } from "./useAISettings";
+import { activeCredentials, availableModels, configuredProviders, useAISettings } from "./useAISettings";
 import { RichText } from "./RichText";
 import { Icon, type IconName } from "./icons";
 
@@ -59,6 +59,7 @@ export default function CopilotWidget() {
     model: modelOverride || undefined,
   });
   const userModels = availableModels(settings, creds.provider);
+  const readyProviders = configuredProviders(settings);
 
   // Abre a partir do Command Palette, da sidebar ou do banner do dashboard.
   useEffect(() => {
@@ -172,6 +173,7 @@ export default function CopilotWidget() {
   const handleSend = async (customText?: string) => {
     const textToSend = (customText ?? input).trim();
     if (!textToSend || loading) return;
+    if (!creds.model) return;
 
     const nextMessages: ChatEntry[] = [...messages, { role: "user", content: textToSend }];
     setMessages(nextMessages);
@@ -370,11 +372,17 @@ export default function CopilotWidget() {
               }}
               className="bg-white text-slate-800 text-xs font-semibold rounded-lg px-2 py-1 border border-slate-300 outline-none focus:border-brand-500 max-w-[40%]"
             >
-              {Object.values(AI_PROVIDERS).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+              {/* Só provedores que já tiveram os modelos carregados da conta.
+                  Listar os onze fazia escolher um sem chave trazer um modelo
+                  inventado do catálogo. */}
+              {readyProviders.map((id) => (
+                <option key={id} value={id}>
+                  {AI_PROVIDERS[id].name}
                 </option>
               ))}
+              {!readyProviders.includes(creds.provider) && (
+                <option value={creds.provider}>{AI_PROVIDERS[creds.provider].name}</option>
+              )}
             </select>
 
             <select
@@ -383,9 +391,8 @@ export default function CopilotWidget() {
               onChange={(e) => setModelOverride(e.target.value)}
               className="flex-1 min-w-0 bg-white text-slate-800 text-xs font-mono rounded-lg px-2 py-1 border border-slate-300 outline-none focus:border-brand-500"
             >
-              {/* O modelo salvo pode ser um ID digitado à mão, fora do catálogo. */}
-              {/* Só os modelos que a chave do usuário realmente aceita. Sem
-                  lista carregada, resta o modelo em uso. */}
+              {/* Só os modelos que a chave do usuário realmente aceita. */}
+              {!creds.model && <option value="">Nenhum modelo configurado</option>}
               {creds.model && !userModels.includes(creds.model) && (
                 <option value={creds.model}>{creds.model}</option>
               )}
@@ -464,6 +471,18 @@ export default function CopilotWidget() {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Sem modelo carregado não dá para conversar: dizer isso é melhor
+              que deixar o botão Enviar sem efeito. */}
+          {!creds.model && (
+            <div className="mx-3 mb-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-slate-900">
+              Nenhum modelo configurado. Abra{" "}
+              <a href="/settings#ia" className="font-semibold underline">
+                Configurações › Inteligência Artificial
+              </a>
+              , informe a chave do provedor e carregue os modelos da sua conta.
+            </div>
+          )}
+
           {/* Perguntas rápidas */}
           <div className="px-3 py-2 flex flex-wrap gap-1.5 border-t border-slate-100 bg-slate-50/60">
             {QUICK_PROMPTS.map((p) => (
@@ -471,7 +490,7 @@ export default function CopilotWidget() {
                 key={p.label}
                 type="button"
                 onClick={() => handleSend(p.text)}
-                disabled={loading}
+                disabled={loading || !creds.model}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-white border border-slate-200 text-slate-600 accent-hover-border hover:text-slate-900 disabled:opacity-40 transition-colors"
               >
                 <Icon name={p.icon} size={11} />
@@ -499,7 +518,7 @@ export default function CopilotWidget() {
             <button
               type="button"
               onClick={() => (loading ? stop() : handleSend())}
-              disabled={!loading && !input.trim()}
+              disabled={!loading && (!input.trim() || !creds.model)}
               className={`h-10 px-4 rounded-xl font-semibold text-[13px] flex items-center justify-center transition-colors shadow-sm ${
                 loading
                   ? "bg-red-600 hover:bg-red-700 text-white"

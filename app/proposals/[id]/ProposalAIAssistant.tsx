@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AI_PROVIDERS } from "@/lib/ai/providers";
 import { AIProviderId } from "@/lib/ai/types";
-import { activeCredentials, availableModels, useAISettings } from "../../components/useAISettings";
+import { activeCredentials, availableModels, configuredProviders, useAISettings } from "../../components/useAISettings";
 import { Icon, type IconName } from "../../components/icons";
 
 interface ProposalAIAssistantProps {
@@ -51,6 +51,7 @@ export default function ProposalAIAssistant({
     model: modelOverride || undefined,
   });
   const userModels = availableModels(settings, creds.provider);
+  const readyProviders = configuredProviders(settings);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -204,11 +205,14 @@ export default function ProposalAIAssistant({
                     }}
                     className="input text-xs font-semibold"
                   >
-                    {Object.values(AI_PROVIDERS).map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
+                    {readyProviders.map((id) => (
+                      <option key={id} value={id}>
+                        {AI_PROVIDERS[id].name}
                       </option>
                     ))}
+                    {!readyProviders.includes(creds.provider) && (
+                      <option value={creds.provider}>{AI_PROVIDERS[creds.provider].name}</option>
+                    )}
                   </select>
                 </div>
 

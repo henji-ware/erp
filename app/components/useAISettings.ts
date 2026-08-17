@@ -13,10 +13,28 @@ import { AIProviderId, AISettingsData } from "@/lib/ai/types";
 /** Disparado ao salvar, para as telas abertas na mesma aba se atualizarem. */
 const CHANGE_EVENT = "drr-ai-settings-changed";
 
+/**
+ * Conta logada, publicada pelo layout no <body>. As configurações de IA são
+ * guardadas por conta: num computador compartilhado, sem isso o próximo a
+ * entrar herdaria a chave de API de quem usou antes — e gastaria a cota dele.
+ */
+function scope(): string {
+  if (typeof document === "undefined") return "anon";
+  return document.body?.dataset?.userId || "anon";
+}
+
+function storageKey(): string {
+  return `${AI_SETTINGS_STORAGE_KEY}:${scope()}`;
+}
+
+function cookieName(): string {
+  return `${AI_SETTINGS_COOKIE}_${scope()}`;
+}
+
 function read(): AISettingsData {
   if (typeof window === "undefined") return getDefaultAISettings();
   try {
-    return parseAISettings(localStorage.getItem(AI_SETTINGS_STORAGE_KEY) || undefined);
+    return parseAISettings(localStorage.getItem(storageKey()) || undefined);
   } catch {
     return getDefaultAISettings();
   }
@@ -32,12 +50,12 @@ function writePublicCookie(settings: AISettingsData) {
   const { apiKeys, ...publicSettings } = settings;
   const value = encodeURIComponent(JSON.stringify(publicSettings));
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${AI_SETTINGS_COOKIE}=${value}; path=/; max-age=31536000; SameSite=Lax${secure}`;
+  document.cookie = `${cookieName()}=${value}; path=/; max-age=31536000; SameSite=Lax${secure}`;
 }
 
 export function saveAISettings(next: AISettingsData) {
   try {
-    localStorage.setItem(AI_SETTINGS_STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(storageKey(), JSON.stringify(next));
     writePublicCookie(next);
   } catch {
     // localStorage indisponível (aba anônima, cota cheia): segue em memória.
@@ -61,15 +79,22 @@ export function useAISettings() {
     setSettings(current);
     setLoaded(true);
 
-    // Versões anteriores gravavam as chaves de API dentro do cookie. Reescreve
-    // o cookie sem elas assim que a tela abre, em vez de esperar o usuário
-    // mexer em alguma configuração.
-    if (document.cookie.includes(`${AI_SETTINGS_COOKIE}=`)) {
-      try {
-        writePublicCookie(current);
-      } catch {
-        // cookie bloqueado: nada a fazer
+    // Versões anteriores usavam uma chave/cookie globais — e guardavam a chave
+    // de API dentro do cookie. Move para o espaço da conta e apaga o antigo,
+    // para não sobrar configuração compartilhada entre usuários da máquina.
+    try {
+      const legacy = localStorage.getItem(AI_SETTINGS_STORAGE_KEY);
+      if (legacy) {
+        if (!localStorage.getItem(storageKey())) localStorage.setItem(storageKey(), legacy);
+        localStorage.removeItem(AI_SETTINGS_STORAGE_KEY);
+        setSettings(read());
       }
+      if (document.cookie.includes(`${AI_SETTINGS_COOKIE}=`)) {
+        document.cookie = `${AI_SETTINGS_COOKIE}=; path=/; max-age=0`;
+      }
+      writePublicCookie(current);
+    } catch {
+      // armazenamento bloqueado: nada a fazer
     }
 
     const sync = () => setSettings(read());
@@ -99,16 +124,28 @@ export function availableModels(settings: AISettingsData, provider: AIProviderId
 }
 
 /** Provedor, modelo e chave que uma chamada de IA deve usar agora. */
-export function activeCredentials(settings: AISettingsData, override?: {
-  provider?: AIProviderId;
-  model?: string;
-}) {
+export function activeCredentials(
+  settings: AISettingsData,
+  override?: { provider?: AIProviderId; model?: string }
+) {
   const provider = override?.provider || settings.activeProvider;
-  const config = AI_PROVIDERS[provider];
   return {
     provider,
-    model: override?.model || settings.defaultModels[provider] || config?.defaultModel || "",
+    // Sem fallback para o catálogo do código: um modelo que a conta não tem
+    // só produz 404. Vazio aqui significa "ainda não configurado".
+    model: override?.model || settings.defaultModels[provider] || "",
     apiKey: settings.apiKeys[provider] || "",
     baseUrl: settings.customBaseUrls[provider] || "",
   };
+}
+
+/**
+ * Provedores que dá para usar de verdade: os que já tiveram a lista de modelos
+ * carregada da API do usuário. Antes o seletor mostrava os onze, mesmo sem
+ * chave, e escolher um deles trazia um modelo inventado do catálogo.
+ */
+export function configuredProviders(settings: AISettingsData): AIProviderId[] {
+  return (Object.keys(AI_PROVIDERS) as AIProviderId[]).filter(
+    (id) => (settings.customModels[id]?.length ?? 0) > 0
+  );
 }

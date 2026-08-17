@@ -63,7 +63,10 @@ export default async function RootLayout({
       data-mode={mode}
       className={animOff ? "no-anim" : ""}
     >
-      <body>
+      {/* As configurações de IA (chave da API, modelo) são separadas por conta.
+          Num computador compartilhado, sem isto quem entrasse depois herdaria a
+          chave de quem usou antes — e gastaria a cota alheia. */}
+      <body data-user-id={user ? String(user.id) : undefined}>
         <div id="app-shell" className="flex h-screen flex-col overflow-hidden md:flex-row">
           <Sidebar userName={user?.name} isAdmin={user?.role === "ADMIN"} alerts={alerts} />
           <main className="flex-1 overflow-y-auto">

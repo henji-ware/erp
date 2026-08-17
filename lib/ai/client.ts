@@ -98,7 +98,13 @@ export function resolveCall(options: AICompletionOptions): ResolvedCall {
     ? options.provider
     : "gemini";
   const providerConfig = AI_PROVIDERS[provider];
-  const model = (options.model || providerConfig.defaultModel || "default").trim();
+  const model = (options.model || "").trim();
+  if (!model) {
+    throw new Error(
+      `Nenhum modelo escolhido para ${providerConfig.name}. Abra Configurações > Inteligência Artificial, ` +
+        "carregue os modelos da sua conta e selecione um."
+    );
+  }
   const apiKey = getEffectiveApiKey(provider, options.apiKey);
   const baseUrl = getEffectiveBaseUrl(provider, options.baseUrl);
 

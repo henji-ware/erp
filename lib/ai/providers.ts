@@ -17,9 +17,9 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderConfig> = {
   anthropic: {
     id: "anthropic",
     name: "Anthropic Claude",
-    tagline: "Raciocínio avançado e redação técnica refinada",
+    tagline: "Melhor para textos técnicos e análises",
     description:
-      "Modelos líderes em escrita comercial, análise profunda e formulação de escopos técnicos detalhados.",
+      "Boa escolha para escrever escopos de proposta, laudos e mensagens comerciais bem redigidas.",
     badgeColor: "bg-amber-500/10 text-amber-600 border-amber-500/25",
     keyEnvVar: "ANTHROPIC_API_KEY",
     defaultBaseUrl: "https://api.anthropic.com",
@@ -43,9 +43,9 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderConfig> = {
   gemini: {
     id: "gemini",
     name: "Google Gemini",
-    tagline: "Janela de contexto massiva e velocidade de ponta",
+    tagline: "Rápido e aguenta textos muito longos",
     description:
-      "Modelos multimodais de alta velocidade e capacidade de processar grandes históricos de dados.",
+      "Lida bem com relatórios extensos e vários documentos de uma vez. Tem faixa de uso gratuita.",
     badgeColor: "bg-blue-500/10 text-blue-600 border-blue-500/25",
     keyEnvVar: "GEMINI_API_KEY",
     defaultBaseUrl: "https://generativelanguage.googleapis.com",
@@ -64,8 +64,8 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderConfig> = {
   openai: {
     id: "openai",
     name: "OpenAI",
-    tagline: "Modelos pioneiros em inteligência geral e raciocínio",
-    description: "A família GPT e os modelos o-series para lógica e planejamento complexo.",
+    tagline: "Uso geral, o mais conhecido",
+    description: "Os modelos GPT, versáteis para quase tudo. A linha o-series é voltada a cálculo e raciocínio passo a passo.",
     badgeColor: "bg-emerald-500/10 text-emerald-600 border-emerald-500/25",
     keyEnvVar: "OPENAI_API_KEY",
     defaultBaseUrl: "https://api.openai.com",
@@ -90,7 +90,7 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderConfig> = {
   deepseek: {
     id: "deepseek",
     name: "DeepSeek",
-    tagline: "Raciocínio avançado e altíssimo custo-benefício",
+    tagline: "Bom raciocínio pelo menor preço",
     description:
       "Modelos abertos de ponta com boa capacidade de raciocínio lógico e estruturação de dados.",
     badgeColor: "bg-cyan-500/10 text-cyan-600 border-cyan-500/25",
@@ -107,10 +107,10 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderConfig> = {
 
   groq: {
     id: "groq",
-    name: "Groq (Ultra-Rápido)",
-    tagline: "Inferência em milissegundos via chips LPU",
+    name: "Groq",
+    tagline: "O mais rápido para responder",
     description:
-      "Velocidade impressionante para respostas sem atraso perceptível no chat e nas buscas.",
+      "Roda modelos abertos em hardware dedicado, com respostas quase instantâneas. Boa escolha para o chat do dia a dia.",
     badgeColor: "bg-orange-500/10 text-orange-600 border-orange-500/25",
     keyEnvVar: "GROQ_API_KEY",
     defaultBaseUrl: "https://api.groq.com/openai/v1",
@@ -130,7 +130,7 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderConfig> = {
   mistral: {
     id: "mistral",
     name: "Mistral AI",
-    tagline: "Modelos europeus de alta precisão e versatilidade",
+    tagline: "Europeu, bom em vários idiomas",
     description:
       "Bom desempenho em múltiplos idiomas, elaboração de documentos e lógica de negócios.",
     badgeColor: "bg-indigo-500/10 text-indigo-600 border-indigo-500/25",
@@ -154,7 +154,7 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderConfig> = {
   xai: {
     id: "xai",
     name: "xAI (Grok)",
-    tagline: "Inteligência analítica moderna e direta",
+    tagline: "Respostas diretas e analíticas",
     description: "Modelos Grok desenvolvidos pela equipe da xAI.",
     badgeColor: "bg-purple-500/10 text-purple-600 border-purple-500/25",
     keyEnvVar: "XAI_API_KEY",
@@ -174,8 +174,8 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderConfig> = {
   cohere: {
     id: "cohere",
     name: "Cohere",
-    tagline: "Especialista em dados corporativos e RAG",
-    description: "Foco em sumarização de dados empresariais, busca e respostas precisas.",
+    tagline: "Focado em documentos e dados da empresa",
+    description: "Voltado a resumir documentos e responder com base nos dados da empresa.",
     badgeColor: "bg-teal-500/10 text-teal-600 border-teal-500/25",
     keyEnvVar: "COHERE_API_KEY",
     defaultBaseUrl: "https://api.cohere.com/v2",
@@ -193,9 +193,9 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderConfig> = {
   openrouter: {
     id: "openrouter",
     name: "OpenRouter",
-    tagline: "Acesso unificado a centenas de modelos com 1 única chave",
+    tagline: "Vários fornecedores com uma chave só",
     description:
-      "Permite usar modelos de vários fornecedores (Claude, GPT, Llama, DeepSeek) centralizando cobrança e limites.",
+      "Intermediário que dá acesso a modelos de várias empresas (Claude, GPT, Llama, DeepSeek) com uma única conta e uma única fatura.",
     badgeColor: "bg-violet-500/10 text-violet-600 border-violet-500/25",
     keyEnvVar: "OPENROUTER_API_KEY",
     defaultBaseUrl: "https://openrouter.ai/api/v1",
@@ -218,10 +218,10 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderConfig> = {
 
   ollama: {
     id: "ollama",
-    name: "Ollama (IA Local & Offline)",
-    tagline: "Privacidade total rodando na sua própria máquina",
+    name: "Ollama (no seu computador)",
+    tagline: "Roda offline, sem custo e sem enviar dados para fora",
     description:
-      "Sem custos de API e 100% privado. Roda modelos locais através do Ollama em http://localhost:11434.",
+      "Os dados do ERP não saem da máquina e não há cobrança por uso. Exige instalar o Ollama (ollama.com) e baixar um modelo; o desempenho depende do seu hardware.",
     badgeColor: "bg-emerald-500/10 text-emerald-600 border-emerald-500/25",
     keyEnvVar: "OLLAMA_BASE_URL",
     defaultBaseUrl: "http://localhost:11434",
@@ -243,10 +243,10 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderConfig> = {
 
   custom: {
     id: "custom",
-    name: "Custom / OpenAI-Compatible",
-    tagline: "Conecte qualquer servidor compatível (LM Studio, vLLM, Azure)",
+    name: "Servidor próprio",
+    tagline: "Um servidor de IA que você mesmo hospeda",
     description:
-      "Permite especificar qualquer URL base (ex: LM Studio, vLLM, Together AI, Fireworks) e nome de modelo personalizado.",
+      "Para quem roda a própria IA em um servidor da empresa ou usa um serviço não listado aqui. Funciona com qualquer servidor que fale o mesmo formato da OpenAI — é o padrão do mercado, adotado por LM Studio, vLLM, Together AI, Fireworks e Azure. Informe a URL base abaixo.",
     badgeColor: "bg-pink-500/10 text-pink-600 border-pink-500/25",
     keyEnvVar: "CUSTOM_AI_API_KEY",
     defaultBaseUrl: "http://localhost:1234/v1",

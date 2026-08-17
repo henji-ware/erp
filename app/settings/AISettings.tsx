@@ -22,7 +22,6 @@ export default function AISettings({
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string; latency?: number } | null>(null);
   const [savedAt, setSavedAt] = useState(0);
   const [showKey, setShowKey] = useState(false);
-  const [manualModel, setManualModel] = useState("");
 
   // Rascunhos locais dos campos de texto: gravar a cada tecla escrevia o
   // localStorage e o cookie caractere por caractere e piscava o aviso de
@@ -32,7 +31,8 @@ export default function AISettings({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentConfig = AI_PROVIDERS[selectedProvider];
-  const activeModel = settings.defaultModels[selectedProvider] || currentConfig?.defaultModel || "";
+  // Sem cair no catálogo do código: vazio significa "ainda não escolhido".
+  const activeModel = settings.defaultModels[selectedProvider] || "";
   const storedKey = settings.apiKeys[selectedProvider] || "";
   const storedUrl = settings.customBaseUrls[selectedProvider] || "";
   const currentKey = keyDraft ?? storedKey;
@@ -99,7 +99,6 @@ export default function AISettings({
     setSelectedProvider(id);
     setTestResult(null);
     setShowKey(false);
-    setManualModel("");
   };
 
   const loadModels = async (opts: { silent?: boolean } = {}) => {
@@ -199,8 +198,7 @@ export default function AISettings({
           <p className="mt-1 text-lg font-bold flex flex-wrap items-center gap-2">
             {AI_PROVIDERS[settings.activeProvider]?.name}
             <span className="text-xs px-2 py-0.5 rounded-full on-dark-chip font-mono font-normal">
-              {settings.defaultModels[settings.activeProvider] ||
-                AI_PROVIDERS[settings.activeProvider]?.defaultModel}
+              {settings.defaultModels[settings.activeProvider] || "nenhum modelo escolhido"}
             </span>
           </p>
         </div>
@@ -226,7 +224,7 @@ export default function AISettings({
           Dá para deixar vários configurados e trocar na hora, pelo seletor dentro do DeskHelper AI.
           O marcado como principal é o que o ERP usa por padrão.
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
           {Object.values(AI_PROVIDERS).map((p) => {
             const isSelected = selectedProvider === p.id;
             const isDefault = settings.activeProvider === p.id;
@@ -250,9 +248,13 @@ export default function AISettings({
                     title="Provedor ativo"
                   />
                 )}
-                <span className="text-xs font-bold text-slate-800">{p.name.split(" ")[0]}</span>
-                <span className="text-xs text-slate-500 truncate w-full mt-0.5">
-                  {p.name.includes(" ") ? p.name.split(" ").slice(1).join(" ") : p.tagline.slice(0, 18)}
+                {/* Nome inteiro. Quebrar no primeiro espaço produzia rótulos
+                    sem sentido: "Servidor / próprio", "Mistral / AI". */}
+                <span className="w-full pr-3 text-sm font-bold text-slate-900 leading-tight">
+                  {p.name}
+                </span>
+                <span className="mt-1 w-full text-xs text-slate-500 leading-snug line-clamp-2">
+                  {p.tagline}
                 </span>
                 {hasKey && (
                   <span className="mt-2 inline-flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
@@ -387,7 +389,7 @@ export default function AISettings({
               className="input text-xs font-mono"
             />
             <p className="mt-1 text-xs text-slate-500">
-              Só mude para servidores próprios ou compatíveis (LM Studio, vLLM, Azure). Padrão:{" "}
+              Deixe em branco para usar o endereço oficial do provedor. Padrão:{" "}
               <code className="font-mono">{currentConfig?.defaultBaseUrl || "padrão do serviço"}</code>
             </p>
           </div>
@@ -407,7 +409,7 @@ export default function AISettings({
           <button
             type="button"
             onClick={testConnection}
-            disabled={testing}
+            disabled={testing || !activeModel}
             className="btn-primary btn-sm"
           >
             {testing ? "Testando…" : "Testar conexão"}
@@ -509,41 +511,6 @@ export default function AISettings({
             })}
           </div>
 
-          {/* ID manual */}
-          <div className="pt-1">
-            <label htmlFor="ai-manual" className="label text-xs mb-1">
-              Ou digite o identificador exato de um modelo
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="ai-manual"
-                type="text"
-                spellCheck={false}
-                value={manualModel}
-                onChange={(e) => setManualModel(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    selectModel(manualModel);
-                    setManualModel("");
-                  }
-                }}
-                placeholder="Ex.: claude-sonnet-5, gpt-4o, gemini-2.5-flash"
-                className="input text-xs font-mono flex-1"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  selectModel(manualModel);
-                  setManualModel("");
-                }}
-                disabled={!manualModel.trim()}
-                className="btn-secondary btn-sm shrink-0"
-              >
-                Usar
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
