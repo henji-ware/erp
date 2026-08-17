@@ -89,6 +89,15 @@ export function useAISettings() {
   return { settings, setSettings: update, loaded };
 }
 
+/**
+ * Modelos que podem ser oferecidos ao usuário: só os que vieram da API dele.
+ * O catálogo do código não entra aqui de propósito — provedores aposentam
+ * modelos sem aviso, e oferecer um ID morto só gera erro 404 na hora de usar.
+ */
+export function availableModels(settings: AISettingsData, provider: AIProviderId): string[] {
+  return settings.customModels[provider] ?? [];
+}
+
 /** Provedor, modelo e chave que uma chamada de IA deve usar agora. */
 export function activeCredentials(settings: AISettingsData, override?: {
   provider?: AIProviderId;

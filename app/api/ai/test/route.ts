@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const provider: AIProviderId = body.provider;
 
+    let retries = 0;
     const result = await executeAICompletion({
       provider,
       model: typeof body.model === "string" ? body.model : undefined,
@@ -22,6 +23,9 @@ export async function POST(req: NextRequest) {
       maxTokens: 64,
       temperature: 0.1,
       signal: req.signal,
+      onRetry: () => {
+        retries++;
+      },
     });
 
     return NextResponse.json({
@@ -29,6 +33,7 @@ export async function POST(req: NextRequest) {
       provider: result.provider,
       model: result.model,
       latencyMs: result.latencyMs,
+      retries,
       message: result.text.trim(),
     });
   } catch (error) {

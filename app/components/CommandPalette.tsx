@@ -191,9 +191,9 @@ export default function CommandPalette() {
             <button
               type="button"
               onClick={askAI}
-              className="w-full flex items-center gap-3 p-3 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 transition-colors border border-indigo-500/20 mb-2 text-left"
+              className="w-full flex items-center gap-3 p-3 rounded-xl accent-soft accent-border text-slate-900 transition-colors mb-2 text-left"
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/20" aria-hidden>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg accent-soft accent-icon" aria-hidden>
                 <Icon name="ai" size={16} />
               </span>
               <span className="flex-1 min-w-0">
@@ -204,7 +204,7 @@ export default function CommandPalette() {
                   Usa o modelo ativo e os dados do ERP
                 </span>
               </span>
-              <span className="shrink-0 text-[11px] uppercase font-bold px-2 py-0.5 rounded bg-indigo-500 text-white font-mono">
+              <span className="shrink-0 text-[11px] uppercase font-bold px-2 py-0.5 rounded bg-brand-600 text-on-accent font-mono">
                 IA
               </span>
             </button>

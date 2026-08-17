@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AI_PROVIDERS } from "@/lib/ai/providers";
 import { AIProviderId } from "@/lib/ai/types";
-import { activeCredentials, useAISettings } from "../../components/useAISettings";
+import { activeCredentials, availableModels, useAISettings } from "../../components/useAISettings";
 import { Icon, type IconName } from "../../components/icons";
 
 interface ProposalAIAssistantProps {
@@ -50,7 +50,7 @@ export default function ProposalAIAssistant({
     provider: providerOverride || undefined,
     model: modelOverride || undefined,
   });
-  const providerConfig = AI_PROVIDERS[creds.provider];
+  const userModels = availableModels(settings, creds.provider);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -146,7 +146,7 @@ export default function ProposalAIAssistant({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold border border-indigo-200 transition-colors shadow-sm"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg accent-soft accent-border text-slate-900 text-xs font-semibold transition-colors shadow-sm"
       >
         <Icon name="ai" size={14} /> Assistente de IA
       </button>
@@ -222,12 +222,13 @@ export default function ProposalAIAssistant({
                     onChange={(e) => setModelOverride(e.target.value)}
                     className="input text-xs font-mono"
                   >
-                    {creds.model && !providerConfig?.models.some((m) => m.id === creds.model) && (
+                    {/* Só os modelos que a chave do usuário realmente aceita. */}
+                    {creds.model && !userModels.includes(creds.model) && (
                       <option value={creds.model}>{creds.model}</option>
                     )}
-                    {providerConfig?.models.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
+                    {userModels.map((id) => (
+                      <option key={id} value={id}>
+                        {id}
                       </option>
                     ))}
                   </select>
@@ -248,7 +249,7 @@ export default function ProposalAIAssistant({
                       aria-pressed={generationType === t.id}
                       className={`p-2.5 rounded-xl border text-left transition-all ${
                         generationType === t.id
-                          ? "border-brand-500 bg-brand-500/10 text-brand-700 font-semibold"
+                          ? "accent-selected text-slate-900 font-semibold"
                           : "border-slate-200 hover:border-slate-300 bg-white text-slate-700"
                       }`}
                     >

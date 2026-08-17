@@ -17,6 +17,7 @@ export default function AISettings({
   );
   const [loadingModels, setLoadingModels] = useState(false);
   const [modelsMap, setModelsMap] = useState<Partial<Record<AIProviderId, AIModelInfo[]>>>({});
+  const [liveLoaded, setLiveLoaded] = useState<Partial<Record<AIProviderId, boolean>>>({});
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string; latency?: number } | null>(null);
   const [savedAt, setSavedAt] = useState(0);
@@ -37,10 +38,20 @@ export default function AISettings({
   const currentKey = keyDraft ?? storedKey;
   const currentUrl = urlDraft ?? storedUrl;
 
-  const models = useMemo(
-    () => modelsMap[selectedProvider] || currentConfig?.models || [],
-    [modelsMap, selectedProvider, currentConfig]
-  );
+  // Só modelos vindos da API do usuário. O catálogo do código serve apenas
+  // para dar nome e descrição a esses IDs, nunca como lista oferecida —
+  // provedores aposentam modelos sem aviso e oferecer um ID morto dá 404.
+  const models = useMemo(() => {
+    const live = modelsMap[selectedProvider];
+    if (live) return live;
+    const saved = settings.customModels[selectedProvider];
+    if (saved?.length) {
+      return saved.map(
+        (id) => currentConfig?.models.find((m) => m.id === id) ?? ({ id, name: id } as AIModelInfo)
+      );
+    }
+    return [] as AIModelInfo[];
+  }, [modelsMap, selectedProvider, currentConfig, settings.customModels]);
 
   // Assim que o localStorage é lido, o painel abre no provedor que está ativo.
   useEffect(() => {
@@ -91,9 +102,9 @@ export default function AISettings({
     setManualModel("");
   };
 
-  const fetchLiveModels = async () => {
+  const loadModels = async (opts: { silent?: boolean } = {}) => {
     setLoadingModels(true);
-    setTestResult(null);
+    if (!opts.silent) setTestResult(null);
     try {
       const res = await fetch("/api/ai/models", {
         method: "POST",
@@ -108,13 +119,40 @@ export default function AISettings({
       if (!res.ok || !data.ok) throw new Error(data.error || "Não foi possível carregar modelos.");
 
       setModelsMap((prev) => ({ ...prev, [selectedProvider]: data.models }));
-      setTestResult({ ok: true, msg: `${data.count} modelos carregados da sua conta.` });
+      setLiveLoaded((prev) => ({ ...prev, [selectedProvider]: true }));
+
+      // Persistido para o DeskHelper e o assistente de propostas oferecerem
+      // exatamente os mesmos modelos, sem recorrer ao catálogo do código.
+      const ids = (data.models as AIModelInfo[]).map((m) => m.id);
+      commit({ customModels: { ...settings.customModels, [selectedProvider]: ids } });
+      if (!opts.silent) {
+        setTestResult({ ok: true, msg: `${data.count} modelos carregados da sua conta.` });
+      }
     } catch (err: any) {
-      setTestResult({ ok: false, msg: err.message });
+      // Na carga automática o erro não vira alerta: a lista local segue valendo
+      // e o usuário ainda não pediu nada explicitamente.
+      if (!opts.silent) setTestResult({ ok: false, msg: err.message });
     } finally {
       setLoadingModels(false);
     }
   };
+
+  /**
+   * A lista fixa do código envelhece — provedores aposentam modelos sem aviso
+   * (o gemini-2.0-flash, por exemplo, saiu do ar). Havendo chave, buscamos a
+   * lista real da conta assim que o provedor é aberto, e o catálogo local passa
+   * a ser só o plano B de quem ainda não configurou a chave.
+   */
+  useEffect(() => {
+    if (!loaded) return;
+    if (liveLoaded[selectedProvider]) return;
+    const needsKey = currentConfig?.requiresApiKey;
+    if (needsKey && !storedKey) return;
+
+    const t = setTimeout(() => loadModels({ silent: true }), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, selectedProvider, storedKey]);
 
   const testConnection = async () => {
     setTesting(true);
@@ -175,15 +213,19 @@ export default function AISettings({
 
       {/* Aviso de onde a chave é guardada */}
       <p className="text-xs text-slate-500 leading-relaxed rounded-lg border border-slate-200 bg-slate-50 p-3">
-        As chaves de API ficam salvas <strong>somente neste navegador</strong> e são enviadas ao
-        servidor apenas no momento de cada consulta — nunca em cookie. Para uma chave compartilhada
-        por toda a equipe, defina a variável de ambiente correspondente no servidor e deixe o campo
-        em branco.
+        A chave fica salva <strong>somente neste navegador</strong> e vai ao servidor apenas no
+        momento de cada consulta — nunca em cookie. Para uma chave compartilhada pela equipe,
+        defina a variável de ambiente no servidor e deixe o campo em branco: ela passa a valer
+        para todo mundo, sem ninguém precisar colar nada aqui.
       </p>
 
       {/* Grade de provedores */}
       <div>
         <label className="label mb-2 font-medium">Provedor a configurar</label>
+        <p className="mb-2 text-xs text-slate-500">
+          Dá para deixar vários configurados e trocar na hora, pelo seletor dentro do DeskHelper AI.
+          O marcado como principal é o que o ERP usa por padrão.
+        </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
           {Object.values(AI_PROVIDERS).map((p) => {
             const isSelected = selectedProvider === p.id;
@@ -198,7 +240,7 @@ export default function AISettings({
                 aria-pressed={isSelected}
                 className={`relative flex flex-col items-start p-3 rounded-xl border text-left transition-all ${
                   isSelected
-                    ? "border-brand-500 bg-brand-500/5 shadow-md ring-2 ring-brand-500/20"
+                    ? "accent-selected accent-ring shadow-md"
                     : "border-slate-200 hover:border-slate-300 bg-white"
                 }`}
               >
@@ -321,7 +363,7 @@ export default function AISettings({
                 </p>
               )}
               <p className="mt-1 text-xs text-slate-500">
-                Já configurada no <code className="font-mono">.env</code> do servidor? Deixe em branco.
+                Já definida no <code className="font-mono">.env</code> do servidor? Deixe em branco e ela será usada.
               </p>
             </div>
           )}
@@ -345,7 +387,8 @@ export default function AISettings({
               className="input text-xs font-mono"
             />
             <p className="mt-1 text-xs text-slate-500">
-              Padrão: <code className="font-mono">{currentConfig?.defaultBaseUrl || "padrão do serviço"}</code>
+              Só mude para servidores próprios ou compatíveis (LM Studio, vLLM, Azure). Padrão:{" "}
+              <code className="font-mono">{currentConfig?.defaultBaseUrl || "padrão do serviço"}</code>
             </p>
           </div>
         </div>
@@ -354,11 +397,11 @@ export default function AISettings({
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <button
             type="button"
-            onClick={fetchLiveModels}
+            onClick={() => loadModels()}
             disabled={loadingModels}
             className="btn-secondary btn-sm"
           >
-            {loadingModels ? "Carregando…" : "Carregar modelos da minha conta"}
+            {loadingModels ? "Carregando…" : "Recarregar modelos da minha conta"}
           </button>
 
           <button
@@ -398,10 +441,27 @@ export default function AISettings({
         <div className="space-y-3 pt-1">
           <div className="flex items-center justify-between gap-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-              Modelos disponíveis ({models.length})
+              Modelos da sua conta{models.length > 0 ? ` (${models.length})` : ""}
             </h4>
-            <span className="text-xs text-slate-500">Clique para definir como padrão</span>
+            {models.length > 0 && (
+              <span className="text-xs text-slate-500">Clique para definir como padrão</span>
+            )}
           </div>
+
+          {/* Nada de lista fixa: mostrar modelos que talvez não existam na conta
+              do usuário só produz erro 404 na hora de usar. */}
+          {models.length === 0 && (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
+              <p className="text-sm font-medium text-slate-700">
+                Nenhum modelo carregado ainda
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {currentConfig?.requiresApiKey && !storedKey
+                  ? "Informe a chave de API acima. Assim que ela for salva, a lista é buscada automaticamente na sua conta."
+                  : "Use o botão acima para buscar na API do provedor exatamente os modelos que a sua chave pode usar."}
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
             {models.map((m) => {
@@ -414,7 +474,7 @@ export default function AISettings({
                   aria-pressed={isCurrent}
                   className={`p-3 rounded-xl border text-left transition-all ${
                     isCurrent
-                      ? "border-brand-500 bg-brand-500/10 ring-1 ring-brand-500/30"
+                      ? "accent-selected accent-ring"
                       : "border-slate-200 hover:border-slate-300 bg-white"
                   }`}
                 >
@@ -452,7 +512,7 @@ export default function AISettings({
           {/* ID manual */}
           <div className="pt-1">
             <label htmlFor="ai-manual" className="label text-xs mb-1">
-              Ou informe manualmente o identificador de um modelo
+              Ou digite o identificador exato de um modelo
             </label>
             <div className="flex gap-2">
               <input
@@ -468,7 +528,7 @@ export default function AISettings({
                     setManualModel("");
                   }
                 }}
-                placeholder="Ex.: claude-sonnet-5 ou gpt-4o"
+                placeholder="Ex.: claude-sonnet-5, gpt-4o, gemini-2.5-flash"
                 className="input text-xs font-mono flex-1"
               />
               <button

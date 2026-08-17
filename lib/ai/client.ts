@@ -10,6 +10,73 @@ import { AICompletionOptions, AICompletionResult, AIMessage, AIProviderId } from
 /** Nenhuma chamada de IA deve segurar uma rota do Next indefinidamente. */
 const REQUEST_TIMEOUT_MS = 120_000;
 
+/**
+ * "Modelo sobrecarregado", "tente de novo mais tarde" e afins são falhas
+ * passageiras: o pedido está correto e costuma funcionar segundos depois.
+ * Em vez de mostrar um erro, tentamos de novo com espera crescente.
+ */
+const MAX_ATTEMPTS = 4;
+const BACKOFF_MS = [1200, 3000, 7000];
+
+const RETRYABLE_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504, 529]);
+
+/** Erro cujo `retryable` diz se vale a pena tentar de novo. */
+export class AIProviderError extends Error {
+  readonly retryable: boolean;
+  readonly status?: number;
+
+  constructor(message: string, opts: { retryable?: boolean; status?: number } = {}) {
+    super(message);
+    this.name = "AIProviderError";
+    this.retryable = opts.retryable ?? false;
+    this.status = opts.status;
+  }
+}
+
+const sleep = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(t);
+        reject(new DOMException("Aborted", "AbortError"));
+      },
+      { once: true }
+    );
+  });
+
+function isRetryable(error: unknown): boolean {
+  if (error instanceof AIProviderError) return error.retryable;
+  // Falha de rede (DNS, conexão recusada) também costuma ser passageira.
+  return error instanceof TypeError;
+}
+
+/** Executa `fn` repetindo enquanto o erro for transitório. */
+async function withRetry<T>(
+  fn: (attempt: number) => Promise<T>,
+  onRetry?: (attempt: number, waitMs: number, reason: string) => void,
+  signal?: AbortSignal
+): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fn(attempt);
+    } catch (error) {
+      lastError = error;
+      const isLast = attempt === MAX_ATTEMPTS - 1;
+      if ((error as any)?.name === "AbortError" || !isRetryable(error) || isLast) throw error;
+
+      const waitMs = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
+      onRetry?.(attempt + 1, waitMs, error instanceof Error ? error.message : String(error));
+      await sleep(waitMs, signal);
+    }
+  }
+
+  throw lastError;
+}
+
 export interface ResolvedCall {
   provider: AIProviderId;
   model: string;
@@ -102,7 +169,7 @@ function withTimeout(signal?: AbortSignal): { signal: AbortSignal; done: () => v
 }
 
 /** Extrai a mensagem de erro real do provedor em vez de devolver "status 400". */
-async function readError(res: Response, providerName: string): Promise<Error> {
+async function readError(res: Response, providerName: string): Promise<AIProviderError> {
   const body = await res.text().catch(() => "");
   let detail = "";
   try {
@@ -116,38 +183,60 @@ async function readError(res: Response, providerName: string): Promise<Error> {
     detail = body.slice(0, 300);
   }
 
-  if (res.status === 401 || res.status === 403) {
-    return new Error(`${providerName}: chave de API inválida ou sem permissão. ${detail}`.trim());
-  }
-  if (res.status === 404) {
-    return new Error(
-      `${providerName}: modelo não encontrado. Verifique o identificador em Configurações > Inteligência Artificial. ${detail}`.trim()
+  const status = res.status;
+
+  if (status === 401 || status === 403) {
+    return new AIProviderError(
+      `${providerName}: chave de API inválida ou sem permissão. ${detail}`.trim(),
+      { status }
     );
   }
-  if (res.status === 429) {
-    return new Error(`${providerName}: limite de uso atingido, tente novamente em instantes.`);
+  if (status === 404) {
+    return new AIProviderError(
+      `${providerName}: este modelo não existe mais ou não está disponível para a sua chave. ` +
+        `Use "Carregar modelos da minha conta" em Configurações > Inteligência Artificial para ver a lista atual. ${detail}`.trim(),
+      { status }
+    );
   }
-  return new Error(detail || `${providerName} retornou status ${res.status}.`);
+
+  // Alguns provedores devolvem 400/200 com texto de sobrecarga em vez de 503.
+  const transientText = /overload|high demand|try again|temporarily|unavailable|capacity|rate limit|too many requests|timeout/i.test(
+    detail
+  );
+
+  return new AIProviderError(detail || `${providerName} retornou status ${status}.`, {
+    status,
+    retryable: RETRYABLE_STATUS.has(status) || transientText,
+  });
 }
 
 export async function executeAICompletion(
-  options: AICompletionOptions & { signal?: AbortSignal }
+  options: AICompletionOptions & {
+    signal?: AbortSignal;
+    onRetry?: (attempt: number, waitMs: number, reason: string) => void;
+  }
 ): Promise<AICompletionResult> {
   const call = resolveCall(options);
   const startTime = Date.now();
   const { signal, done } = withTimeout(options.signal);
 
   try {
-    switch (call.provider) {
-      case "anthropic":
-        return await callAnthropic(call, signal, startTime);
-      case "gemini":
-        return await callGemini(call, signal, startTime);
-      case "cohere":
-        return await callCohere(call, signal, startTime);
-      default:
-        return await callOpenAICompatible(call, signal, startTime);
-    }
+    return await withRetry(
+      () => {
+        switch (call.provider) {
+          case "anthropic":
+            return callAnthropic(call, signal, startTime);
+          case "gemini":
+            return callGemini(call, signal, startTime);
+          case "cohere":
+            return callCohere(call, signal, startTime);
+          default:
+            return callOpenAICompatible(call, signal, startTime);
+        }
+      },
+      options.onRetry,
+      signal
+    );
   } catch (error: any) {
     const elapsed = Date.now() - startTime;
     if (error?.name === "AbortError") {
@@ -439,9 +528,57 @@ async function* readSSE(res: Response): AsyncGenerator<string> {
  * caem no modo normal e emitem a resposta inteira de uma vez — quem consome não
  * precisa saber a diferença.
  */
+export type StreamChunk =
+  | { type: "delta"; text: string }
+  | { type: "retry"; attempt: number; of: number; waitMs: number; reason: string };
+
+async function openStream(call: ResolvedCall, signal: AbortSignal): Promise<Response> {
+  if (call.provider === "anthropic") {
+    return fetch(`${call.baseUrl.replace(/\/+$/, "")}/v1/messages`, {
+      method: "POST",
+      headers: anthropicHeaders(call.apiKey),
+      body: JSON.stringify(anthropicPayload(call, true)),
+      signal,
+    });
+  }
+  if (call.provider === "gemini") {
+    return fetch(geminiUrl(call, true), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(geminiPayload(call)),
+      signal,
+    });
+  }
+  return fetch(openAIEndpoint(call.baseUrl), {
+    method: "POST",
+    headers: openAIHeaders(call),
+    body: JSON.stringify(openAIPayload(call, true)),
+    signal,
+  });
+}
+
+function parseChunk(call: ResolvedCall, evt: any): string {
+  if (call.provider === "anthropic") {
+    if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
+      return evt.delta.text || "";
+    }
+    if (evt.type === "error") {
+      const msg = evt.error?.message || "Erro no stream da Anthropic.";
+      throw new AIProviderError(msg, {
+        retryable: /overload|rate|try again|capacity/i.test(msg),
+      });
+    }
+    return "";
+  }
+  if (call.provider === "gemini") {
+    return evt.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("") || "";
+  }
+  return evt.choices?.[0]?.delta?.content || "";
+}
+
 export async function* streamAICompletion(
   options: AICompletionOptions & { signal?: AbortSignal }
-): AsyncGenerator<string, AICompletionResult> {
+): AsyncGenerator<StreamChunk, AICompletionResult> {
   const call = resolveCall(options);
   const startTime = Date.now();
   const { signal, done } = withTimeout(options.signal);
@@ -449,72 +586,66 @@ export async function* streamAICompletion(
 
   try {
     if (call.provider === "cohere") {
-      const result = await callCohere(call, signal, startTime);
-      if (result.text) yield result.text;
+      const result = await withRetry(() => callCohere(call, signal, startTime), undefined, signal);
+      if (result.text) yield { type: "delta", text: result.text };
       return result;
     }
 
-    let res: Response;
-    if (call.provider === "anthropic") {
-      res = await fetch(`${call.baseUrl.replace(/\/+$/, "")}/v1/messages`, {
-        method: "POST",
-        headers: anthropicHeaders(call.apiKey),
-        body: JSON.stringify(anthropicPayload(call, true)),
-        signal,
-      });
-    } else if (call.provider === "gemini") {
-      res = await fetch(geminiUrl(call, true), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(geminiPayload(call)),
-        signal,
-      });
-    } else {
-      res = await fetch(openAIEndpoint(call.baseUrl), {
-        method: "POST",
-        headers: openAIHeaders(call),
-        body: JSON.stringify(openAIPayload(call, true)),
-        signal,
-      });
-    }
-
-    if (!res.ok) throw await readError(res, AI_PROVIDERS[call.provider].name);
-
-    for await (const raw of readSSE(res)) {
-      if (!raw || raw === "[DONE]") continue;
-      let evt: any;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       try {
-        evt = JSON.parse(raw);
-      } catch {
-        continue;
-      }
+        const res = await openStream(call, signal);
+        if (!res.ok) throw await readError(res, AI_PROVIDERS[call.provider].name);
 
-      let piece = "";
-      if (call.provider === "anthropic") {
-        if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
-          piece = evt.delta.text || "";
-        } else if (evt.type === "error") {
-          throw new Error(evt.error?.message || "Erro no stream da Anthropic.");
+        for await (const raw of readSSE(res)) {
+          if (!raw || raw === "[DONE]") continue;
+          let evt: any;
+          try {
+            evt = JSON.parse(raw);
+          } catch {
+            continue;
+          }
+          const piece = parseChunk(call, evt);
+          if (piece) {
+            full += piece;
+            yield { type: "delta", text: piece };
+          }
         }
-      } else if (call.provider === "gemini") {
-        piece =
-          evt.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("") || "";
-      } else {
-        piece = evt.choices?.[0]?.delta?.content || "";
-      }
 
-      if (piece) {
-        full += piece;
-        yield piece;
+        // Um stream que fecha sem nenhum texto costuma ser sobrecarga do
+        // provedor; vale a mesma nova tentativa de um erro explícito.
+        if (!full.trim() && attempt < MAX_ATTEMPTS - 1) {
+          throw new AIProviderError("O provedor encerrou a resposta sem conteúdo.", {
+            retryable: true,
+          });
+        }
+
+        return {
+          text: full,
+          provider: call.provider,
+          model: call.model,
+          latencyMs: Date.now() - startTime,
+        };
+      } catch (error: any) {
+        if (error?.name === "AbortError") throw error;
+
+        // Depois que o texto começou a sair, repetir duplicaria a resposta na
+        // tela — nesse ponto o erro vai para o usuário.
+        const canRetry = full === "" && isRetryable(error) && attempt < MAX_ATTEMPTS - 1;
+        if (!canRetry) throw error;
+
+        const waitMs = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
+        yield {
+          type: "retry",
+          attempt: attempt + 1,
+          of: MAX_ATTEMPTS - 1,
+          waitMs,
+          reason: error instanceof Error ? error.message : String(error),
+        };
+        await sleep(waitMs, signal);
       }
     }
 
-    return {
-      text: full,
-      provider: call.provider,
-      model: call.model,
-      latencyMs: Date.now() - startTime,
-    };
+    return { text: full, provider: call.provider, model: call.model, latencyMs: Date.now() - startTime };
   } catch (error: any) {
     if (error?.name === "AbortError") {
       // Cancelamento do usuário ou timeout: devolve o que já saiu.

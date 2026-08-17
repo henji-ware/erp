@@ -64,7 +64,9 @@ export async function POST(req: NextRequest) {
             const iterator = streamAICompletion({ ...options, signal: req.signal });
             let next = await iterator.next();
             while (!next.done) {
-              send({ type: "delta", text: next.value });
+              // Repassa tanto o texto quanto os avisos de nova tentativa, para
+              // a tela dizer "tentando de novo" em vez de mostrar erro.
+              send(next.value);
               next = await iterator.next();
             }
             send({

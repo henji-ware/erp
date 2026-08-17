@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AI_PROVIDERS } from "@/lib/ai/providers";
 import { AIMessage, AIProviderId } from "@/lib/ai/types";
-import { activeCredentials, useAISettings } from "./useAISettings";
+import { activeCredentials, availableModels, useAISettings } from "./useAISettings";
 import { RichText } from "./RichText";
 import { Icon, type IconName } from "./icons";
 
@@ -43,6 +43,7 @@ export default function CopilotWidget() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
+  const [retryNotice, setRetryNotice] = useState("");
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   // Provedor/modelo do seletor rápido; vazio = usa o padrão das Configurações.
@@ -57,7 +58,7 @@ export default function CopilotWidget() {
     provider: providerOverride || undefined,
     model: modelOverride || undefined,
   });
-  const providerConfig = AI_PROVIDERS[creds.provider];
+  const userModels = availableModels(settings, creds.provider);
 
   // Abre a partir do Command Palette, da sidebar ou do banner do dashboard.
   useEffect(() => {
@@ -177,6 +178,7 @@ export default function CopilotWidget() {
     setInput("");
     setLoading(true);
     setStreamingText("");
+    setRetryNotice("");
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -234,6 +236,11 @@ export default function CopilotWidget() {
             if (evt.type === "delta") {
               accumulated += evt.text;
               setStreamingText(accumulated);
+            } else if (evt.type === "retry") {
+              // Falha passageira do provedor: o servidor já vai tentar de novo.
+              setRetryNotice(
+                `O provedor está sobrecarregado. Tentando novamente (${evt.attempt}/${evt.of})…`
+              );
             } else if (evt.type === "done") {
               meta = { model: evt.model, latencyMs: evt.latencyMs };
             } else if (evt.type === "error") {
@@ -277,6 +284,7 @@ export default function CopilotWidget() {
     } finally {
       abortRef.current = null;
       setLoading(false);
+      setRetryNotice("");
     }
   };
 
@@ -376,12 +384,14 @@ export default function CopilotWidget() {
               className="flex-1 min-w-0 bg-white text-slate-800 text-xs font-mono rounded-lg px-2 py-1 border border-slate-300 outline-none focus:border-brand-500"
             >
               {/* O modelo salvo pode ser um ID digitado à mão, fora do catálogo. */}
-              {creds.model && !providerConfig?.models.some((m) => m.id === creds.model) && (
+              {/* Só os modelos que a chave do usuário realmente aceita. Sem
+                  lista carregada, resta o modelo em uso. */}
+              {creds.model && !userModels.includes(creds.model) && (
                 <option value={creds.model}>{creds.model}</option>
               )}
-              {providerConfig?.models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
+              {userModels.map((id) => (
+                <option key={id} value={id}>
+                  {id}
                 </option>
               ))}
             </select>
@@ -437,8 +447,8 @@ export default function CopilotWidget() {
                     <RichText text={streamingText} />
                   ) : (
                     <span className="flex items-center gap-2 text-slate-500">
-                      <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-ping" />
-                      Consultando {creds.model}…
+                      <span className="flex h-2 w-2 rounded-full bg-brand-600 animate-ping" />
+                      {retryNotice || `Consultando ${creds.model}…`}
                     </span>
                   )}
                 </div>
@@ -462,7 +472,7 @@ export default function CopilotWidget() {
                 type="button"
                 onClick={() => handleSend(p.text)}
                 disabled={loading}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-40 transition-colors"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-white border border-slate-200 text-slate-600 accent-hover-border hover:text-slate-900 disabled:opacity-40 transition-colors"
               >
                 <Icon name={p.icon} size={11} />
                 {p.label}
@@ -484,7 +494,7 @@ export default function CopilotWidget() {
                 }
               }}
               placeholder="Pergunte sobre o ERP ou peça um texto… (Enter envia, Shift+Enter quebra linha)"
-              className="flex-1 resize-none rounded-xl p-2.5 text-[13px] border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+              className="flex-1 resize-none rounded-xl p-2.5 text-[13px] border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             />
             <button
               type="button"

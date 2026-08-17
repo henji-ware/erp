@@ -33,8 +33,11 @@ export default function AnimationsToggle({ initialOn }: { initialOn: boolean }) 
           on ? "bg-brand-600" : "bg-slate-400"
         }`}
       >
+        {/* Ligado, a bolinha usa --accent-fg (a cor que o tema define como
+            legível sobre o destaque). Com branco fixo ela sumia no tema Mono
+            escuro, onde o destaque já é quase branco. */}
         <span
-          style={{ backgroundColor: "#ffffff" }}
+          style={{ backgroundColor: on ? "rgb(var(--accent-fg))" : "#ffffff" }}
           className={`inline-block h-5 w-5 transform rounded-full shadow transition-transform ${
             on ? "translate-x-5" : "translate-x-0"
           }`}

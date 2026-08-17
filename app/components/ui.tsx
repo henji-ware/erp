@@ -55,7 +55,7 @@ export function StatCard({
 }) {
   return (
     <div
-      className="card hover-lift animate-fade-in-up p-5 relative overflow-hidden transition-all duration-200 hover:border-brand-500/30"
+      className="card hover-lift animate-fade-in-up p-5 relative overflow-hidden transition-all duration-200 accent-hover-border"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-start justify-between">

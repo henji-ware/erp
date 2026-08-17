@@ -107,7 +107,7 @@ export default function Sidebar({
           type="button"
           title="Buscar no ERP (Ctrl K)"
           onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
-          className={`w-full flex items-center gap-2 rounded-xl py-2 text-xs font-medium bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 transition-colors border border-slate-200/80 ${
+          className={`w-full flex items-center gap-2 rounded-xl py-2 text-xs font-medium bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 transition-colors ${
             collapsed ? "justify-center px-0" : "justify-between px-3"
           }`}
         >
@@ -129,7 +129,7 @@ export default function Sidebar({
           type="button"
           title="Abrir o DeskHelper AI"
           onClick={() => window.dispatchEvent(new CustomEvent("open-drr-copilot"))}
-          className={`w-full flex items-center gap-2.5 rounded-xl py-2 text-xs font-semibold bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 border border-indigo-500/20 transition-colors ${
+          className={`w-full flex items-center gap-2.5 rounded-xl py-2 text-xs font-semibold accent-soft accent-icon transition-colors ${
             collapsed ? "justify-center px-0" : "px-3"
           }`}
         >

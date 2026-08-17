@@ -50,17 +50,14 @@ export const AI_PROVIDERS: Record<AIProviderId, AIProviderConfig> = {
     keyEnvVar: "GEMINI_API_KEY",
     defaultBaseUrl: "https://generativelanguage.googleapis.com",
     requiresApiKey: true,
-    defaultModel: "gemini-2.0-flash",
+    defaultModel: "gemini-2.5-flash",
     supportsTemperature: true,
+    // O Google aposenta versões rápido: a família 2.0 e a 1.5 já saíram do ar
+    // e devolvem "no longer available". A lista viva da conta é quem manda.
     models: [
-      { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Topo de linha do Gemini para raciocínio complexo.", tier: "reasoning", contextWindow: "1M", isNew: true },
-      { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Rápido e capaz, bom padrão do dia a dia.", tier: "flagship", contextWindow: "1M", isNew: true },
-      { id: "gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite", description: "Versão mais econômica do 2.5 Flash.", tier: "fast", contextWindow: "1M", isNew: true },
-      { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", description: "Geração de texto em tempo real com boa precisão.", tier: "flagship", contextWindow: "1M" },
-      { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", description: "Econômico para consultas frequentes.", tier: "fast", contextWindow: "1M" },
-      { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", description: "2M tokens para relatórios extensos e auditorias.", tier: "reasoning", contextWindow: "2M" },
-      { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", description: "Balanceado para automações e respostas instantâneas.", tier: "fast", contextWindow: "1M" },
-      { id: "gemini-1.5-flash-8b", name: "Gemini 1.5 Flash 8B", description: "O mais barato da família 1.5.", tier: "fast", contextWindow: "1M" },
+      { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Alta capacidade de raciocínio.", tier: "reasoning", contextWindow: "1M" },
+      { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Rápido e capaz, bom padrão do dia a dia.", tier: "flagship", contextWindow: "1M" },
+      { id: "gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite", description: "Versão mais econômica do 2.5 Flash.", tier: "fast", contextWindow: "1M" },
     ],
   },
 
