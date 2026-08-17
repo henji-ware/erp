@@ -123,7 +123,19 @@ export default function AISettings({
       // Persistido para o DeskHelper e o assistente de propostas oferecerem
       // exatamente os mesmos modelos, sem recorrer ao catálogo do código.
       const ids = (data.models as AIModelInfo[]).map((m) => m.id);
-      commit({ customModels: { ...settings.customModels, [selectedProvider]: ids } });
+
+      // Versões antigas gravavam um modelo padrão para todo provedor. Se o que
+      // está salvo não existe na conta, ele é descartado agora — senão o
+      // "Testar conexão" continuaria chamando um modelo morto (era o caso do
+      // gemini-2, que sobrou de uma configuração anterior).
+      const saved = settings.defaultModels[selectedProvider];
+      const nextDefaults = { ...settings.defaultModels };
+      if (saved && !ids.includes(saved)) delete nextDefaults[selectedProvider];
+
+      commit({
+        customModels: { ...settings.customModels, [selectedProvider]: ids },
+        defaultModels: nextDefaults,
+      });
       if (!opts.silent) {
         setTestResult({ ok: true, msg: `${data.count} modelos carregados da sua conta.` });
       }
@@ -410,10 +422,32 @@ export default function AISettings({
             type="button"
             onClick={testConnection}
             disabled={testing || !activeModel}
+            title={!activeModel ? "Escolha um modelo da lista abaixo primeiro" : undefined}
             className="btn-primary btn-sm"
           >
             {testing ? "Testando…" : "Testar conexão"}
           </button>
+
+          {/* Saída manual para configuração antiga que ficou presa no
+              navegador — inclusive modelos que não existem mais. */}
+          {(activeModel || models.length > 0 || storedKey) && (
+            <button
+              type="button"
+              onClick={() => {
+                const defaults = { ...settings.defaultModels };
+                const custom = { ...settings.customModels };
+                delete defaults[selectedProvider];
+                delete custom[selectedProvider];
+                setModelsMap((prev) => ({ ...prev, [selectedProvider]: undefined }));
+                setLiveLoaded((prev) => ({ ...prev, [selectedProvider]: false }));
+                setTestResult(null);
+                commit({ defaultModels: defaults, customModels: custom });
+              }}
+              className="btn-secondary btn-sm ml-auto"
+            >
+              Limpar este provedor
+            </button>
+          )}
         </div>
 
         {testResult && (
