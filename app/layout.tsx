@@ -3,6 +3,8 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import "./globals.css";
 import Sidebar from "./components/Sidebar";
+import CommandPalette from "./components/CommandPalette";
+import CopilotWidget from "./components/CopilotWidget";
 import { getCurrentUser } from "@/lib/auth";
 import { getAlerts, alertText } from "@/lib/alerts";
 import { isPublicPath, PATHNAME_HEADER, SESSION_END_PATH } from "@/lib/routes";
@@ -68,6 +70,8 @@ export default async function RootLayout({
             <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">{children}</div>
           </main>
         </div>
+        <CommandPalette />
+        <CopilotWidget />
       </body>
     </html>
   );

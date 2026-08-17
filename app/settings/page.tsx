@@ -15,11 +15,13 @@ import { PageHeader } from "../components/ui";
 import { Icon } from "../components/icons";
 import Appearance from "./Appearance";
 import AnimationsToggle from "./AnimationsToggle";
+import AISettings from "./AISettings";
+import { getServerAISettings } from "@/lib/ai/server-settings";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const [store, user, counts] = await Promise.all([
+  const [store, user, counts, aiSettings] = await Promise.all([
     cookies(),
     getCurrentUser(),
     Promise.all([
@@ -33,6 +35,7 @@ export default async function SettingsPage() {
       prisma.appointment.count({ where: { deletedAt: null } }),
       prisma.auditLog.count(),
     ]),
+    getServerAISettings(),
   ]);
 
   const themeCookie = store.get(THEME_COOKIE)?.value;
@@ -48,8 +51,26 @@ export default async function SettingsPage() {
     <div className="max-w-4xl">
       <PageHeader
         title="Configurações"
-        subtitle="Aparência, preferências e informações do sistema"
+        subtitle="Aparência, Inteligência Artificial, preferências e informações do sistema"
       />
+
+      {/* Inteligência Artificial & Modelos */}
+      <section className="card mb-6 p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+            ✨
+          </span>
+          <div>
+            <h2 className="font-semibold text-slate-800 dark:text-slate-100">
+              Inteligência Artificial & Provedores
+            </h2>
+            <p className="text-xs text-slate-400">
+              Configure múltiplos modelos (Anthropic Claude, Google Gemini, OpenAI, DeepSeek, Groq, Mistral, Ollama)
+            </p>
+          </div>
+        </div>
+        <AISettings initialSettings={aiSettings} />
+      </section>
 
       {/* Aparência: modo + tema */}
       <section className="card mb-6 p-6">

@@ -18,6 +18,7 @@ import { Icon } from "../../components/icons";
 import SubmitButton from "../../components/SubmitButton";
 import PrintButton from "../../reports/PrintButton";
 import { ProposalDoc } from "./ProposalDoc";
+import ProposalAIAssistant from "./ProposalAIAssistant";
 import { updateProposal, resetProposalTemplate, deleteProposal } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +54,16 @@ export default async function ProposalPage({
           title={`Proposta ${proposalNumber(proposal.lead.number, proposal.revision, proposal.type)}`}
           subtitle={`${PROPOSAL_TYPE_LABELS[proposal.type]} · ${proposal.clientName}`}
           action={
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <ProposalAIAssistant
+                proposalId={proposal.id}
+                proposalType={proposal.type}
+                clientName={proposal.clientName}
+                title={proposal.title}
+                items={items}
+                currentScope={proposal.scope}
+                findings={proposal.findings ?? undefined}
+              />
               <PrintButton />
               <Link href={`/leads/${proposal.leadId}`} className="btn-ghost">
                 Voltar ao orçamento
@@ -68,7 +78,10 @@ export default async function ProposalPage({
         <div className="no-print space-y-4">
           <form action={updateProposal} className="card space-y-3 p-5">
             <input type="hidden" name="id" value={proposal.id} />
-            <h2 className="font-semibold text-slate-800">Dados da proposta</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-slate-800 dark:text-slate-100">Dados da proposta</h2>
+              <span className="text-xs text-slate-400">R{proposal.revision}</span>
+            </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>

@@ -101,10 +101,65 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Dashboard"
-        subtitle="Visão geral — projetos, inspeções, vendas, locações e financeiro"
-      />
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Dashboard
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Visão geral inteligente — projetos, inspeções, vendas, locações e financeiro
+          </p>
+        </div>
+
+        {/* Quick Action Trigger */}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/settings"
+            className="btn-secondary btn-sm flex items-center gap-1.5"
+            title="Configurar IA"
+          >
+            <span>⚙️</span>
+            <span>Configurar Modelos</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Banner de Boas-Vindas e IA */}
+      <div className="mb-6 p-5 rounded-2xl bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 text-white shadow-xl border border-indigo-500/20 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-300">
+              DRR Copilot & Assistentes de IA Ativos
+            </span>
+          </div>
+          <h2 className="text-lg font-bold text-white">
+            Bem-vindo(a), {user?.name || "Colaborador"}
+          </h2>
+          <p className="text-xs text-indigo-200/80 max-w-xl mt-1">
+            Consulte dados em tempo real, gere escopos de propostas técnicas e busque rapidamente qualquer registro pressionando <kbd className="font-mono bg-white/20 px-1.5 py-0.5 rounded text-white text-[10px]">Ctrl + K</kbd>.
+          </p>
+        </div>
+
+        <div className="relative z-10 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("open-command-palette"));
+              }
+            }}
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm border border-white/10 transition-all flex items-center gap-2"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <span>Buscar no ERP</span>
+            <kbd className="font-mono bg-white/20 px-1 py-0.5 rounded text-[10px]">⌘K</kbd>
+          </button>
+        </div>
+      </div>
 
       {/* Painel de pendências */}
       {alerts.length > 0 && (
