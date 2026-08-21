@@ -7,6 +7,7 @@ import { asEnum, LEAD_STAGES, LEAD_STAGE_LABELS, LEAD_LOSS_REASONS } from "@/lib
 import { logAudit } from "@/lib/audit";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { isValidDocument, normalizeDocument } from "@/lib/document";
+import { parseMoney } from "@/lib/money";
 
 // Usuário comum só pode mexer nos próprios orçamentos; admin em todos.
 async function canEditLead(id: number): Promise<boolean> {
@@ -369,6 +370,5 @@ function doc(v: FormDataEntryValue | null): string | null {
   return isValidDocument(raw) ? normalizeDocument(raw) : null;
 }
 function num(v: FormDataEntryValue | null): number {
-  const n = parseFloat(String(v ?? "").replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
+  return parseMoney(v);
 }

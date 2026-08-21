@@ -88,6 +88,8 @@ export default async function LoginPage({
                   ? "Confirme seu e-mail antes de entrar. Veja o link enviado para sua caixa de entrada."
                   : error === "inactive"
                     ? "Esta conta está inativa. Fale com um administrador."
+                    : error === "rate"
+                      ? "Muitas tentativas. Aguarde alguns minutos antes de tentar novamente."
                     : "E-mail ou senha inválidos."}
               </p>
             )}

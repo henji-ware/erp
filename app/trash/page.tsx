@@ -5,7 +5,7 @@ import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import SubmitButton from "../components/SubmitButton";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
-import { restoreItem, purgeItem, emptyTrash, purgeExpiredTrash } from "./actions";
+import { restoreItem, purgeItem, emptyTrash } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +22,6 @@ export default async function TrashPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
-  // Limpeza automática: remove o que passou de 30 dias.
-  await purgeExpiredTrash();
   const user = await getCurrentUser();
   const admin = isAdmin(user);
   // Usuário comum só enxerga na Lixeira o que ele mesmo arquivou.

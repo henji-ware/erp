@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
-import { TRASH_TTL_DAYS } from "@/lib/format";
 import { getCurrentUser, isAdmin, canEdit } from "@/lib/auth";
 
 type Entity =
@@ -131,24 +130,6 @@ export async function purgeItem(formData: FormData) {
 
   revalidatePath("/trash");
   revalidatePath("/");
-}
-
-// Remove definitivamente itens arquivados há mais de 30 dias. Chamado ao abrir
-// a Lixeira (limpeza automática) — best effort, ignora vínculos.
-export async function purgeExpiredTrash(): Promise<void> {
-  const cutoff = new Date(Date.now() - TRASH_TTL_DAYS * 86400000);
-  const where = { deletedAt: { lt: cutoff } };
-  try { await prisma.transaction.deleteMany({ where }); } catch {}
-  try { await prisma.order.deleteMany({ where }); } catch {}
-  try { await prisma.inspection.deleteMany({ where }); } catch {}
-  try { await prisma.appointment.deleteMany({ where }); } catch {}
-  try { await prisma.rental.deleteMany({ where }); } catch {}
-  try { await prisma.maintenanceContract.deleteMany({ where }); } catch {}
-  try { await prisma.lead.deleteMany({ where }); } catch {}
-  try { await prisma.project.deleteMany({ where }); } catch {}
-  try { await prisma.customer.deleteMany({ where }); } catch {}
-  try { await prisma.product.deleteMany({ where }); } catch {}
-  try { await prisma.supplier.deleteMany({ where }); } catch {}
 }
 
 // Esvazia a lixeira inteira agora — ação destrutiva, restrita a administradores.

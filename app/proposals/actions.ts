@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { asEnum } from "@/lib/format";
+import { parseMoney } from "@/lib/money";
 import {
   GREETING_PADRAO,
   PROPOSAL_TYPES,
@@ -214,8 +215,7 @@ function str(v: FormDataEntryValue | null): string | null {
   return s.length ? s : null;
 }
 function num(v: FormDataEntryValue | null): number {
-  const n = parseFloat(String(v ?? "").replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
+  return parseMoney(v);
 }
 function int(v: FormDataEntryValue | null): number {
   const n = parseInt(String(v ?? ""), 10);

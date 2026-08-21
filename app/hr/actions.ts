@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { SELLER_CATEGORIES } from "@/lib/format";
+import { parseMoney } from "@/lib/money";
 
 export async function createEmployee(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -76,8 +77,7 @@ function str(v: FormDataEntryValue | null): string | null {
   return s.length ? s : null;
 }
 function num(v: FormDataEntryValue | null): number {
-  const n = parseFloat(String(v ?? "").replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
+  return parseMoney(v);
 }
 function date(v: FormDataEntryValue | null): Date | null {
   const s = String(v ?? "").trim();
@@ -95,8 +95,7 @@ function category(v: FormDataEntryValue | null): (typeof SELLER_CATEGORIES)[numb
 function optNum(v: FormDataEntryValue | null): number | null {
   const s = String(v ?? "").trim();
   if (!s) return null;
-  const n = parseFloat(s.replace(",", "."));
-  return Number.isFinite(n) ? n : null;
+  return parseMoney(s);
 }
 function optInt(v: FormDataEntryValue | null): number | null {
   const s = String(v ?? "").trim();

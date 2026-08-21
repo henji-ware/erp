@@ -16,7 +16,7 @@ export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-  }).format(value ?? 0);
+  }).format(Math.round(((value ?? 0) + Number.EPSILON) * 100) / 100);
 }
 
 export function formatDate(date: Date | string): string {

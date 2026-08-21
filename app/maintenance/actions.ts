@@ -10,6 +10,7 @@ import {
 } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
 import { getCurrentUser, canEditRecord } from "@/lib/auth";
+import { parseMoney } from "@/lib/money";
 
 // Autorização: só o dono (ou admin) altera o contrato.
 async function allowed(id: number): Promise<boolean> {
@@ -95,8 +96,7 @@ function str(v: FormDataEntryValue | null): string | null {
   return s.length ? s : null;
 }
 function num(v: FormDataEntryValue | null): number {
-  const n = parseFloat(String(v ?? "").replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
+  return parseMoney(v);
 }
 function date(v: FormDataEntryValue | null): Date | null {
   const s = String(v ?? "").trim();

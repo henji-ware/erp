@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
 export default async function ForgotPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; email?: string }>;
+  searchParams: Promise<{ sent?: string; email?: string }>;
 }) {
-  const { error, email } = await searchParams;
+  const { sent, email } = await searchParams;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50 p-4">
@@ -25,20 +25,9 @@ export default async function ForgotPage({
 
         <div className="card p-6">
           <form action={requestReset} className="space-y-4">
-            {error === "notfound" && (
-              <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600">
-                Este e-mail não está cadastrado em nenhum usuário.
-              </p>
-            )}
-            {error === "noemail" && (
-              <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-700">
-                O envio de e-mail ainda não está configurado. Fale com um administrador.
-              </p>
-            )}
-            {error === "sendfail" && (
-              <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-700">
-                Não foi possível enviar o e-mail. Verifique a configuração de envio
-                (domínio/remetente) e tente de novo.
+            {sent && (
+              <p className="rounded-lg bg-green-500/10 px-3 py-2 text-sm text-green-700">
+                Se o e-mail estiver cadastrado e ativo, enviaremos um código. Verifique também a pasta de spam.
               </p>
             )}
             <div>
@@ -51,6 +40,11 @@ export default async function ForgotPage({
               </div>
             </div>
             <button type="submit" className="btn-primary w-full py-2.5">Enviar código</button>
+            {sent && email && (
+              <Link href={`/reset?email=${encodeURIComponent(email)}`} className="block text-center text-sm text-brand-600 hover:underline">
+                Já tenho o código
+              </Link>
+            )}
           </form>
         </div>
 

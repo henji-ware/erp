@@ -1,15 +1,17 @@
 // Assinatura/verificação de token de sessão usando Web Crypto.
 // Sem imports de Node => seguro para usar no middleware (edge) e no servidor.
 
-const SECRET =
-  process.env.SESSION_SECRET || "dev-insecure-secret-change-me-in-production";
+const SECRET = process.env.SESSION_SECRET;
 
 const encoder = new TextEncoder();
 
 async function getKey(): Promise<CryptoKey> {
+  if (!SECRET && process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET precisa estar configurado em produção");
+  }
   return crypto.subtle.importKey(
     "raw",
-    encoder.encode(SECRET),
+    encoder.encode(SECRET || "dev-insecure-secret-change-me"),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign", "verify"],
@@ -45,6 +47,10 @@ export async function verifyToken(
   if (i <= 0) return null;
   const payload = token.slice(0, i);
   const sigHex = token.slice(i + 1);
+  // HMAC-SHA256 em hexadecimal tem exatamente 64 caracteres. O payload atual
+  // é um id inteiro positivo; rejeitar qualquer outro formato evita aceitar
+  // tokens malformados antes mesmo da operação criptográfica.
+  if (!/^[1-9]\d*$/.test(payload) || !/^[0-9a-f]{64}$/i.test(sigHex)) return null;
   try {
     const key = await getKey();
     const ok = await crypto.subtle.verify(

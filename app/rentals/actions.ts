@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { asEnum, RENTAL_STATUSES, RENTAL_STATUS_LABELS } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
 import { getCurrentUser, canEditRecord } from "@/lib/auth";
+import { parseMoney } from "@/lib/money";
 
 // Autorização: só o dono (ou admin) altera a locação.
 async function allowed(id: number): Promise<boolean> {
@@ -82,8 +83,7 @@ function str(v: FormDataEntryValue | null): string | null {
   return s.length ? s : null;
 }
 function num(v: FormDataEntryValue | null): number {
-  const n = parseFloat(String(v ?? "").replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
+  return parseMoney(v);
 }
 function int(v: FormDataEntryValue | null): number {
   const n = parseInt(String(v ?? ""), 10);

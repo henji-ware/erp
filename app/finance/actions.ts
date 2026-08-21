@@ -7,6 +7,7 @@ import { asEnum, PAYMENT_METHODS, TX_TYPES } from "@/lib/format";
 import { deriveStatus, remaining } from "@/lib/finance";
 import { logAudit } from "@/lib/audit";
 import { getCurrentUser, canEditRecord } from "@/lib/auth";
+import { parseMoney, roundMoney, splitMoney } from "@/lib/money";
 
 // Autorização: só o dono (ou admin) altera o lançamento.
 async function allowed(id: number): Promise<boolean> {
@@ -42,9 +43,7 @@ export async function createTransaction(formData: FormData) {
   });
 
   if (parts > 1) {
-    const base = Math.floor((total / parts) * 100) / 100;
-    // A última parcela absorve a diferença de arredondamento.
-    const last = Math.round((total - base * (parts - 1)) * 100) / 100;
+    const amounts = splitMoney(total, parts);
     await prisma.installment.createMany({
       data: Array.from({ length: parts }, (_, i) => {
         const due = new Date(dueDate);
@@ -52,7 +51,7 @@ export async function createTransaction(formData: FormData) {
         return {
           transactionId: tx.id,
           number: i + 1,
-          amount: i === parts - 1 ? last : base,
+          amount: amounts[i],
           dueDate: due,
         };
       }),
@@ -198,8 +197,7 @@ export async function generateInstallments(formData: FormData) {
   if (!tx) return;
 
   const first = firstRaw ? new Date(firstRaw) : new Date(tx.dueDate);
-  const base = Math.floor((tx.amount / count) * 100) / 100;
-  const last = Math.round((tx.amount - base * (count - 1)) * 100) / 100;
+  const amounts = splitMoney(tx.amount, count);
 
   await prisma.installment.deleteMany({ where: { transactionId } });
   await prisma.installment.createMany({
@@ -209,7 +207,7 @@ export async function generateInstallments(formData: FormData) {
       return {
         transactionId,
         number: i + 1,
-        amount: i === count - 1 ? last : base,
+        amount: amounts[i],
         dueDate: due,
       };
     }),
@@ -300,7 +298,7 @@ export async function payInstallment(formData: FormData) {
   if (!inst || !(await allowed(inst.transactionId))) return;
 
   const alreadyPaid = inst.payments.reduce((s, p) => s + p.amount, 0);
-  const left = Math.round((inst.amount - alreadyPaid) * 100) / 100;
+  const left = roundMoney(inst.amount - alreadyPaid);
   if (left <= 0) return;
 
   await prisma.payment.create({
@@ -346,7 +344,7 @@ async function syncFromInstallments(transactionId: number) {
     orderBy: { dueDate: "asc" },
   });
   if (list.length === 0) return;
-  const total = Math.round(list.reduce((s, it) => s + it.amount, 0) * 100) / 100;
+  const total = roundMoney(list.reduce((s, it) => s + it.amount, 0));
   await prisma.transaction.update({
     where: { id: transactionId },
     data: { amount: total, dueDate: list[0].dueDate },
@@ -369,8 +367,7 @@ async function recompute(transactionId: number) {
 }
 
 function num(v: FormDataEntryValue | null): number {
-  const n = parseFloat(String(v ?? "").replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
+  return parseMoney(v);
 }
 function int(v: FormDataEntryValue | null): number {
   const n = parseInt(String(v ?? ""), 10);

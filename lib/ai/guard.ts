@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, type CurrentUser } from "@/lib/auth";
+import { consumeRateLimit, requestIdentity } from "@/lib/rate-limit";
 
 /**
  * As rotas /api/ai/* recebem URL base e chave vindas do navegador e falam com a
@@ -17,6 +18,16 @@ export async function requireUser(): Promise<
       response: NextResponse.json(
         { ok: false, error: "Sessão expirada. Entre novamente para usar os recursos de IA." },
         { status: 401 }
+      ),
+    };
+  }
+  const ip = await requestIdentity();
+  const rate = consumeRateLimit(`ai:${user.id}:${ip}`, 30, 60 * 1000);
+  if (!rate.allowed) {
+    return {
+      response: NextResponse.json(
+        { ok: false, error: "Limite de solicitações atingido. Tente novamente em instantes." },
+        { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } },
       ),
     };
   }

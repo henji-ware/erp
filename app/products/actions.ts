@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { parseMoney } from "@/lib/money";
 
 export async function createProduct(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -87,8 +88,7 @@ export async function deleteProduct(formData: FormData) {
 }
 
 function num(v: FormDataEntryValue | null): number {
-  const n = parseFloat(String(v ?? "").replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
+  return parseMoney(v);
 }
 function int(v: FormDataEntryValue | null): number {
   const n = parseInt(String(v ?? ""), 10);

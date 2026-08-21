@@ -8,6 +8,19 @@ export const dynamic = "force-dynamic";
 // Avisa faltando 3, 2 e 1 dia, no dia do vencimento e enquanto estiver vencido.
 const ALERT_DAYS = 3;
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[char];
+  });
+}
+
 type Item = {
   ownerId: number | null;
   section: "Financeiro" | "Inspeções" | "Manutenção" | "Locações";
@@ -33,7 +46,12 @@ function dayLabel(date: Date, now: Date): { text: string; color: string } {
 export async function GET(req: NextRequest) {
   // Proteção: o Vercel Cron envia "Authorization: Bearer <CRON_SECRET>".
   const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
+  // Sem segredo configurado, falha fechado: este endpoint envia e-mails e não
+  // deve se tornar público por um erro de configuração.
+  if (!secret) {
+    return new Response("CRON_SECRET não configurado", { status: 503 });
+  }
+  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
     return new Response("Unauthorized", { status: 401 });
   }
   if (!isEmailConfigured()) {
@@ -84,7 +102,7 @@ export async function GET(req: NextRequest) {
           .filter((it) => it.section === s)
           .map((it) => {
             const d = dayLabel(it.date, now);
-            return `<li style="margin-bottom:6px;">${it.label} — <strong style="color:${d.color};">${d.text}</strong></li>`;
+            return `<li style="margin-bottom:6px;">${escapeHtml(it.label)} — <strong style="color:${d.color};">${escapeHtml(d.text)}</strong></li>`;
           })
           .join("");
         return `<p style="margin:14px 0 6px;font-weight:bold;color:#0f172a;">${s}</p><ul style="padding-left:18px;margin:0;">${rows}</ul>`;
@@ -96,7 +114,7 @@ export async function GET(req: NextRequest) {
       subject: `Você tem ${mine.length} prazo(s) próximo(s) — DRR Projetos`,
       html: emailLayout(
         "Prazos a vencer",
-        `<p>Olá ${u.name}, estes itens estão perto do prazo (ou já venceram):</p>${groups}`,
+        `<p>Olá ${escapeHtml(u.name)}, estes itens estão perto do prazo (ou já venceram):</p>${groups}`,
         sections.join(" · "),
       ),
     });

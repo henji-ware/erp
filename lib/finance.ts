@@ -1,5 +1,7 @@
 // Helpers de pagamentos parciais.
 
+import { roundMoney } from "./money";
+
 type WithPayments = { amount: number; payments?: { amount: number }[] };
 
 export function paidAmount(tx: WithPayments): number {
@@ -21,7 +23,7 @@ export function deriveStatus(
 }
 
 export function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+  return roundMoney(n);
 }
 
 // Situação de vencimento (para a "agenda" de pagamentos/recebimentos).

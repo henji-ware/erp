@@ -238,7 +238,8 @@ módulos, sem cadastro paralelo.
 e-mail antes de acessar o sistema.
 
 **Reset de senha.** O fluxo de "esqueci a senha" envia um código de seis dígitos
-para o e-mail cadastrado.
+para o e-mail cadastrado. A resposta da tela não revela se a conta existe, e as
+tentativas são limitadas para reduzir abuso.
 
 **Avisos de prazo.** Um cron diário, na rota `/api/cron/alerts`, envia um resumo
 de contas a vencer, inspeções agendadas, visitas de manutenção e devoluções de
@@ -288,7 +289,7 @@ O deploy é na Vercel, com banco no Neon e e-mail no Resend.
 1. Crie um PostgreSQL no Neon e rode `npx prisma db push` apontando para ele.
 2. Configure as variáveis de ambiente na Vercel. O modelo está em
    [`.env.production.example`](.env.production.example).
-3. O cron de avisos já está declarado em [`vercel.json`](vercel.json), uma vez ao dia.
+3. Os crons de avisos e limpeza da lixeira já estão declarados em [`vercel.json`](vercel.json), uma vez ao dia.
 4. Faça `git push`. A Vercel builda e publica.
 
 As variáveis necessárias:
@@ -301,7 +302,7 @@ BLOB_READ_WRITE_TOKEN    Vercel Blob, para os anexos
 RESEND_API_KEY           envio de e-mail (opcional)
 EMAIL_FROM               remetente dos e-mails (opcional)
 APP_URL                  endereço público, usado nos links dos e-mails
-CRON_SECRET              protege a rota do cron de avisos
+CRON_SECRET              protege as rotas de cron
 ```
 
 As chaves de IA são opcionais e estão listadas na seção do DeskHelper AI.
@@ -325,6 +326,10 @@ A pasta `lib` concentra a lógica que não é de tela:
 - `lib/ai/settings.ts` — chave efetiva, URL base e defesa contra SSRF
 - `lib/ai/guard.ts` — exige sessão nas rotas de IA
 - `lib/auth.ts` — sessão, papéis e escopo por dono do registro
+- `lib/money.ts` — normalização e divisão exata de valores em centavos
+- `lib/rate-limit.ts` — limites por IP/conta para login, reset e IA
+
+Os testes unitários dos cálculos e das regras críticas rodam com `npm test`.
 
 O modelo de dados fica em `prisma/schema.prisma`, e os temas, o modo claro e
 escuro e os utilitários visuais em `app/globals.css`.

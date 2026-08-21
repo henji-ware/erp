@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { blobToken } from "@/lib/blob";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 // Diagnóstico (não expõe o valor do token): abre no navegador logado e mostra
 // se o servidor enxerga o token do Blob e se consegue gravar de verdade.
 export async function GET() {
+  if (!isAdmin(await getCurrentUser())) {
+    return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+  }
+
   const names = Object.keys(process.env).filter((k) => k.endsWith("_READ_WRITE_TOKEN"));
   const token = blobToken();
 

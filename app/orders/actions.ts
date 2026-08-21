@@ -5,6 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { asEnum, ORDER_STATUSES, ORDER_STATUS_LABELS } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
 import { getCurrentUser, canEditRecord } from "@/lib/auth";
+import type { Prisma } from "@prisma/client";
+import { roundMoney } from "@/lib/money";
+import { orderTransitionEffect } from "@/lib/order-transition";
+
+type DbClient = Prisma.TransactionClient;
 
 // Autorização: só o dono (ou admin) altera o pedido.
 async function allowed(id: number): Promise<boolean> {
@@ -35,7 +40,7 @@ export async function createOrder(formData: FormData) {
     if (pid > 0 && qty > 0 && priceMap.has(pid)) {
       const unitPrice = priceMap.get(pid)!;
       items.push({ productId: pid, quantity: qty, unitPrice });
-      total += unitPrice * qty;
+      total = roundMoney(total + unitPrice * qty);
     }
   });
 
@@ -46,25 +51,29 @@ export async function createOrder(formData: FormData) {
 
   const deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim() || null;
 
-  const order = await prisma.order.create({
-    data: {
-      number: "PED-" + Date.now().toString(36).toUpperCase(),
-      customerId,
-      sellerId,
-      status: "DRAFT",
-      total,
-      deliveryAddress,
-      refCode: String(formData.get("refCode") ?? "").trim() || null,
-      items: { create: items },
-      ownerId: user?.id ?? null,
-    },
-  });
+  const order = await prisma.$transaction(async (db) => {
+    const created = await db.order.create({
+      data: {
+        number: "PED-" + Date.now().toString(36).toUpperCase(),
+        customerId,
+        sellerId,
+        status: "DRAFT",
+        total,
+        deliveryAddress,
+        refCode: String(formData.get("refCode") ?? "").trim() || null,
+        items: { create: items },
+        ownerId: user?.id ?? null,
+      },
+    });
 
-  // Se já nasce confirmado/faturado, aplica os efeitos no estoque e financeiro.
-  if (ACTIVE.includes(status)) {
-    await applyConfirm(order.id);
-    await prisma.order.update({ where: { id: order.id }, data: { status } });
-  }
+    // Se já nasce confirmado/faturado, os três efeitos pertencem à mesma
+    // transação: estoque, cobrança e status nunca ficam parcialmente aplicados.
+    if (ACTIVE.includes(status)) {
+      await applyConfirm(db, created.id);
+      await db.order.update({ where: { id: created.id }, data: { status } });
+    }
+    return created;
+  });
   await logAudit({ action: "CREATE", entity: "Pedido", entityId: order.id, summary: `Pedido ${order.number} criado` });
 
   revalidatePath("/orders");
@@ -79,26 +88,24 @@ export async function updateOrderStatus(formData: FormData) {
   if (!id || !ORDER_STATUSES.includes(next as (typeof ORDER_STATUSES)[number])) return;
   if (!(await allowed(id))) return;
 
-  const order = await prisma.order.findUnique({ where: { id } });
-  if (!order) return;
+  const changed = await prisma.$transaction(async (db) => {
+    const order = await db.order.findUnique({ where: { id } });
+    if (!order || order.status === next) return false;
 
-  const wasActive = ACTIVE.includes(order.status);
-  const willActive = ACTIVE.includes(next);
+    // Compare-and-set impede duas requisições simultâneas de aplicarem os
+    // efeitos da mesma transição mais de uma vez.
+    const claimed = await db.order.updateMany({
+      where: { id, status: order.status },
+      data: { status: asEnum(ORDER_STATUSES, next, "DRAFT") },
+    });
+    if (claimed.count !== 1) return false;
 
-  // Os efeitos seguem a transição entre "ativo" e "inativo", não o status de
-  // origem: reativar um pedido cancelado precisa baixar o estoque de novo, e
-  // voltar para rascunho precisa devolvê-lo.
-  if (!wasActive && willActive) {
-    await applyConfirm(id); // baixa estoque + gera conta a receber
-  }
-  if (wasActive && !willActive) {
-    await reverseConfirm(id); // devolve estoque + cancela conta a receber
-  }
-
-  await prisma.order.update({
-    where: { id },
-    data: { status: asEnum(ORDER_STATUSES, next, "DRAFT") },
+    const effect = orderTransitionEffect(order.status, next);
+    if (effect === "APPLY") await applyConfirm(db, id);
+    if (effect === "REVERSE") await reverseConfirm(db, id);
+    return true;
   });
+  if (!changed) return;
   await logAudit({ action: "STATUS", entity: "Pedido", entityId: id, summary: `Status → ${ORDER_STATUS_LABELS[next]}` });
 
   revalidatePath("/orders");
@@ -114,19 +121,24 @@ export async function deleteOrder(formData: FormData) {
   if (!id) return;
   if (!(await allowed(id))) return;
 
-  const order = await prisma.order.findUnique({ where: { id } });
-  if (!order) return;
+  const order = await prisma.$transaction(async (db) => {
+    const current = await db.order.findUnique({ where: { id } });
+    if (!current || current.deletedAt) return null;
 
-  if (ACTIVE.includes(order.status)) await reverseConfirm(id);
-  await prisma.transaction.updateMany({
-    where: { orderId: id, deletedAt: null },
-    data: { deletedAt: new Date() },
+    const claimed = await db.order.updateMany({
+      where: { id, status: current.status, deletedAt: null },
+      data: { deletedAt: new Date(), status: "DRAFT" },
+    });
+    if (claimed.count !== 1) return null;
+
+    if (ACTIVE.includes(current.status)) await reverseConfirm(db, id);
+    await db.transaction.updateMany({
+      where: { orderId: id, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    return current;
   });
-  await prisma.order.update({
-    where: { id },
-    // Volta a rascunho: o estoque já foi devolvido acima.
-    data: { deletedAt: new Date(), status: "DRAFT" },
-  });
+  if (!order) return;
   await logAudit({ action: "DELETE", entity: "Pedido", entityId: id, summary: `Pedido ${order.number} arquivado` });
 
   revalidatePath("/orders");
@@ -137,8 +149,8 @@ export async function deleteOrder(formData: FormData) {
 
 // ---- efeitos de integração (não exportados) ----
 
-async function applyConfirm(orderId: number) {
-  const order = await prisma.order.findUnique({
+async function applyConfirm(db: DbClient, orderId: number) {
+  const order = await db.order.findUnique({
     where: { id: orderId },
     include: { items: { include: { product: true } }, transactions: true },
   });
@@ -147,14 +159,14 @@ async function applyConfirm(orderId: number) {
   for (const it of order.items) {
     // Serviços não controlam estoque.
     if (it.product.kind === "SERVICE") continue;
-    await prisma.product.update({
+    await db.product.update({
       where: { id: it.productId },
       data: { stock: { decrement: it.quantity } },
     });
   }
 
   if (order.transactions.length === 0) {
-    await prisma.transaction.create({
+    await db.transaction.create({
       data: {
         description: `Receita do pedido ${order.number}`,
         type: "RECEIVABLE",
@@ -169,8 +181,8 @@ async function applyConfirm(orderId: number) {
   }
 }
 
-async function reverseConfirm(orderId: number) {
-  const order = await prisma.order.findUnique({
+async function reverseConfirm(db: DbClient, orderId: number) {
+  const order = await db.order.findUnique({
     where: { id: orderId },
     include: { items: { include: { product: true } } },
   });
@@ -178,12 +190,12 @@ async function reverseConfirm(orderId: number) {
 
   for (const it of order.items) {
     if (it.product.kind === "SERVICE") continue;
-    await prisma.product.update({
+    await db.product.update({
       where: { id: it.productId },
       data: { stock: { increment: it.quantity } },
     });
   }
-  await prisma.transaction.deleteMany({
+  await db.transaction.deleteMany({
     where: { orderId, status: "PENDING" },
   });
 }

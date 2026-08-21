@@ -5,19 +5,25 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 import { createResetCode, consumeToken } from "@/lib/tokens";
 import { isEmailConfigured, sendEmail, emailLayout, emailCode } from "@/lib/email";
+import { consumeRateLimit, requestIdentity } from "@/lib/rate-limit";
 
 // Pede o código de redefinição: só envia se o e-mail estiver cadastrado e ativo.
 export async function requestReset(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!email) redirect("/forgot");
 
+  const ip = await requestIdentity();
+  const rate = consumeRateLimit(`reset-request:${ip}:${email}`, 3, 15 * 60 * 1000);
+  if (!rate.allowed) redirect(`/forgot?sent=1&email=${encodeURIComponent(email)}`);
+
   const user = await prisma.user.findUnique({ where: { email } });
-  // Sistema interno: avisa quando o e-mail não está cadastrado.
+  // A resposta é idêntica para contas existentes e inexistentes, impedindo
+  // que a tela seja usada para descobrir os usuários cadastrados.
   if (!user || !user.active) {
-    redirect(`/forgot?error=notfound&email=${encodeURIComponent(email)}`);
+    redirect(`/forgot?sent=1&email=${encodeURIComponent(email)}`);
   }
   if (!isEmailConfigured()) {
-    redirect(`/forgot?error=noemail&email=${encodeURIComponent(email)}`);
+    redirect(`/forgot?sent=1&email=${encodeURIComponent(email)}`);
   }
 
   const code = await createResetCode(user.id);
@@ -34,9 +40,9 @@ export async function requestReset(formData: FormData) {
 
   // Se o provedor recusou o envio (ex.: domínio não verificado no Resend),
   // avisa em vez de mandar para a tela do código sem o e-mail ter saído.
-  if (!ok) redirect(`/forgot?error=sendfail&email=${encodeURIComponent(email)}`);
+  if (!ok) redirect(`/forgot?sent=1&email=${encodeURIComponent(email)}`);
 
-  redirect(`/reset?email=${encodeURIComponent(email)}`);
+  redirect(`/forgot?sent=1&email=${encodeURIComponent(email)}`);
 }
 
 // Confirma o código e troca a senha.
@@ -46,6 +52,10 @@ export async function resetPassword(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const fail = `/reset?email=${encodeURIComponent(email)}&error=1`;
   if (!email || !code || password.length < 4) redirect(fail);
+
+  const ip = await requestIdentity();
+  const rate = consumeRateLimit(`reset-confirm:${ip}:${email}`, 5, 15 * 60 * 1000);
+  if (!rate.allowed) redirect(fail);
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) redirect(fail);
