@@ -16,14 +16,10 @@
 import { prisma } from "@/lib/prisma";
 import { canSee, isAdmin, type CurrentUser } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { parseMoney, roundMoney, splitMoney } from "@/lib/money";
+import { roundMoney, splitMoney } from "@/lib/money";
 import { normalizeDocument } from "@/lib/document";
-import {
-  APPOINTMENT_TYPES,
-  RISK_LEVELS,
-  asEnum,
-  formatCurrency,
-} from "@/lib/format";
+import { APPOINTMENT_TYPES, RISK_LEVELS, TX_TYPES, formatCurrency } from "@/lib/format";
+import { parseModelEnum, parseModelId, parseModelMoney } from "./parse-input";
 import type { AIActionKind } from "./action-protocol";
 
 /* ------------------------------------------------------------------ */
@@ -70,9 +66,11 @@ function requiredText(
 }
 
 function money(v: unknown): { value: number } | { error: string } {
-  // Aceita número e string ("1.234,56"): o modelo escreve dos dois jeitos.
-  const n = typeof v === "number" ? v : parseMoney(v);
-  if (!Number.isFinite(n) || n < 0) return { error: "Valor monetário inválido." };
+  // parseModelMoney entende "48.000,00" e "1,234.56" e RECUSA texto — ver
+  // lib/ai/parse-input.ts. Usar o parseMoney das telas aqui lia "48.000,00"
+  // como 48, e "a combinar" como 0.
+  const n = parseModelMoney(v);
+  if (n === null || n < 0) return { error: "Valor monetário inválido." };
   if (n > MAX_MONEY) {
     return {
       error: `Valor acima do limite permitido para criação por IA (${formatCurrency(
@@ -101,6 +99,7 @@ function when(v: unknown): { value: Date } | { error: string } {
   return { value: d };
 }
 
+/** Inteiro simples (quantidade, parcelas) — não é id de registro. */
 function positiveInt(v: unknown, max: number): number | null {
   const n = typeof v === "number" ? v : parseInt(String(v ?? ""), 10);
   if (!Number.isInteger(n) || n < 1 || n > max) return null;
@@ -123,8 +122,14 @@ async function resolveCustomer(
   user: CurrentUser,
   required: boolean,
 ): Promise<{ value: number | null } | { error: string }> {
-  const id = positiveInt(v, Number.MAX_SAFE_INTEGER);
-  if (!id) {
+  // parseModelId separa "não informado" (null) de "informado e inválido"
+  // (undefined). Antes os dois caíam no mesmo caminho: "clienteId": "ACME
+  // Ltda" criava o registro SEM cliente, enquanto o cartão exibia o nome.
+  const id = parseModelId(v);
+  if (id === undefined) {
+    return { error: `Cliente inválido: "${String(v)}". Use o id numérico da lista.` };
+  }
+  if (id === null) {
     return required ? { error: "Informe o cliente (campo clienteId)." } : { value: null };
   }
   const customer = await prisma.customer.findFirst({
@@ -140,8 +145,11 @@ async function resolveCustomer(
 async function resolveSupplier(
   v: unknown,
 ): Promise<{ value: number | null } | { error: string }> {
-  const id = positiveInt(v, Number.MAX_SAFE_INTEGER);
-  if (!id) return { value: null };
+  const id = parseModelId(v);
+  if (id === undefined) {
+    return { error: `Fornecedor inválido: "${String(v)}". Use o id numérico da lista.` };
+  }
+  if (id === null) return { value: null };
   const supplier = await prisma.supplier.findFirst({
     where: { id, deletedAt: null },
     select: { id: true },
@@ -153,8 +161,11 @@ async function resolveSupplier(
 async function resolveEmployee(
   v: unknown,
 ): Promise<{ value: number | null } | { error: string }> {
-  const id = positiveInt(v, Number.MAX_SAFE_INTEGER);
-  if (!id) return { value: null };
+  const id = parseModelId(v);
+  if (id === undefined) {
+    return { error: `Funcionário inválido: "${String(v)}". Use o id numérico da lista.` };
+  }
+  if (id === null) return { value: null };
   const employee = await prisma.employee.findFirst({
     where: { id, active: true },
     select: { id: true },
@@ -314,6 +325,30 @@ async function createInspectionAction(
   const scheduledAt = when(data.inicio ?? data.data);
   if ("error" in scheduledAt) return fail(scheduledAt.error);
 
+  // asEnum(..., "VERDE") transformava "ALTO" no risco MAIS BAIXO em silêncio,
+  // com o cartão exibindo "ALTO". Num laudo estrutural isso é o pior tipo de
+  // erro: o registro contradiz o que a pessoa aprovou, e ninguém vê.
+  let riskLevel: (typeof RISK_LEVELS)[number] | null = null;
+  if (data.nivelRisco !== undefined && data.nivelRisco !== null && data.nivelRisco !== "") {
+    const parsed = parseModelEnum(data.nivelRisco, RISK_LEVELS, {
+      BAIXO: "VERDE",
+      VERDE_BAIXO: "VERDE",
+      MEDIO: "AMARELO",
+      "MÉDIO": "AMARELO",
+      MODERADO: "AMARELO",
+      ALTO: "VERMELHO",
+      CRITICO: "VERMELHO",
+      "CRÍTICO": "VERMELHO",
+      GRAVE: "VERMELHO",
+    });
+    if (!parsed) {
+      return fail(
+        `Nível de risco inválido: "${String(data.nivelRisco)}". Use VERDE, AMARELO ou VERMELHO.`,
+      );
+    }
+    riskLevel = parsed;
+  }
+
   const inspection = await prisma.inspection.create({
     data: {
       customerId: customerId.value!,
@@ -324,7 +359,7 @@ async function createInspectionAction(
       location: text(data.local),
       engineer: text(data.engenheiro),
       artNumber: text(data.art),
-      riskLevel: data.nivelRisco ? asEnum(RISK_LEVELS, data.nivelRisco, "VERDE") : null,
+      riskLevel,
       findings: text(data.constatacoes, MAX_LONG),
       refCode: text(data.referencia),
       ownerId: user.id,
@@ -363,10 +398,24 @@ async function createAppointmentAction(
   const employeeId = await resolveEmployee(data.funcionarioId);
   if ("error" in employeeId) return fail(employeeId.error);
 
+  // Campo ausente vira reunião (é o padrão da tela); valor DESCONHECIDO vira
+  // erro, para o cartão não dizer "visita" e o registro guardar "reunião".
+  const appointmentType =
+    data.tipo === undefined || data.tipo === null || data.tipo === ""
+      ? "MEETING"
+      : parseModelEnum(data.tipo, APPOINTMENT_TYPES, {
+          VISITA: "VISIT",
+          REUNIAO: "MEETING",
+          "REUNIÃO": "MEETING",
+        });
+  if (!appointmentType) {
+    return fail(`Tipo de agendamento inválido: "${String(data.tipo)}". Use VISIT ou MEETING.`);
+  }
+
   const appointment = await prisma.appointment.create({
     data: {
       title: title.value,
-      type: asEnum(APPOINTMENT_TYPES, data.tipo, "MEETING"),
+      type: appointmentType,
       startsAt: startsAt.value,
       location: text(data.local),
       notes: text(data.observacoes, MAX_LONG),
@@ -400,7 +449,22 @@ async function createTransactionAction(
   const description = requiredText(data.descricao, "descricao");
   if ("error" in description) return fail(description.error);
 
-  const type = data.tipo === "PAYABLE" ? "PAYABLE" : "RECEIVABLE";
+  // Sem fallback: `data.tipo === "PAYABLE" ? ... : "RECEIVABLE"` transformava
+  // "pagar", "A_PAGAR" ou o campo ausente numa conta A RECEBER — o cartão
+  // mostrava o que o modelo escreveu e o caixa registrava o sentido oposto.
+  const type = parseModelEnum(data.tipo, TX_TYPES, {
+    PAGAR: "PAYABLE",
+    A_PAGAR: "PAYABLE",
+    "A PAGAR": "PAYABLE",
+    DESPESA: "PAYABLE",
+    RECEBER: "RECEIVABLE",
+    A_RECEBER: "RECEIVABLE",
+    "A RECEBER": "RECEIVABLE",
+    RECEITA: "RECEIVABLE",
+  });
+  if (!type) {
+    return fail('Informe o tipo do lançamento: "RECEIVABLE" (a receber) ou "PAYABLE" (a pagar).');
+  }
 
   const amount = money(data.valor);
   if ("error" in amount) return fail(amount.error);

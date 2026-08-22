@@ -136,8 +136,19 @@ export function KanbanColumn({
         const data = new FormData();
         data.set("id", String(payload.id));
         data.set("stage", stage);
-        startTransition(() => {
-          void updateLeadStage(data);
+        // O callback precisa ser async e AGUARDAR a action: com
+        // `() => { void updateLeadStage(data) }` a transição fechava no mesmo
+        // tick, `pending` voltava a false na hora e o realce de "gravando"
+        // nunca cobria a ida ao servidor — o cartão ficava parado na coluna
+        // antiga, o que se parece com um arrasto que falhou. Aguardar também
+        // evita que uma falha vire rejeição não tratada.
+        startTransition(async () => {
+          try {
+            await updateLeadStage(data);
+          } catch {
+            // A action revalida a página; se falhou, o cartão simplesmente
+            // continua na etapa em que estava.
+          }
         });
       }}
       className={`rounded-xl bg-slate-100 p-3 transition-all duration-150 ${

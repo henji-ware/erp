@@ -7,7 +7,7 @@ import { activeCredentials, availableModels, configuredProviders, useAISettings 
 import { RichText } from "./RichText";
 import { Icon, type IconName } from "./icons";
 import { Alert } from "./ui";
-import AIActionCard from "./AIActionCard";
+import AIActionCard, { type ActionResult } from "./AIActionCard";
 import {
   extractActions,
   hasUnclosedAction,
@@ -63,6 +63,10 @@ export default function CopilotWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [size, setSize] = useState(DEFAULT_SIZE);
   const [messages, setMessages] = useState<ChatEntry[]>([WELCOME]);
+  // Ações já confirmadas, por posição na conversa. Fica NESTE componente, que
+  // permanece montado com o painel fechado — dentro do cartão, fechar e
+  // reabrir o Copilot rearmava o botão "Criar" e duplicava o registro.
+  const [doneActions, setDoneActions] = useState<Record<string, ActionResult>>({});
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
@@ -465,9 +469,19 @@ export default function CopilotWidget() {
 
                   {parsed.actions.length > 0 && (
                     <div className="w-full max-w-[88%]">
-                      {parsed.actions.map((action, i) => (
-                        <AIActionCard key={`${idx}-${i}`} action={action} />
-                      ))}
+                      {parsed.actions.map((action, i) => {
+                        const key = `${idx}-${i}`;
+                        return (
+                          <AIActionCard
+                            key={key}
+                            action={action}
+                            result={doneActions[key]}
+                            onDone={(r) =>
+                              setDoneActions((prev) => ({ ...prev, [key]: r }))
+                            }
+                          />
+                        );
+                      })}
                     </div>
                   )}
 

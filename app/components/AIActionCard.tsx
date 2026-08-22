@@ -18,10 +18,26 @@ import { Icon } from "./icons";
  * que valida tudo de novo no servidor. O usuário sempre vê o que vai ser
  * gravado ANTES de gravar.
  */
-export default function AIActionCard({ action }: { action: ParsedAction }) {
+export type ActionResult = { summary: string; href: string };
+
+export default function AIActionCard({
+  action,
+  result,
+  onDone,
+}: {
+  action: ParsedAction;
+  /**
+   * O resultado NÃO pode morar aqui dentro. Todo o painel do Copilot fica
+   * atrás de `{isOpen && ...}`, então fechar a janela desmonta este
+   * componente e zera o estado local: ao reabrir, o mesmo cartão voltava com
+   * o botão "Criar" ativo e um segundo clique duplicava o registro. Quem
+   * guarda é o CopilotWidget, que permanece montado.
+   */
+  result?: ActionResult;
+  onDone: (result: ActionResult) => void;
+}) {
   const router = useRouter();
-  const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
-  const [result, setResult] = useState<{ summary: string; href: string } | null>(null);
+  const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [error, setError] = useState("");
 
   const fields = Object.entries(action.data).filter(
@@ -37,14 +53,26 @@ export default function AIActionCard({ action }: { action: ParsedAction }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ acao: action.kind, dados: action.data }),
       });
+
+      // Sessão expirada: o middleware devolve um redirect para /login, o
+      // fetch segue e entrega a PÁGINA com status 200. Sem esta checagem,
+      // `res.json()` estoura no HTML e o usuário lê "falha de rede" — e
+      // tenta de novo em vez de entrar outra vez no sistema.
+      const isJson = res.headers.get("content-type")?.includes("application/json");
+      if (res.redirected || !isJson) {
+        setError("Sua sessão expirou. Entre novamente para criar o registro.");
+        setStatus("error");
+        return;
+      }
+
       const data = await res.json();
       if (!res.ok || !data.ok) {
         setError(data?.error ?? "Não foi possível criar o registro.");
         setStatus("error");
         return;
       }
-      setResult({ summary: data.summary, href: data.href });
-      setStatus("done");
+      setStatus("idle");
+      onDone({ summary: data.summary, href: data.href });
       // A listagem do módulo já está aberta em outra aba do ERP em muitos
       // casos; atualizar aqui evita o usuário achar que não gravou.
       router.refresh();
@@ -54,14 +82,14 @@ export default function AIActionCard({ action }: { action: ParsedAction }) {
     }
   }
 
-  if (status === "done" && result) {
+  if (result) {
     return (
       <div className="alert alert-success alert-sm mt-2 w-full">
         <span className="alert-icon">
           <Icon name="check" size={12} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="alert-title">{action.kind.startsWith("criar") ? "Criado" : "Concluído"}</p>
+          <p className="alert-title">Criado</p>
           <p className="mt-0.5 break-words">{result.summary}</p>
           <Link
             href={result.href}
