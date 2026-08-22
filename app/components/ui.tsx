@@ -1,4 +1,69 @@
 import React from "react";
+import { Icon, type IconName } from "./icons";
+
+export type AlertTone =
+  | "info"
+  | "warn"
+  | "danger"
+  | "success"
+  | "accent"
+  | "neutral";
+
+const ALERT_ICONS: Record<AlertTone, IconName> = {
+  info: "bulb",
+  warn: "alert",
+  danger: "alert",
+  success: "check",
+  accent: "ai",
+  neutral: "file",
+};
+
+/**
+ * Caixa de aviso do sistema.
+ *
+ * Use isto em vez de montar `bg-amber-50`/`bg-red-50` na mão: essas cores não
+ * são tokens do tema e não mudam no modo escuro, então o aviso vira um
+ * retângulo claro sobre o fundo escuro. As classes .alert-* misturam a cor
+ * semântica com a superfície do tema (ver globals.css).
+ */
+export function Alert({
+  tone = "info",
+  title,
+  children,
+  icon,
+  size = "md",
+  className = "",
+}: {
+  tone?: AlertTone;
+  title?: string;
+  children?: React.ReactNode;
+  /** Substitui o ícone padrão do tom; `null` remove o ícone. */
+  icon?: React.ReactNode | null;
+  size?: "sm" | "md";
+  className?: string;
+}) {
+  const showIcon = icon !== null;
+  const iconSize = size === "sm" ? 12 : 15;
+
+  return (
+    <div
+      role={tone === "danger" ? "alert" : "status"}
+      className={`alert alert-${tone} ${size === "sm" ? "alert-sm" : ""} ${className}`}
+    >
+      {showIcon && (
+        <span className="alert-icon">
+          {icon ?? <Icon name={ALERT_ICONS[tone]} size={iconSize} />}
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        {title && <p className="alert-title">{title}</p>}
+        {children && (
+          <div className={title ? "mt-0.5" : undefined}>{children}</div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function PageHeader({
   title,

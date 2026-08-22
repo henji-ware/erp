@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate, RENTAL_STATUS_COLORS, RENTAL_STATUS_LABELS } from "@/lib/format";
-import { PageHeader, EmptyState, Badge, StatCard } from "../components/ui";
+import { PageHeader, EmptyState, Badge, StatCard, Alert } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
@@ -95,10 +95,10 @@ export default async function RentalsPage({
         <div className="card h-fit p-5 xl:col-span-1">
           <h2 className="mb-4 font-semibold text-slate-800">Nova locação</h2>
           {products.length === 0 ? (
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            <Alert tone="warn" size="sm">
               Nenhum equipamento marcado como locável. Em Produtos, marque o item como
               disponível para locação.
-            </p>
+            </Alert>
           ) : (
             <form action={createRental} className="space-y-3">
               <div>

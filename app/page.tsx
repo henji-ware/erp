@@ -183,10 +183,10 @@ export default async function DashboardPage() {
 
       {/* Painel de pendências */}
       {alerts.length > 0 && (
-        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+        <div className="alert-surface alert-warn mb-6 rounded-xl p-4">
           <div className="mb-3 flex items-center gap-2">
-            <span className="text-amber-600"><Icon name="reports" size={16} /></span>
-            <h2 className="text-sm font-semibold text-amber-800">Precisa de atenção</h2>
+            <span className="alert-icon"><Icon name="alert" size={14} /></span>
+            <h2 className="alert-title text-sm">Precisa de atenção</h2>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {alerts.map((a) => (

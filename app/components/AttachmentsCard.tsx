@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { formatDate } from "@/lib/format";
 import { Icon } from "./icons";
+import { Alert } from "./ui";
 import {
   uploadAttachment,
   deleteAttachment,
@@ -121,7 +122,7 @@ export function AttachmentsCard({
       <p className="mb-4 text-xs text-slate-400">{hint}</p>
 
       {msg && (
-        <p className="mb-4 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-600">{msg}</p>
+        <Alert tone="danger" size="sm" className="mb-4">{msg}</Alert>
       )}
 
       <form onSubmit={handleSubmit} className="mb-5 space-y-3 rounded-lg border border-slate-200 p-4">

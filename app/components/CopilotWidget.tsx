@@ -6,6 +6,25 @@ import { AIMessage, AIProviderId } from "@/lib/ai/types";
 import { activeCredentials, availableModels, configuredProviders, useAISettings } from "./useAISettings";
 import { RichText } from "./RichText";
 import { Icon, type IconName } from "./icons";
+import { Alert } from "./ui";
+import AIActionCard from "./AIActionCard";
+import {
+  extractActions,
+  hasUnclosedAction,
+  stripUnclosedAction,
+} from "@/lib/ai/action-protocol";
+
+/**
+ * Texto exibido enquanto a resposta ainda chega. Um bloco de ação já fechado
+ * é removido (vira cartão no fim); um bloco ainda aberto é cortado, senão o
+ * usuário vê JSON pela metade rolando na tela.
+ */
+function previewText(streaming: string): string {
+  const base = hasUnclosedAction(streaming)
+    ? stripUnclosedAction(streaming)
+    : streaming;
+  return extractActions(base).text;
+}
 
 interface ChatEntry extends AIMessage {
   latencyMs?: number;
@@ -18,6 +37,8 @@ const WELCOME: ChatEntry = {
   content:
     "Olá! Sou o DeskHelper AI da **DRR Projetos e Equipamentos**.\n\n" +
     "Posso ajudar com resumos de vendas, contas a pagar/receber, normas técnicas (NR12, ABNT NBR 15524), inspeções pendentes ou redigir mensagens comerciais.\n\n" +
+    "Também consigo **preencher cadastros** — orçamentos, laudos, agendamentos e clientes. " +
+    "Eu monto os campos e você confere e clica em *Criar*: nada é gravado sem a sua confirmação.\n\n" +
     "Como posso ajudar hoje?",
 };
 
@@ -27,6 +48,8 @@ const QUICK_PROMPTS: Array<{ icon: IconName; label: string; text: string }> = [
   { icon: "inspection", label: "Inspeções próximas", text: "Quais são as inspeções técnicas agendadas para os próximos dias?" },
   { icon: "mail", label: "Cobrança WhatsApp", text: "Gere um modelo de mensagem cordial de cobrança no WhatsApp para cliente com fatura vencida há poucos dias." },
   { icon: "bulb", label: "Oportunidades", text: "Analise os leads em aberto e sugira ações comerciais para acelerar o fechamento." },
+  { icon: "plus", label: "Novo orçamento", text: "Quero criar um orçamento. Pergunte o que faltar e monte o cadastro para eu confirmar." },
+  { icon: "clipboard", label: "Agendar laudo", text: "Quero agendar uma inspeção técnica com emissão de laudo. Pergunte o que faltar e monte o cadastro para eu confirmar." },
 ];
 
 const DEFAULT_SIZE = { w: 500, h: 620 };
@@ -361,16 +384,24 @@ export default function CopilotWidget() {
           </div>
 
           {/* Seletor rápido de provedor e modelo */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 border-b border-slate-200 text-xs">
-            <span className="text-xs font-medium text-slate-500 shrink-0">Modelo:</span>
+          <div className="flex items-center gap-1.5 border-b border-slate-200 bg-slate-100 px-3 py-2 text-xs">
+            {/* Bolinha de status: verde quando há modelo carregado, âmbar
+                quando o painel está sem configuração utilizável. */}
+            <span
+              aria-hidden="true"
+              className={`mr-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                creds.model ? "bg-emerald-500" : "bg-amber-500"
+              }`}
+            />
             <select
               value={creds.provider}
               aria-label="Provedor de IA"
+              title="Provedor de IA"
               onChange={(e) => {
                 setProviderOverride(e.target.value as AIProviderId);
                 setModelOverride("");
               }}
-              className="bg-white text-slate-800 text-xs font-semibold rounded-lg px-2 py-1 border border-slate-300 outline-none focus:border-brand-500 max-w-[40%]"
+              className="max-w-[42%] shrink-0 cursor-pointer rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-brand-500"
             >
               {/* Só provedores que já tiveram os modelos carregados da conta.
                   Listar os onze fazia escolher um sem chave trazer um modelo
@@ -388,8 +419,9 @@ export default function CopilotWidget() {
             <select
               value={creds.model}
               aria-label="Modelo de IA"
+              title="Modelo de IA"
               onChange={(e) => setModelOverride(e.target.value)}
-              className="flex-1 min-w-0 bg-white text-slate-800 text-xs font-mono rounded-lg px-2 py-1 border border-slate-300 outline-none focus:border-brand-500"
+              className="min-w-0 flex-1 cursor-pointer rounded-lg border border-slate-200 bg-white px-2 py-1 font-mono text-xs text-slate-600 outline-none transition-colors hover:border-slate-300 focus:border-brand-500"
             >
               {/* Só os modelos que a chave do usuário realmente aceita. */}
               {!creds.model && <option value="">Nenhum modelo configurado</option>}
@@ -408,23 +440,36 @@ export default function CopilotWidget() {
           <div className="flex-1 overflow-y-auto p-4 space-y-3.5 text-[13px] bg-slate-50/40">
             {messages.map((m, idx) => {
               const isUser = m.role === "user";
+              // Blocos ```drr-acao saem do texto e viram cartão de
+              // confirmação — na conversa eles apareceriam como JSON cru.
+              const parsed = isUser
+                ? { text: m.content, actions: [] }
+                : extractActions(m.content);
               return (
-                <div key={idx} className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
+                <div key={idx} className={`flex w-full flex-col ${isUser ? "items-end" : "items-start"}`}>
                   <div
                     className={`max-w-[88%] px-3.5 py-3 rounded-2xl leading-relaxed shadow-sm ${
                       isUser
                         ? "bg-brand-600 text-white rounded-br-sm"
                         : m.isError
-                          ? "bg-red-50 text-red-800 border border-red-200 rounded-bl-sm"
+                          ? "alert-surface alert-danger rounded-bl-sm"
                           : "bg-white text-slate-900 rounded-bl-sm border border-slate-200"
                     }`}
                   >
                     {isUser ? (
                       <span className="whitespace-pre-wrap">{m.content}</span>
                     ) : (
-                      <RichText text={m.content} />
+                      <RichText text={parsed.text} />
                     )}
                   </div>
+
+                  {parsed.actions.length > 0 && (
+                    <div className="w-full max-w-[88%]">
+                      {parsed.actions.map((action, i) => (
+                        <AIActionCard key={`${idx}-${i}`} action={action} />
+                      ))}
+                    </div>
+                  )}
 
                   {!isUser && (
                     <div className="flex items-center gap-2 mt-1 px-1 text-[11px] text-slate-500">
@@ -451,7 +496,10 @@ export default function CopilotWidget() {
               <div className="flex flex-col items-start">
                 <div className="max-w-[88%] px-3.5 py-3 rounded-2xl rounded-bl-sm bg-white border border-slate-200 text-slate-900 shadow-sm">
                   {streamingText ? (
-                    <RichText text={streamingText} />
+                    // Durante o streaming o bloco de ação chega pela metade;
+                    // mostrar isso seria JSON quebrado rolando na tela. O
+                    // cartão aparece quando a mensagem fecha.
+                    <RichText text={previewText(streamingText)} />
                   ) : (
                     <span className="flex items-center gap-2 text-slate-500">
                       <span className="flex h-2 w-2 rounded-full bg-brand-600 animate-ping" />
@@ -474,13 +522,13 @@ export default function CopilotWidget() {
           {/* Sem modelo carregado não dá para conversar: dizer isso é melhor
               que deixar o botão Enviar sem efeito. */}
           {!creds.model && (
-            <div className="mx-3 mb-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-slate-900">
+            <Alert tone="warn" size="sm" className="mx-3 mb-2">
               Nenhum modelo configurado. Abra{" "}
               <a href="/settings#ia" className="font-semibold underline">
                 Configurações › Inteligência Artificial
               </a>
               , informe a chave do provedor e carregue os modelos da sua conta.
-            </div>
+            </Alert>
           )}
 
           {/* Perguntas rápidas */}

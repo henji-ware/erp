@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { formatCurrency } from "@/lib/format";
 import { Icon } from "../components/icons";
+import { Alert } from "../components/ui";
 import { createOrder } from "./actions";
 
 type Customer = { id: number; name: string };
@@ -52,9 +53,9 @@ export default function OrderForm({
       <h2 className="mb-4 font-semibold text-slate-800">Novo pedido</h2>
 
       {customers.length === 0 || products.length === 0 ? (
-        <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
+        <Alert tone="warn" title="Faltam cadastros">
           Cadastre ao menos um cliente e um produto para criar pedidos.
-        </p>
+        </Alert>
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

@@ -1,6 +1,7 @@
 import { formatCurrency, PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from "@/lib/format";
 import { dueInfo } from "@/lib/finance";
 import { Icon } from "../components/icons";
+import { Alert } from "../components/ui";
 import SubmitButton from "../components/SubmitButton";
 import {
   generateInstallments,
@@ -101,11 +102,11 @@ export function InstallmentsCard({
       ) : (
         <>
           {diff !== 0 && (
-            <p className="mb-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+            <Alert tone="warn" size="sm" className="mb-3">
               A soma das parcelas está {diff > 0 ? "acima" : "abaixo"} do valor do lançamento
               em {formatCurrency(Math.abs(diff))} — ajuste os valores (o total do lançamento
               acompanha a soma).
-            </p>
+            </Alert>
           )}
 
           <div className="overflow-x-auto">

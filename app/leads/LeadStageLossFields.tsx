@@ -40,7 +40,7 @@ export default function LeadStageLossFields({
       </div>
 
       {current === "LOST" && (
-        <div className="space-y-3 rounded-lg border border-red-100 bg-red-50/40 p-3">
+        <div className="alert-surface alert-danger space-y-3 rounded-lg p-3">
           <div>
             <label className="label">Motivo da perda</label>
             <select name="lossReason" defaultValue={lossReason ?? ""} className="input">

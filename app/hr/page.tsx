@@ -5,7 +5,7 @@ import {
   SELLER_CATEGORIES,
   SELLER_CATEGORY_LABELS,
 } from "@/lib/format";
-import { PageHeader, EmptyState, Badge } from "../components/ui";
+import { PageHeader, EmptyState, Badge, Alert } from "../components/ui";
 import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import SubmitButton from "../components/SubmitButton";
@@ -122,10 +122,10 @@ export default async function HrPage({
             <SubmitButton>Cadastrar</SubmitButton>
           </form>
 
-          <div className="mt-5 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">
+          <Alert tone="neutral" size="sm" className="mt-5">
             Folha (ativos): <strong>{formatCurrency(payroll)}</strong> ·{" "}
             {active.length} ativo(s)
-          </div>
+          </Alert>
         </div>
 
         <div className="card overflow-hidden lg:col-span-2">

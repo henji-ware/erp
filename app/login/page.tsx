@@ -1,6 +1,7 @@
 import { login } from "./actions";
 import Logo from "../components/Logo";
 import { Icon } from "../components/icons";
+import { Alert } from "../components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -78,12 +79,12 @@ export default async function LoginPage({
 
           <form action={login} className="space-y-4">
             {reset && (
-              <p className="animate-fade-in rounded-lg bg-green-500/10 px-3 py-2 text-sm text-green-600">
+              <Alert tone="success" size="sm" className="animate-fade-in">
                 Senha alterada! Entre com a nova senha.
-              </p>
+              </Alert>
             )}
             {error && (
-              <p className="animate-fade-in rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600">
+              <Alert tone="danger" size="sm" className="animate-fade-in">
                 {error === "verify"
                   ? "Confirme seu e-mail antes de entrar. Veja o link enviado para sua caixa de entrada."
                   : error === "inactive"
@@ -91,7 +92,7 @@ export default async function LoginPage({
                     : error === "rate"
                       ? "Muitas tentativas. Aguarde alguns minutos antes de tentar novamente."
                     : "E-mail ou senha inválidos."}
-              </p>
+              </Alert>
             )}
             <div>
               <label className="label">E-mail</label>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import Logo from "../components/Logo";
 import { Icon } from "../components/icons";
 import { requestReset } from "./actions";
+import { Alert } from "../components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -26,9 +27,9 @@ export default async function ForgotPage({
         <div className="card p-6">
           <form action={requestReset} className="space-y-4">
             {sent && (
-              <p className="rounded-lg bg-green-500/10 px-3 py-2 text-sm text-green-700">
+              <Alert tone="success" size="sm">
                 Se o e-mail estiver cadastrado e ativo, enviaremos um código. Verifique também a pasta de spam.
-              </p>
+              </Alert>
             )}
             <div>
               <label className="label">E-mail</label>

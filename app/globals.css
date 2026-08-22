@@ -902,3 +902,87 @@ html.no-anim *::after {
   font-size: 1.25rem;
   line-height: 1.75rem;
 }
+
+/* =========================================================================
+   ALERTAS / AVISOS
+
+   Antes cada tela montava a sua caixinha: `bg-amber-50`, `bg-red-50`,
+   `bg-green-50`. Amber, red e green NÃO são tokens do tema (só slate/white
+   e brand são) — então esses tons claros ficavam iguais no modo escuro, e o
+   aviso aparecia como um retângulo creme brilhante sobre o fundo escuro.
+
+   Aqui a cor semântica entra como --alert-color e é MISTURADA com a
+   superfície do tema: no claro dá uma lavagem suave da cor, no escuro dá um
+   painel escuro tingido dela. O texto mistura a mesma cor com o neutro de
+   maior contraste (--c-slate-900), que já inverte com o modo.
+   ========================================================================= */
+/* A superfície sozinha, para painéis que têm layout próprio (a faixa
+   "Precisa de atenção" do dashboard, por exemplo) e não cabem no <Alert>. */
+.alert-surface {
+  --alert-color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--alert-color) 26%, transparent);
+  background-color: color-mix(in srgb, var(--alert-color) 14%, var(--c-surface));
+}
+
+.alert {
+  --alert-color: var(--accent);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--alert-color) 26%, transparent);
+  background-color: color-mix(in srgb, var(--alert-color) 14%, var(--c-surface));
+  padding: 0.75rem 0.875rem 0.75rem 1rem;
+  color: var(--c-slate-600);
+}
+
+/* Filete lateral na cor do aviso — dá hierarquia sem precisar de fundo forte. */
+.alert::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--alert-color);
+}
+
+.alert-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  background-color: color-mix(in srgb, var(--alert-color) 16%, transparent);
+  color: color-mix(in srgb, var(--alert-color) 72%, var(--c-slate-900));
+}
+
+.alert-title {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--alert-color) 42%, var(--c-slate-900));
+}
+
+/* Variantes. O tom "accent" acompanha a cor do tema; os demais carregam
+   significado fixo (perigo é vermelho em qualquer tema). */
+.alert-accent  { --alert-color: var(--accent); }
+.alert-info    { --alert-color: #3b82f6; }
+.alert-warn    { --alert-color: #f59e0b; }
+.alert-danger  { --alert-color: #ef4444; }
+.alert-success { --alert-color: #10b981; }
+.alert-neutral { --alert-color: var(--c-slate-400); }
+
+/* Versão compacta, para avisos de uma linha dentro de cartões. */
+.alert-sm {
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.alert-sm .alert-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.375rem;
+}

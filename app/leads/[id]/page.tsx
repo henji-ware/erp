@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "../../components/ui";
+import { PageHeader, Alert } from "../../components/ui";
 import SubmitButton from "../../components/SubmitButton";
 import { AttachmentsCard } from "../../components/AttachmentsCard";
 import DocumentInput from "../../components/DocumentInput";
@@ -211,9 +211,9 @@ export default async function EditLeadPage({
           </p>
 
           {deal === "noitems" && (
-            <p className="mb-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+            <Alert tone="warn" size="sm" className="mb-3">
               Para gerar um pedido, adicione itens do catálogo (produtos/serviços) ao orçamento.
-            </p>
+            </Alert>
           )}
 
           <div className="flex flex-wrap gap-2">

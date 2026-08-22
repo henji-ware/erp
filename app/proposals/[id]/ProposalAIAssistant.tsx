@@ -300,7 +300,7 @@ export default function ProposalAIAssistant({
               {error && (
                 <div
                   role="alert"
-                  className="p-3 rounded-xl bg-red-50 text-red-800 border border-red-200 text-xs leading-relaxed"
+                  className="alert-surface alert-danger rounded-xl p-3 text-xs leading-relaxed text-slate-700"
                 >
                   {error}
                 </div>

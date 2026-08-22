@@ -39,7 +39,10 @@ export async function POST(req: NextRequest) {
       apiKey: typeof body.apiKey === "string" ? body.apiKey : undefined,
       baseUrl: typeof body.baseUrl === "string" ? body.baseUrl : undefined,
       messages,
-      systemPrompt: buildSystemPromptWithERPContext(await getERPContextForAI(), auth.user.name),
+      systemPrompt: buildSystemPromptWithERPContext(
+        await getERPContextForAI(auth.user),
+        auth.user,
+      ),
       temperature: 0.6,
       maxTokens: 3000,
       isAdmin: isAdmin(auth.user),

@@ -12,7 +12,7 @@ import {
 } from "@/lib/format";
 import { paidAmount, remaining } from "@/lib/finance";
 import { getCurrentUser, canSee, crmScope } from "@/lib/auth";
-import { PageHeader, Badge } from "../../components/ui";
+import { PageHeader, Badge, Alert } from "../../components/ui";
 import { Icon } from "../../components/icons";
 import SubmitButton from "../../components/SubmitButton";
 import { AttachmentsCard } from "../../components/AttachmentsCard";
@@ -89,9 +89,9 @@ export default async function TransactionDetailPage({
         <div className="card p-6">
           <h2 className="mb-4 font-semibold text-slate-800">Dados do lançamento</h2>
           {tx.order && (
-            <p className="mb-3 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">
+            <Alert tone="neutral" size="sm" className="mb-3">
               Gerado pelo pedido <strong>{tx.order.number}</strong>.
-            </p>
+            </Alert>
           )}
           <form action={updateTransaction} className="space-y-3">
             <input type="hidden" name="id" value={tx.id} />
@@ -180,10 +180,10 @@ export default async function TransactionDetailPage({
         <div className="card p-6 lg:col-span-2">
           <h2 className="mb-4 font-semibold text-slate-800">Pagamentos</h2>
           {tx.installments.length > 0 && (
-            <p className="mb-4 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">
+            <Alert tone="info" size="sm" className="mb-4">
               Este lançamento é parcelado — quite as parcelas no cronograma acima. O
               registro manual abaixo continua disponível para pagamentos avulsos.
-            </p>
+            </Alert>
           )}
 
           {left > 0 ? (
@@ -219,9 +219,9 @@ export default async function TransactionDetailPage({
               <SubmitButton>Adicionar pagamento</SubmitButton>
             </form>
           ) : (
-            <p className="mb-5 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+            <Alert tone="success" className="mb-5">
               Lançamento totalmente quitado.
-            </p>
+            </Alert>
           )}
 
           {tx.payments.length === 0 ? (

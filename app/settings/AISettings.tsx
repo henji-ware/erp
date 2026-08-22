@@ -464,10 +464,8 @@ export default function AISettings({
         {testResult && (
           <div
             role="status"
-            className={`p-3 rounded-xl text-xs flex items-start justify-between gap-3 animate-fade-in border ${
-              testResult.ok
-                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                : "bg-red-50 text-red-800 border-red-200"
+            className={`alert-surface flex items-start justify-between gap-3 rounded-xl p-3 text-xs text-slate-700 animate-fade-in ${
+              testResult.ok ? "alert-success" : "alert-danger"
             }`}
           >
             <span className="flex items-start gap-1.5 leading-relaxed">

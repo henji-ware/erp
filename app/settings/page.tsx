@@ -14,7 +14,7 @@ import {
   DENSITY_COOKIE,
   THEMES,
 } from "@/lib/theme";
-import { PageHeader } from "../components/ui";
+import { PageHeader, Alert } from "../components/ui";
 import Appearance from "./Appearance";
 import AnimationsToggle from "./AnimationsToggle";
 import DensityToggle from "./DensityToggle";
@@ -132,10 +132,10 @@ export default async function SettingsPage() {
                 </dl>
 
                 {admin && (
-                  <p className="mt-6 rounded-lg bg-slate-100 px-3 py-2.5 text-sm text-slate-600">
+                  <Alert tone="neutral" size="sm" className="mt-6">
                     As ferramentas de desenvolvimento (gerar/recriar dados) ficam no terminal, via{" "}
                     <code className="font-mono text-slate-800">npm run db:reset</code>.
-                  </p>
+                  </Alert>
                 )}
               </div>
             ),
