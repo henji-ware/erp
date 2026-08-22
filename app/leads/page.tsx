@@ -14,6 +14,7 @@ import { OwnerTag } from "../components/OwnerTag";
 import DocumentInput from "../components/DocumentInput";
 import SubmitButton from "../components/SubmitButton";
 import StageSelect from "./StageSelect";
+import { KanbanCard, KanbanColumn } from "./KanbanBoard";
 import { createLead, convertLeadToCustomer, deleteLead } from "./actions";
 import { getCurrentUser, crmScope, isAdmin, ownerNames } from "@/lib/auth";
 
@@ -114,9 +115,14 @@ export default async function LeadsPage({
       </div>
 
       {/* Kanban */}
+      <p className="mb-3 flex items-center gap-1.5 text-xs text-slate-400">
+        <Icon name="arrowRight" size={13} />
+        Arraste um cartão pela alça para mudar a etapa — ou use o seletor
+        “Mover para” dentro dele.
+      </p>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {LEAD_STAGES.map((stage) => (
-          <div key={stage} className="rounded-xl bg-slate-100 p-3">
+          <KanbanColumn key={stage} stage={stage}>
             <div className="mb-3 flex items-center justify-between px-1">
               <h3 className="text-sm font-semibold text-slate-700">
                 {LEAD_STAGE_LABELS[stage]}
@@ -131,7 +137,8 @@ export default async function LeadsPage({
 
             <div className="space-y-3">
               {byStage(stage).map((l) => (
-                <div key={l.id} className="card p-3">
+                <KanbanCard key={l.id} id={l.id} stage={l.stage}>
+                <div className="card p-3">
                   {l.number && (
                     <p className="font-mono text-[11px] text-slate-400">Nº {l.number}</p>
                   )}
@@ -184,14 +191,15 @@ export default async function LeadsPage({
                     </div>
                   </div>
                 </div>
+                </KanbanCard>
               ))}
               {byStage(stage).length === 0 && (
-                <p className="px-1 py-4 text-center text-xs text-slate-400">
-                  Vazio
+                <p className="rounded-lg border border-dashed border-slate-300 px-1 py-6 text-center text-xs text-slate-400">
+                  Solte um orçamento aqui
                 </p>
               )}
             </div>
-          </div>
+          </KanbanColumn>
         ))}
       </div>
     </div>

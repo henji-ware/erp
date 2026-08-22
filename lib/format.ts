@@ -19,6 +19,20 @@ export function formatCurrency(value: number): string {
   }).format(Math.round(((value ?? 0) + Number.EPSILON) * 100) / 100);
 }
 
+/**
+ * Moeda abreviada, para rótulos de gráfico onde não cabe o valor cheio:
+ * 12400 -> "R$ 12,4 mil"; 1250000 -> "R$ 1,3 mi".
+ */
+export function formatCurrencyCompact(value: number): string {
+  const v = value ?? 0;
+  const abs = Math.abs(v);
+  const nf = (n: number, digits: number) =>
+    new Intl.NumberFormat("pt-BR", { maximumFractionDigits: digits }).format(n);
+  if (abs >= 1_000_000) return `R$ ${nf(v / 1_000_000, 1)} mi`;
+  if (abs >= 1_000) return `R$ ${nf(v / 1_000, 1)} mil`;
+  return `R$ ${nf(v, 0)}`;
+}
+
 export function formatDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(d);

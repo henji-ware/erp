@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { remaining } from "@/lib/finance";
-import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
+import {
+  formatCurrency,
+  formatCurrencyCompact,
+  formatDate,
+  formatDateTime,
+} from "@/lib/format";
+import { lastMonths, monthKey } from "@/lib/reports";
 import {
   ORDER_STATUS_COLORS,
   ORDER_STATUS_LABELS,
@@ -9,7 +15,8 @@ import {
   LEAD_STAGE_LABELS,
   APPOINTMENT_TYPE_LABELS,
 } from "@/lib/format";
-import { PageHeader, StatCard, Badge } from "./components/ui";
+import { PageHeader, StatCard, Badge, pctChange } from "./components/ui";
+import { AreaChart, GroupedBars, Sparkline } from "./components/charts";
 import { Icon, type IconName } from "./components/icons";
 import { getCurrentUser, crmScope } from "@/lib/auth";
 
@@ -18,6 +25,11 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const now = new Date();
   const in7 = new Date(now.getTime() + 7 * 86400000);
+  // Janela das séries dos KPIs: os 6 últimos meses, contados do dia 1º do
+  // mês mais antigo (não de "180 dias atrás", senão o primeiro mês entraria
+  // pela metade e apareceria como uma queda que não existe).
+  const months = lastMonths(6, now);
+  const since = months[0].start;
   const user = await getCurrentUser();
   const scope = crmScope(user); // {} p/ admin; { OR: próprios + compartilhados }
 
@@ -37,6 +49,9 @@ export default async function DashboardPage() {
     overdueRentals,
     activeRentals,
     maintenanceDue,
+    customerHistory,
+    leadHistory,
+    paymentHistory,
   ] = await Promise.all([
     prisma.customer.count({ where: { deletedAt: null, ...scope } }),
     prisma.product.findMany({ where: { deletedAt: null } }),
@@ -69,6 +84,24 @@ export default async function DashboardPage() {
       orderBy: { nextVisit: "asc" },
       include: { customer: true },
     }),
+    // --- séries históricas (só os campos usados nos gráficos) ---
+    prisma.customer.findMany({
+      where: { deletedAt: null, ...scope, createdAt: { gte: since } },
+      select: { createdAt: true },
+    }),
+    prisma.lead.findMany({
+      where: { deletedAt: null, ...scope, createdAt: { gte: since } },
+      select: { createdAt: true, value: true },
+    }),
+    // Caixa realizado: vem dos pagamentos, não das contas em aberto — só
+    // assim entra o que já foi quitado (inclusive parcial).
+    prisma.payment.findMany({
+      where: {
+        paidAt: { gte: since },
+        transaction: { deletedAt: null, ...scope },
+      },
+      select: { amount: true, paidAt: true, transaction: { select: { type: true } } },
+    }),
   ]);
 
   const inventoryValue = products.reduce((s, p) => s + p.price * p.stock, 0);
@@ -81,6 +114,48 @@ export default async function DashboardPage() {
   const projectBacklog = openProjects.reduce((s, p) => s + p.value, 0);
   const runningProjects = openProjects.filter((p) => p.status === "EM_EXECUCAO").length;
   const rentalRevenue = activeRentals.reduce((s, r) => s + r.monthlyRate * r.quantity, 0);
+
+  // ---- Séries mensais dos KPIs ----
+  // Um índice por chave de mês; tudo o que cai fora da janela é ignorado.
+  const slot = new Map(months.map((m, i) => [m.key, i]));
+  const emptySeries = () => months.map(() => 0);
+
+  const sumInto = <T,>(items: T[], date: (x: T) => Date, amount: (x: T) => number) => {
+    const series = emptySeries();
+    for (const item of items) {
+      const i = slot.get(monthKey(date(item)));
+      if (i !== undefined) series[i] += amount(item);
+    }
+    return series;
+  };
+
+  const revenueSeries = sumInto(orders, (o) => o.createdAt, (o) => o.total);
+  const customerSeries = sumInto(customerHistory, (c) => c.createdAt, () => 1);
+  const leadSeries = sumInto(leadHistory, (l) => l.createdAt, (l) => l.value);
+  const cashInSeries = sumInto(
+    paymentHistory.filter((p) => p.transaction.type === "RECEIVABLE"),
+    (p) => p.paidAt,
+    (p) => p.amount,
+  );
+  const cashOutSeries = sumInto(
+    paymentHistory.filter((p) => p.transaction.type === "PAYABLE"),
+    (p) => p.paidAt,
+    (p) => p.amount,
+  );
+
+  // Variação do mês corrente contra o anterior (últimos dois baldes).
+  const last = months.length - 1;
+  const deltaOf = (series: number[]) => pctChange(series[last], series[last - 1]);
+  const TREND_LABEL = "vs. mês anterior";
+
+  const monthlySales = months.map((m, i) => ({ label: m.label, value: revenueSeries[i] }));
+  const cashFlow = months.map((m, i) => ({
+    label: m.label,
+    a: cashInSeries[i],
+    b: cashOutSeries[i],
+  }));
+  const cashInTotal = cashInSeries.reduce((s, v) => s + v, 0);
+  const cashOutTotal = cashOutSeries.reduce((s, v) => s + v, 0);
 
   // Contas vencidas (a receber + a pagar, ainda em aberto).
   const overdueBills = [...receivables, ...payables].filter((t) => t.dueDate < now);
@@ -132,26 +207,129 @@ export default async function DashboardPage() {
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Clientes" value={String(customerCount)} hint="CRM" delay={0} />
-        <StatCard label="Funil aberto" value={formatCurrency(pipeline)} hint={`${openLeads.length} leads em aberto`} accent="text-brand-600" delay={60} />
-        <StatCard label="Receita (pedidos)" value={formatCurrency(revenue)} hint={`${orders.length} pedidos ativos`} accent="text-green-600" delay={120} />
-        <StatCard label="Locação (mensal)" value={formatCurrency(rentalRevenue)} hint={`${activeRentals.length} em locação`} accent="text-blue-600" delay={180} />
+        <StatCard
+          label="Clientes"
+          value={String(customerCount)}
+          hint={`${customerSeries[last]} novos neste mês`}
+          delay={0}
+          icon={<Icon name="customers" size={18} />}
+          trend={{ pct: deltaOf(customerSeries), label: `Novos cadastros ${TREND_LABEL}` }}
+          spark={<Sparkline id="clientes" data={customerSeries} />}
+          sparkClassName="text-slate-400"
+        />
+        <StatCard
+          label="Funil aberto"
+          value={formatCurrency(pipeline)}
+          hint={`${openLeads.length} leads em aberto`}
+          accent="text-brand-600"
+          delay={60}
+          icon={<Icon name="leads" size={18} />}
+          trend={{ pct: deltaOf(leadSeries), label: `Orçamentos criados ${TREND_LABEL}` }}
+          spark={<Sparkline id="funil" data={leadSeries} />}
+          sparkClassName="text-brand-500"
+        />
+        <StatCard
+          label="Receita (pedidos)"
+          value={formatCurrency(revenue)}
+          hint={`${orders.length} pedidos ativos`}
+          accent="text-green-600"
+          delay={120}
+          icon={<Icon name="orders" size={18} />}
+          trend={{ pct: deltaOf(revenueSeries), label: `Pedidos do mês ${TREND_LABEL}` }}
+          spark={<Sparkline id="receita" data={revenueSeries} />}
+          sparkClassName="text-green-600"
+        />
+        <StatCard
+          label="Locação (mensal)"
+          value={formatCurrency(rentalRevenue)}
+          hint={`${activeRentals.length} em locação`}
+          accent="text-blue-600"
+          delay={180}
+          icon={<Icon name="rental" size={18} />}
+        />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <StatCard label="A receber (pendente)" value={formatCurrency(totalReceivable)} accent="text-green-600" />
-        <StatCard label="A pagar (pendente)" value={formatCurrency(totalPayable)} accent="text-red-600" />
-        <StatCard label="Saldo projetado" value={formatCurrency(balance)} accent={balance >= 0 ? "text-green-600" : "text-red-600"} />
+        <StatCard
+          label="A receber (pendente)"
+          value={formatCurrency(totalReceivable)}
+          accent="text-green-600"
+          hint={`${receivables.length} lançamentos em aberto`}
+          icon={<Icon name="finance" size={18} />}
+        />
+        <StatCard
+          label="A pagar (pendente)"
+          value={formatCurrency(totalPayable)}
+          accent="text-red-600"
+          hint={`${payables.length} lançamentos em aberto`}
+          icon={<Icon name="card" size={18} />}
+        />
+        <StatCard
+          label="Saldo projetado"
+          value={formatCurrency(balance)}
+          accent={balance >= 0 ? "text-green-600" : "text-red-600"}
+          hint="A receber − a pagar"
+          icon={<Icon name="reports" size={18} />}
+        />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Projetos em carteira" value={formatCurrency(projectBacklog)} hint={`${openProjects.length} ativos`} accent="text-brand-600" />
-        <StatCard label="Projetos em execução" value={String(runningProjects)} accent="text-amber-600" />
-        <StatCard label="Inspeções agendadas" value={String(scheduledInspections)} accent="text-blue-600" />
-        <StatCard label="Estoque (valor)" value={formatCurrency(inventoryValue)} hint={`${products.length} itens · ${lowStock.length} baixo`} />
+        <StatCard
+          label="Projetos em carteira"
+          value={formatCurrency(projectBacklog)}
+          hint={`${openProjects.length} ativos`}
+          accent="text-brand-600"
+          icon={<Icon name="projects" size={18} />}
+        />
+        <StatCard
+          label="Projetos em execução"
+          value={String(runningProjects)}
+          accent="text-amber-600"
+          icon={<Icon name="briefcase" size={18} />}
+        />
+        <StatCard
+          label="Inspeções agendadas"
+          value={String(scheduledInspections)}
+          accent="text-blue-600"
+          icon={<Icon name="inspection" size={18} />}
+        />
+        <StatCard
+          label="Estoque (valor)"
+          value={formatCurrency(inventoryValue)}
+          hint={`${products.length} itens · ${lowStock.length} baixo`}
+          icon={<Icon name="products" size={18} />}
+        />
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* Gráficos — a leitura que os números sozinhos não dão */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="card p-5">
+          <div className="mb-4 flex items-baseline justify-between gap-2">
+            <h2 className="font-semibold text-slate-800">Receita por mês</h2>
+            <span className="text-xs text-slate-400">últimos 6 meses</span>
+          </div>
+          <AreaChart data={monthlySales} formatValue={formatCurrencyCompact} />
+        </div>
+
+        <div className="card p-5">
+          <div className="mb-4 flex items-baseline justify-between gap-2">
+            <h2 className="font-semibold text-slate-800">Caixa realizado</h2>
+            <span className="text-xs text-slate-400">
+              {formatCurrencyCompact(cashInTotal - cashOutTotal)} no período
+            </span>
+          </div>
+          {/* Realizado = o que foi pago de fato (inclui quitação parcial),
+              diferente de "a receber/a pagar", que é previsão. */}
+          <GroupedBars
+            data={cashFlow}
+            labelA="Entradas"
+            labelB="Saídas"
+            formatValue={formatCurrency}
+          />
+        </div>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Pedidos recentes */}
         <div className="card">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">

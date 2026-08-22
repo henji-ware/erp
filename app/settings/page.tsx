@@ -9,11 +9,15 @@ import {
   isValidMode,
   MODE_COOKIE,
   ANIM_COOKIE,
+  DEFAULT_DENSITY,
+  isValidDensity,
+  DENSITY_COOKIE,
   THEMES,
 } from "@/lib/theme";
 import { PageHeader } from "../components/ui";
 import Appearance from "./Appearance";
 import AnimationsToggle from "./AnimationsToggle";
+import DensityToggle from "./DensityToggle";
 import AISettings from "./AISettings";
 import SettingsTabs from "./SettingsTabs";
 import { getServerAISettings } from "@/lib/ai/server-settings";
@@ -48,6 +52,10 @@ export default async function SettingsPage() {
   const modeCookie = store.get(MODE_COOKIE)?.value;
   const currentMode = isValidMode(modeCookie) ? modeCookie! : DEFAULT_MODE;
   const animOn = store.get(ANIM_COOKIE)?.value !== "off";
+  const densityCookie = store.get(DENSITY_COOKIE)?.value;
+  const currentDensity = isValidDensity(densityCookie)
+    ? densityCookie!
+    : DEFAULT_DENSITY;
   const currentName =
     THEMES.find((t) => t.id === current)?.name ?? "Default";
   const [customers, products, orders, suppliers, transactions, employees, appointments, auditLogs] = counts;
@@ -88,8 +96,9 @@ export default async function SettingsPage() {
             label: "Preferências",
             icon: "settings",
             content: (
-              <div className="card p-6">
+              <div className="card space-y-5 divide-y divide-slate-100 p-6 [&>*+*]:pt-5">
                 <AnimationsToggle initialOn={animOn} />
+                <DensityToggle initial={currentDensity} />
               </div>
             ),
           },

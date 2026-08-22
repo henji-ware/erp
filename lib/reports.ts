@@ -2,13 +2,11 @@ import { OrderStatus } from "@prisma/client";
 import { prisma } from "./prisma";
 import { remaining } from "./finance";
 import { PAYMENT_METHODS } from "./format";
+import { lastMonths, monthKey, monthLabel } from "./months";
+
+export { lastMonths, monthKey };
 
 export type Range = { from: Date; to: Date };
-
-const MONTHS_PT = [
-  "jan", "fev", "mar", "abr", "mai", "jun",
-  "jul", "ago", "set", "out", "nov", "dez",
-];
 
 export function parseRange(params: { from?: string; to?: string }): Range {
   const to = params.to ? new Date(params.to + "T23:59:59") : new Date();
@@ -41,8 +39,8 @@ function monthBuckets(range: Range) {
   const end = new Date(range.to.getFullYear(), range.to.getMonth(), 1);
   while (cur <= end && buckets.length < 24) {
     buckets.push({
-      key: `${cur.getFullYear()}-${cur.getMonth()}`,
-      label: `${MONTHS_PT[cur.getMonth()]}/${String(cur.getFullYear()).slice(2)}`,
+      key: monthKey(cur),
+      label: monthLabel(cur),
       value: 0,
     });
     cur.setMonth(cur.getMonth() + 1);
@@ -85,7 +83,7 @@ export async function getReportData(range: Range) {
   const buckets = monthBuckets(range);
   const idx = new Map(buckets.map((b, i) => [b.key, i]));
   for (const o of orders) {
-    const k = `${o.createdAt.getFullYear()}-${o.createdAt.getMonth()}`;
+    const k = monthKey(o.createdAt);
     const i = idx.get(k);
     if (i !== undefined) buckets[i].value += o.total;
   }

@@ -54,6 +54,22 @@ export const SWATCH_NEUTRAL = {
   dark: { panel: "#0e0e0e", bar: "#4d4d4d" },
 };
 
+// Densidade da interface: ERP é tela de muita linha, e quem passa o dia no
+// sistema costuma preferir ver mais de uma vez. O atributo data-density vai
+// no <html> (como o tema) e o CSS aperta células, campos e KPIs.
+export type DensityDef = { id: string; label: string; desc: string };
+export const DENSITIES: DensityDef[] = [
+  { id: "comfortable", label: "Confortável", desc: "Espaçamento padrão." },
+  { id: "compact", label: "Compacto", desc: "Mais linhas por tela." },
+];
+export const DENSITY_IDS = DENSITIES.map((d) => d.id);
+export const DEFAULT_DENSITY = "comfortable";
+
+export function isValidDensity(id: string | undefined | null): boolean {
+  return !!id && DENSITY_IDS.includes(id);
+}
+
 export const THEME_COOKIE = "theme";
 export const MODE_COOKIE = "mode";
 export const ANIM_COOKIE = "anim";
+export const DENSITY_COOKIE = "density";

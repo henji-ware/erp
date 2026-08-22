@@ -16,6 +16,9 @@ import {
   isValidMode,
   MODE_COOKIE,
   ANIM_COOKIE,
+  DEFAULT_DENSITY,
+  isValidDensity,
+  DENSITY_COOKIE,
 } from "@/lib/theme";
 
 export const metadata: Metadata = {
@@ -55,12 +58,15 @@ export default async function RootLayout({
   const modeCookie = store.get(MODE_COOKIE)?.value;
   const mode = isValidMode(modeCookie) ? modeCookie : DEFAULT_MODE;
   const animOff = store.get(ANIM_COOKIE)?.value === "off";
+  const densityCookie = store.get(DENSITY_COOKIE)?.value;
+  const density = isValidDensity(densityCookie) ? densityCookie : DEFAULT_DENSITY;
 
   return (
     <html
       lang="pt-BR"
       data-theme={theme}
       data-mode={mode}
+      data-density={density}
       className={animOff ? "no-anim" : ""}
     >
       {/* As configurações de IA (chave da API, modelo) são separadas por conta.

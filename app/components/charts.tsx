@@ -113,3 +113,135 @@ export function HBarList({
     </div>
   );
 }
+
+/**
+ * Sparkline: a mesma série do KPI, em miniatura, dentro do cartão.
+ * Sem eixo, sem rótulo — serve só para mostrar o formato da curva
+ * (subindo, caindo, estável) ao lado do número.
+ */
+export function Sparkline({
+  id,
+  data,
+  className = "text-brand-500",
+  height = 34,
+}: {
+  /**
+   * Identificador único na página. O gradiente é um elemento com `id`, e
+   * `currentColor` dentro dele resolve pela cor do SVG que o DEFINE — com
+   * dois sparklines de mesmo id, o segundo pinta com a cor do primeiro.
+   */
+  id: string;
+  data: number[];
+  className?: string;
+  height?: number;
+}) {
+  const n = data.length;
+  if (n < 2) return null;
+
+  const W = 100;
+  const H = 32;
+  const pad = 3;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  // Série constante viraria uma divisão por zero: nesse caso a linha fica no
+  // meio da caixa, que é a leitura correta ("não mudou").
+  const span = max - min || 1;
+
+  const xFor = (i: number) => (i * W) / (n - 1);
+  const yFor = (v: number) => pad + (1 - (v - min) / span) * (H - pad * 2);
+
+  const pts = data.map((v, i) => `${xFor(i)},${yFor(v)}`);
+  const line = `M ${pts.join(" L ")}`;
+  const area = `${line} L ${W},${H} L 0,${H} Z`;
+  const lastX = xFor(n - 1);
+  const lastY = yFor(data[n - 1]);
+
+  const gradId = `spark-${id}`;
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      className={`w-full ${className}`}
+      style={{ height }}
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="currentColor" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gradId})`} />
+      <path
+        d={line}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+      <circle cx={lastX} cy={lastY} r="2.5" fill="currentColor" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+/**
+ * Barras pareadas por período — entradas x saídas do caixa, mês a mês.
+ * Duas séries lado a lado leem melhor que duas linhas sobrepostas quando o
+ * que interessa é a diferença entre elas.
+ */
+export function GroupedBars({
+  data,
+  labelA,
+  labelB,
+  formatValue,
+}: {
+  data: { label: string; a: number; b: number }[];
+  labelA: string;
+  labelB: string;
+  formatValue: (n: number) => string;
+}) {
+  if (data.length === 0) {
+    return <p className="py-8 text-center text-sm text-slate-400">Sem dados.</p>;
+  }
+  const max = Math.max(1, ...data.flatMap((d) => [d.a, d.b]));
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-4 text-xs">
+        <span className="flex items-center gap-1.5 text-slate-500">
+          <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+          {labelA}
+        </span>
+        <span className="flex items-center gap-1.5 text-slate-500">
+          <span className="h-2.5 w-2.5 rounded-sm bg-red-500" />
+          {labelB}
+        </span>
+      </div>
+
+      <div className="flex h-44 items-end gap-2">
+        {data.map((d, i) => (
+          <div key={i} className="flex h-full flex-1 flex-col justify-end gap-1.5">
+            <div className="flex h-full items-end justify-center gap-1">
+              <div
+                className="w-1/2 max-w-5 rounded-t bg-emerald-500 transition-all duration-500"
+                style={{ height: `${Math.max((d.a / max) * 100, d.a > 0 ? 2 : 0)}%` }}
+                title={`${d.label} · ${labelA}: ${formatValue(d.a)}`}
+              />
+              <div
+                className="w-1/2 max-w-5 rounded-t bg-red-500 transition-all duration-500"
+                style={{ height: `${Math.max((d.b / max) * 100, d.b > 0 ? 2 : 0)}%` }}
+                title={`${d.label} · ${labelB}: ${formatValue(d.b)}`}
+              />
+            </div>
+            <span className="truncate text-center text-[11px] text-slate-400">
+              {d.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

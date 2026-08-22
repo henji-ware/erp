@@ -702,21 +702,27 @@ html.no-anim *::after {
 }
 
 .glass-panel {
-  background: rgba(255, 255, 255, 0.75);
+  background: color-mix(in srgb, var(--c-surface) 78%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid color-mix(in srgb, var(--c-slate-300) 40%, transparent);
 }
 
-[data-mode="dark"] .glass-panel {
-  background: rgba(15, 23, 42, 0.75);
+/* No escuro o vidro parte da superfície do tema (que já vem tingida pelo
+   --tint), e não de um slate-900 fixo — senão o painel destoa em todo tema
+   que não seja azul. */
+[data-mode="dark"] .glass-panel,
+[data-mode="system"] .glass-panel {
+  background: color-mix(in srgb, var(--c-surface) 78%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* O brilho acompanha o tema. Antes era um indigo fixo (rgba(99,102,241)),
+   que saía roxo no DRR (âmbar), no Rubi (vinho) e em todos os outros. */
 .shadow-glow {
-  box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 0 25px -5px color-mix(in srgb, var(--accent) 32%, transparent);
 }
 
 /* =========================================================================
@@ -819,3 +825,80 @@ html.no-anim *::after {
   letter-spacing: 0.08em;
 }
 
+
+/* =========================================================================
+   SKELETONS — o que aparece enquanto o servidor monta a página
+
+   Todas as páginas do ERP são `force-dynamic` e fazem várias queries antes
+   de renderizar (o dashboard sozinho dispara 15). Sem um loading.tsx o
+   Next segura a tela anterior e o clique no menu parece travado. Estes
+   blocos ocupam o lugar do conteúdo enquanto isso.
+
+   A varredura de brilho é `animation`, então some sozinha no
+   prefers-reduced-motion e no toggle `html.no-anim` — sobra o bloco chapado,
+   que é o comportamento certo.
+   ========================================================================= */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background-color: color-mix(in srgb, var(--c-slate-200) 75%, transparent);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--c-surface) 55%, transparent),
+    transparent
+  );
+  animation: skeleton-sweep 1.5s ease-in-out infinite;
+}
+@keyframes skeleton-sweep {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* =========================================================================
+   NÚMEROS TABULARES
+
+   Em coluna de dinheiro, dígitos de larguras diferentes desalinham a vírgula
+   e a coluna "dança" de uma linha para a outra. `tabular-nums` dá a todos os
+   algarismos a mesma largura.
+   ========================================================================= */
+.td,
+.th,
+.stat-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================================
+   DENSIDADE (confortável | compacto)
+
+   ERP é tela de muita linha: quem passa o dia no sistema quer ver mais de
+   uma vez. O atributo data-density fica no <html> (cookie), como o tema.
+   ========================================================================= */
+[data-density="compact"] .td,
+[data-density="compact"] .th {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+[data-density="compact"] .input {
+  padding-top: 0.3125rem;
+  padding-bottom: 0.3125rem;
+}
+[data-density="compact"] main > div {
+  padding-top: 0.875rem;
+  padding-bottom: 0.875rem;
+}
+[data-density="compact"] .stat-card {
+  padding: 0.875rem 1rem;
+}
+[data-density="compact"] .stat-value {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
