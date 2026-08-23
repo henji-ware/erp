@@ -13,8 +13,9 @@ import {
   proposalNumber,
   proposalPrice,
 } from "@/lib/proposals";
-import { PageHeader } from "../../components/ui";
+import { PageHeader, Alert } from "../../components/ui";
 import ProposalSection from "./ProposalSection";
+import { VERSION_FIELD, versionValue } from "@/lib/concurrency";
 import { Icon } from "../../components/icons";
 import SubmitButton from "../../components/SubmitButton";
 import PrintButton from "../../reports/PrintButton";
@@ -26,10 +27,12 @@ export const dynamic = "force-dynamic";
 
 export default async function ProposalPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ conflito?: string }>;
 }) {
-  const { id } = await params;
+  const [{ id }, { conflito }] = await Promise.all([params, searchParams]);
   const [proposal, user] = await Promise.all([
     prisma.proposal.findUnique({
       where: { id: Number(id) },
@@ -76,8 +79,22 @@ export default async function ProposalPage({
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* Editor */}
         <div className="no-print space-y-4">
+          {conflito && (
+            <Alert tone="warn" title="Outra pessoa salvou antes de você">
+              Suas alterações NÃO foram gravadas — a proposta já havia mudado
+              quando você clicou em salvar. Esta tela está mostrando a versão
+              atual: confira o que mudou e refaça o que faltar.
+            </Alert>
+          )}
           <form action={updateProposal} className="card p-5">
             <input type="hidden" name="id" value={proposal.id} />
+            {/* Versão que esta tela carregou. A gravação compara com a do
+                banco e recusa se outra pessoa salvou no meio do caminho. */}
+            <input
+              type="hidden"
+              name={VERSION_FIELD}
+              value={versionValue(proposal.updatedAt)}
+            />
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-semibold text-slate-800">Dados da proposta</h2>
               <span className="text-xs text-slate-400">Revisão R{proposal.revision}</span>

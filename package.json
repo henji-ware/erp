@@ -8,7 +8,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "start:lan": "next start -H 0.0.0.0 -p 3000",
-    "test": "node --experimental-strip-types --test tests/*.test.mts",
+    "test": "node --experimental-strip-types --import ./tests/ts-resolve.mjs --test tests/*.test.mts",
     "lint": "next lint",
     "db:push": "prisma db push",
     "db:deploy": "prisma db push && node prisma/seed.mjs",

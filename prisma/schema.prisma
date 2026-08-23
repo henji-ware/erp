@@ -241,6 +241,7 @@ model Employee {
   hireDate     DateTime?
   active       Boolean       @default(true)
   createdAt    DateTime      @default(now())
+  updatedAt DateTime @updatedAt @default(now())
   sales        Order[]       @relation("Seller")
   projects     Project[]     @relation("ProjectResponsible")
   appointments Appointment[]
@@ -270,6 +271,7 @@ model Project {
   shared        Boolean       @default(false)
   deletedAt     DateTime? // soft delete (lixeira)
   createdAt     DateTime      @default(now())
+  updatedAt DateTime @updatedAt @default(now())
   attachments   Attachment[]
   transactions  Transaction[] // faturamento gerado a partir do projeto
 
@@ -296,6 +298,7 @@ model Inspection {
   shared      Boolean          @default(false)
   deletedAt   DateTime? // soft delete (lixeira)
   createdAt   DateTime         @default(now())
+  updatedAt DateTime @updatedAt @default(now())
   attachments Attachment[]
 
   @@index([ownerId])
@@ -321,6 +324,7 @@ model Appointment {
   shared     Boolean   @default(false)
   deletedAt  DateTime? // soft delete (lixeira)
   createdAt  DateTime  @default(now())
+  updatedAt DateTime @updatedAt @default(now())
 
   @@index([ownerId])
   @@index([deletedAt])
@@ -340,6 +344,8 @@ model Supplier {
   notes        String?
   deletedAt    DateTime? // soft delete (lixeira)
   createdAt    DateTime      @default(now())
+  updatedAt DateTime @updatedAt @default(now())
+  stockMovements StockMovement[]
   transactions Transaction[]
 
   @@index([deletedAt])
@@ -360,6 +366,7 @@ model Customer {
   shared               Boolean               @default(false) // visível a todos os usuários
   deletedAt            DateTime? // soft delete (lixeira): preenchido = arquivado
   createdAt            DateTime              @default(now())
+  updatedAt DateTime @updatedAt @default(now())
   orders               Order[]
   leads                Lead[]
   transactions         Transaction[]
@@ -396,6 +403,7 @@ model Lead {
   proposals   Proposal[]
   deletedAt   DateTime? // soft delete (lixeira)
   createdAt   DateTime        @default(now())
+  updatedAt DateTime @updatedAt @default(now())
 
   @@index([deletedAt])
   @@index([ownerId])
@@ -454,6 +462,7 @@ model Proposal {
   signerPhone   String?
   signerEmail   String?
   createdAt     DateTime     @default(now())
+  updatedAt DateTime @updatedAt @default(now())
 
   @@unique([leadId, revision])
   @@index([leadId])
@@ -515,11 +524,50 @@ model Product {
   stock     Int         @default(0)
   deletedAt DateTime? // soft delete (lixeira)
   createdAt DateTime    @default(now())
+  updatedAt DateTime @updatedAt @default(now())
   items     OrderItem[]
   leadItems LeadItem[]
   rentals   Rental[]
+  movements StockMovement[]
 
   @@index([deletedAt])
+}
+
+// --------------------------- Estoque ---------------------------
+
+// Por que uma movimentação existiu.
+enum StockReason {
+  ORDER_CONFIRM // baixa pela confirmação de um pedido
+  ORDER_REVERSE // devolução pelo cancelamento do pedido
+  PURCHASE // entrada por compra de fornecedor
+  ADJUSTMENT // acerto manual (inventário, perda, quebra)
+}
+
+/// Razão do estoque: uma linha por movimento, nunca editada nem apagada.
+///
+/// Antes, `Product.stock` era um número solto: quando caía 40 unidades não
+/// havia como responder POR QUÊ, nem conferir o saldo contra o histórico.
+/// `balance` guarda o saldo DEPOIS do movimento, o que permite auditar a
+/// sequência sem recalcular a soma inteira a cada consulta.
+model StockMovement {
+  id        Int         @id @default(autoincrement())
+  product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+  quantity  Int // positivo entra, negativo sai
+  balance   Int // saldo resultante, para conferência
+  reason    StockReason
+  note      String?
+  unitCost  Float? // custo unitário, quando é entrada por compra
+  supplier  Supplier?   @relation(fields: [supplierId], references: [id])
+  supplierId Int?
+  order     Order?      @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderId   Int?
+  userId    Int? // quem provocou o movimento
+  userName  String? // nome no momento do movimento (o usuário pode sumir)
+  createdAt DateTime    @default(now())
+
+  @@index([productId, createdAt])
+  @@index([orderId])
 }
 
 // --------------------------- Vendas ----------------------------
@@ -540,6 +588,8 @@ model Order {
   shared       Boolean       @default(false)
   deletedAt    DateTime? // soft delete (lixeira)
   createdAt    DateTime      @default(now())
+  updatedAt DateTime @updatedAt @default(now())
+  stockMovements StockMovement[]
   items        OrderItem[]
   transactions Transaction[]
 
@@ -582,6 +632,7 @@ model Transaction {
   installments Installment[] // parcelamento (vazio = à vista)
   attachments Attachment[] // notas fiscais e comprovantes
   createdAt   DateTime          @default(now())
+  updatedAt DateTime @updatedAt @default(now())
 
   @@index([ownerId])
   @@index([deletedAt])
@@ -640,6 +691,7 @@ model Rental {
   shared      Boolean      @default(false)
   deletedAt   DateTime? // soft delete (lixeira)
   createdAt   DateTime     @default(now())
+  updatedAt DateTime @updatedAt @default(now())
 
   @@index([status])
   @@index([ownerId])
@@ -664,6 +716,7 @@ model MaintenanceContract {
   shared     Boolean              @default(false)
   deletedAt  DateTime? // soft delete (lixeira)
   createdAt  DateTime             @default(now())
+  updatedAt DateTime @updatedAt @default(now())
 
   @@index([status])
   @@index([ownerId])

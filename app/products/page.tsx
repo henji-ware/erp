@@ -145,6 +145,7 @@ export default async function ProductsPage({
                           <form action={adjustStock}>
                             <input type="hidden" name="id" value={p.id} />
                             <input type="hidden" name="delta" value={-1} />
+                            <input type="hidden" name="note" value="Ajuste rápido na listagem" />
                             <button className="btn-ghost h-7 w-7 p-0" title="Diminuir">
                               <Icon name="minus" size={14} />
                             </button>
@@ -152,6 +153,7 @@ export default async function ProductsPage({
                           <form action={adjustStock}>
                             <input type="hidden" name="id" value={p.id} />
                             <input type="hidden" name="delta" value={1} />
+                            <input type="hidden" name="note" value="Ajuste rápido na listagem" />
                             <button className="btn-ghost h-7 w-7 p-0" title="Aumentar">
                               <Icon name="plus" size={14} />
                             </button>

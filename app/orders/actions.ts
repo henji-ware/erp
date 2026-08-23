@@ -8,6 +8,7 @@ import { getCurrentUser, canEditRecord } from "@/lib/auth";
 import type { Prisma } from "@prisma/client";
 import { roundMoney } from "@/lib/money";
 import { orderTransitionEffect } from "@/lib/order-transition";
+import { applyConfirm, reverseConfirm } from "@/lib/order-effects";
 
 type DbClient = Prisma.TransactionClient;
 
@@ -17,6 +18,12 @@ async function allowed(id: number): Promise<boolean> {
 }
 
 const ACTIVE = ["CONFIRMED", "INVOICED"];
+
+/** Quem provocou o movimento de estoque, para a linha do razão. */
+async function actorInfo() {
+  const user = await getCurrentUser();
+  return { id: user?.id ?? null, name: user?.name ?? null };
+}
 
 export async function createOrder(formData: FormData) {
   const customerId = Number(formData.get("customerId"));
@@ -51,6 +58,7 @@ export async function createOrder(formData: FormData) {
 
   const deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim() || null;
 
+  const actor = { id: user?.id ?? null, name: user?.name ?? null };
   const order = await prisma.$transaction(async (db) => {
     const created = await db.order.create({
       data: {
@@ -69,7 +77,7 @@ export async function createOrder(formData: FormData) {
     // Se já nasce confirmado/faturado, os três efeitos pertencem à mesma
     // transação: estoque, cobrança e status nunca ficam parcialmente aplicados.
     if (ACTIVE.includes(status)) {
-      await applyConfirm(db, created.id);
+      await applyConfirm(db, created.id, new Date(), actor);
       await db.order.update({ where: { id: created.id }, data: { status } });
     }
     return created;
@@ -88,6 +96,7 @@ export async function updateOrderStatus(formData: FormData) {
   if (!id || !ORDER_STATUSES.includes(next as (typeof ORDER_STATUSES)[number])) return;
   if (!(await allowed(id))) return;
 
+  const actor = await actorInfo();
   const changed = await prisma.$transaction(async (db) => {
     const order = await db.order.findUnique({ where: { id } });
     if (!order || order.status === next) return false;
@@ -101,8 +110,8 @@ export async function updateOrderStatus(formData: FormData) {
     if (claimed.count !== 1) return false;
 
     const effect = orderTransitionEffect(order.status, next);
-    if (effect === "APPLY") await applyConfirm(db, id);
-    if (effect === "REVERSE") await reverseConfirm(db, id);
+    if (effect === "APPLY") await applyConfirm(db, id, new Date(), actor);
+    if (effect === "REVERSE") await reverseConfirm(db, id, actor);
     return true;
   });
   if (!changed) return;
@@ -121,6 +130,7 @@ export async function deleteOrder(formData: FormData) {
   if (!id) return;
   if (!(await allowed(id))) return;
 
+  const actor = await actorInfo();
   const order = await prisma.$transaction(async (db) => {
     const current = await db.order.findUnique({ where: { id } });
     if (!current || current.deletedAt) return null;
@@ -131,7 +141,7 @@ export async function deleteOrder(formData: FormData) {
     });
     if (claimed.count !== 1) return null;
 
-    if (ACTIVE.includes(current.status)) await reverseConfirm(db, id);
+    if (ACTIVE.includes(current.status)) await reverseConfirm(db, id, actor);
     await db.transaction.updateMany({
       where: { orderId: id, deletedAt: null },
       data: { deletedAt: new Date() },
@@ -149,59 +159,3 @@ export async function deleteOrder(formData: FormData) {
 
 // ---- efeitos de integração (não exportados) ----
 
-async function applyConfirm(db: DbClient, orderId: number) {
-  const order = await db.order.findUnique({
-    where: { id: orderId },
-    include: { items: { include: { product: true } }, transactions: true },
-  });
-  if (!order) return;
-
-  for (const it of order.items) {
-    // Serviços não controlam estoque.
-    if (it.product.kind === "SERVICE") continue;
-    await db.product.update({
-      where: { id: it.productId },
-      data: { stock: { decrement: it.quantity } },
-    });
-  }
-
-  if (order.transactions.length === 0) {
-    await db.transaction.create({
-      data: {
-        description: `Receita do pedido ${order.number}`,
-        type: "RECEIVABLE",
-        amount: order.total,
-        dueDate: addDays(new Date(), 30),
-        status: "PENDING",
-        orderId: order.id,
-        customerId: order.customerId,
-        ownerId: order.ownerId,
-      },
-    });
-  }
-}
-
-async function reverseConfirm(db: DbClient, orderId: number) {
-  const order = await db.order.findUnique({
-    where: { id: orderId },
-    include: { items: { include: { product: true } } },
-  });
-  if (!order) return;
-
-  for (const it of order.items) {
-    if (it.product.kind === "SERVICE") continue;
-    await db.product.update({
-      where: { id: it.productId },
-      data: { stock: { increment: it.quantity } },
-    });
-  }
-  await db.transaction.deleteMany({
-    where: { orderId, status: "PENDING" },
-  });
-}
-
-function addDays(date: Date, days: number): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}

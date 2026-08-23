@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { asEnum } from "@/lib/format";
 import { parseMoney } from "@/lib/money";
+import { isStale, VERSION_FIELD } from "@/lib/concurrency";
 import {
   GREETING_PADRAO,
   PROPOSAL_TYPES,
@@ -102,6 +103,14 @@ export async function updateProposal(formData: FormData) {
   if (!id) return;
   const current = await prisma.proposal.findUnique({ where: { id } });
   if (!current || !(await canEditLead(current.leadId))) return;
+
+  // Bloqueio otimista: se a proposta mudou entre carregar e salvar, alguém
+  // gravou primeiro. Sem isto o último a clicar apagava o trabalho do outro
+  // em silêncio — e a proposta é justamente o documento em que duas pessoas
+  // mexem juntas antes de mandar ao cliente.
+  if (isStale(formData.get(VERSION_FIELD), current.updatedAt)) {
+    redirect(`/proposals/${id}?conflito=1`);
+  }
 
   // Com itens no orçamento o campo de valor fica desabilitado e o navegador
   // não o envia — sem isso, salvar zeraria o valor fechado já digitado.
