@@ -14,6 +14,7 @@ import {
   proposalPrice,
 } from "@/lib/proposals";
 import { PageHeader } from "../../components/ui";
+import ProposalSection from "./ProposalSection";
 import { Icon } from "../../components/icons";
 import SubmitButton from "../../components/SubmitButton";
 import PrintButton from "../../reports/PrintButton";
@@ -75,13 +76,19 @@ export default async function ProposalPage({
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* Editor */}
         <div className="no-print space-y-4">
-          <form action={updateProposal} className="card space-y-3 p-5">
+          <form action={updateProposal} className="card p-5">
             <input type="hidden" name="id" value={proposal.id} />
-            <div className="flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between">
               <h2 className="font-semibold text-slate-800">Dados da proposta</h2>
-              <span className="text-xs text-slate-400">R{proposal.revision}</span>
+              <span className="text-xs text-slate-400">Revisão R{proposal.revision}</span>
             </div>
 
+            <ProposalSection
+              title="Identificação"
+              hint="Tipo, título, cliente, local da obra e contato"
+              icon="customers"
+              defaultOpen
+            >
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="label">Tipo de serviço</label>
@@ -135,6 +142,14 @@ export default async function ProposalPage({
               </div>
             </div>
 
+            </ProposalSection>
+
+            <ProposalSection
+              title="Texto da proposta"
+              hint="Vocativo, introdução, escopo, não conformidades e observações"
+              icon="pen"
+              defaultOpen
+            >
             <div>
               <label className="label">Vocativo</label>
               <input
@@ -182,8 +197,15 @@ export default async function ProposalPage({
               <textarea name="notes" rows={4} defaultValue={proposal.notes ?? ""} className="input" />
             </div>
 
-            <div className="space-y-3 rounded-lg border border-slate-200 p-3">
-              <p className="text-sm font-semibold text-slate-700">Composição do preço</p>
+            </ProposalSection>
+
+            <ProposalSection
+              title="Preço e impostos"
+              hint="Mão de obra, equipamento, componentes, frete e tributos"
+              icon="finance"
+              defaultOpen
+            >
+            <div className="space-y-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px]">
                 <div>
                   <label className="label">Rótulo da mão de obra</label>
@@ -234,6 +256,13 @@ export default async function ProposalPage({
               <label className="label">Impostos</label>
               <textarea name="taxes" rows={3} defaultValue={proposal.taxes ?? ""} className="input" />
             </div>
+            </ProposalSection>
+
+            <ProposalSection
+              title="Prazos e pagamento"
+              hint="Execução, fabricação, cronograma, condições, descarga e piso"
+              icon="calendar"
+            >
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="label">Prazo de execução</label>
@@ -262,6 +291,13 @@ export default async function ProposalPage({
                 <textarea name="floorNote" rows={3} defaultValue={proposal.floorNote ?? ""} className="input" placeholder="Resistência e nivelamento…" />
               </div>
             </div>
+            </ProposalSection>
+
+            <ProposalSection
+              title="Técnico e garantia"
+              hint="Tratamento de superfície, cores, garantia, NCM e normas"
+              icon="inspection"
+            >
             <div>
               <label className="label">Tratamento de superfície e pintura</label>
               <textarea name="surfaceTreatment" rows={3} defaultValue={proposal.surfaceTreatment ?? ""} className="input" />
@@ -283,6 +319,22 @@ export default async function ProposalPage({
               <input name="ncm" defaultValue={proposal.ncm ?? ""} className="input" placeholder="73.08.90.90" />
             </div>
 
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                name="showNorms"
+                defaultChecked={proposal.showNorms}
+                className="h-4 w-4"
+              />
+              Incluir tabela de normas aplicadas (AISI, FEM, NBR, RMI…)
+            </label>
+            </ProposalSection>
+
+            <ProposalSection
+              title="Assinatura e validade"
+              hint="Prazo de validade e dados de quem assina"
+              icon="lock"
+            >
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
               <div>
                 <label className="label">Validade (dias)</label>
@@ -302,18 +354,15 @@ export default async function ProposalPage({
               </div>
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                name="showNorms"
-                defaultChecked={proposal.showNorms}
-                className="h-4 w-4"
-              />
-              Incluir tabela de normas aplicadas (AISI, FEM, NBR, RMI…)
-            </label>
+            </ProposalSection>
 
-            <div className="flex flex-wrap gap-2 pt-1">
+            {/* Fica colado no rodapé enquanto rola: com o formulário longo,
+                mudar uma linha obrigava a rolar até o fim para salvar. */}
+            <div className="proposal-save-bar mt-4 flex flex-wrap items-center gap-3">
               <SubmitButton>Salvar e atualizar prévia</SubmitButton>
+              <span className="text-xs text-slate-400">
+                A prévia ao lado só muda depois de salvar.
+              </span>
             </div>
           </form>
 

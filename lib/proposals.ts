@@ -34,6 +34,26 @@ export const PROPOSAL_TYPE_PREFIX: Record<string, string> = {
 };
 
 // Vocativo padrão das propostas.
+/**
+ * O que o assistente de IA sabe redigir. Fica aqui, e não na rota, por dois
+ * motivos: uma rota do App Router só pode exportar os handlers HTTP (exportar
+ * outra coisa quebra o build), e assim servidor e tela leem a MESMA lista —
+ * sem risco de a rota aceitar um tipo que a interface não oferece.
+ */
+export const PROPOSAL_AI_TYPES = [
+  "scope",
+  "commercial",
+  "findings",
+  "findings_table",
+  "full",
+] as const;
+
+export type ProposalAIType = (typeof PROPOSAL_AI_TYPES)[number];
+
+export function isProposalAIType(v: unknown): v is ProposalAIType {
+  return typeof v === "string" && (PROPOSAL_AI_TYPES as readonly string[]).includes(v);
+}
+
 export const GREETING_PADRAO = "Prezados (as) Senhores (as)";
 
 // Dados fixos do rodapé/assinatura.

@@ -3,10 +3,11 @@ import { executeAICompletion } from "@/lib/ai/client";
 import { errorMessage, requireUser } from "@/lib/ai/guard";
 import { isAdmin } from "@/lib/auth";
 import { AIProviderId } from "@/lib/ai/types";
+import { isProposalAIType, type ProposalAIType } from "@/lib/proposals";
 
 export const dynamic = "force-dynamic";
 
-type GenerationType = "scope" | "commercial" | "findings" | "full";
+type GenerationType = ProposalAIType;
 
 const SYSTEM_PROMPT = `Você é um engenheiro sênior e consultor técnico comercial da DRR Projetos e Equipamentos, especializado em estruturas de armazenagem logística (porta-paletes, mezaninos, gradil NR12, wire deck, inspeções periódicas conforme ABNT NBR 15524, montagem e locação de plataformas PTA).
 
@@ -64,6 +65,34 @@ Para cada item, indique:
 Apresente como lista categorizada por gravidade.`;
   }
 
+  if (type === "findings_table") {
+    // O campo "Não conformidades" da proposta NÃO é texto corrido: é uma
+    // tabela separada por TAB que parseFindings lê coluna a coluna. A análise
+    // em prosa, colada ali, virava uma tabela de lixo — uma linha por
+    // parágrafo, com tudo na primeira coluna. Aqui o modelo já devolve as
+    // linhas prontas para o campo.
+    return `Converta as não conformidades abaixo em LINHAS DE TABELA para o campo de vistoria da DRR.
+
+DADOS DA VISTORIA:
+${data.findings || data.customInstructions || "(nenhuma não conformidade informada)"}${extra}
+
+FORMATO DE SAÍDA — siga à risca:
+- Uma não conformidade por linha.
+- Exatamente 7 colunas, separadas por TAB, nesta ordem:
+  RUA<TAB>LOCALIZAÇÃO<TAB>NÍVEL<TAB>FABRICANTE<TAB>COMPONENTE<TAB>DANO<TAB>AÇÃO
+- NÃO escreva linha de cabeçalho.
+- NÃO use markdown, bullets, numeração, aspas ou linhas de separação.
+- A coluna DANO aceita somente: Leve, Média, Grave ou Falta.
+  (É ela que define a cor da célula na proposta impressa.)
+- A coluna AÇÃO é curta e imperativa: "Reposicionar", "Trocar longarina",
+  "Instalar trava", "Reforçar chapa de base".
+- Coluna sem informação fica VAZIA (dois TABs seguidos), nunca "N/A" ou "-".
+
+Exemplo de duas linhas válidas (\\t = TAB):
+A\t25\t7\tMetalshop\tLongarina\tMédia\tReposicionar
+B\t12\t3\t\tMontante\tGrave\tTrocar montante`;
+  }
+
   return `Revise e aprimore o texto abaixo para deixá-lo altamente profissional, mantendo todos os fatos, números e compromissos exatamente como estão:
 
 ${data.customInstructions || data.currentScope || "(nenhum texto informado)"}`;
@@ -75,9 +104,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const type: GenerationType = ["scope", "commercial", "findings", "full"].includes(body.type)
-      ? body.type
-      : "full";
+    const type: GenerationType = isProposalAIType(body.type) ? body.type : "full";
 
     const completion = await executeAICompletion({
       provider: (body.provider as AIProviderId) || undefined,
@@ -86,7 +113,10 @@ export async function POST(req: NextRequest) {
       baseUrl: typeof body.baseUrl === "string" ? body.baseUrl : undefined,
       messages: [{ role: "user", content: buildPrompt(type, body) }],
       systemPrompt: SYSTEM_PROMPT,
-      temperature: 0.4,
+      // A tabela de vistoria é formato, não redação: com temperatura alta o
+      // modelo "melhora" a saída inventando cabeçalho, bullet ou markdown, e
+      // aí parseFindings lê tudo torto.
+      temperature: type === "findings_table" ? 0.15 : 0.4,
       maxTokens: 2500,
       signal: req.signal,
       isAdmin: isAdmin(auth.user),
