@@ -213,7 +213,7 @@ export default async function ProjectsPage({
                       )}
                     </td>
                     <td className="td">
-                      <Badge className="bg-slate-100 text-slate-700">
+                      <Badge className="badge-tone badge-neutral">
                         {PROJECT_TYPE_LABELS[p.type]}
                       </Badge>
                     </td>

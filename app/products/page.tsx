@@ -129,8 +129,8 @@ export default async function ProductsPage({
                         <Badge
                           className={
                             p.stock <= 5
-                              ? "bg-red-100 text-red-700"
-                              : "bg-green-100 text-green-700"
+                              ? "badge-tone badge-danger"
+                              : "badge-tone badge-success"
                           }
                         >
                           {p.stock} un.

@@ -75,7 +75,7 @@ export default async function AuditPage({
                     </td>
                     <td className="td text-slate-700">{l.userName ?? "—"}</td>
                     <td className="td">
-                      <Badge className={AUDIT_ACTION_COLORS[l.action] ?? "bg-slate-100 text-slate-700"}>
+                      <Badge className={AUDIT_ACTION_COLORS[l.action] ?? "badge-tone badge-neutral"}>
                         {AUDIT_ACTION_LABELS[l.action] ?? l.action}
                       </Badge>
                     </td>

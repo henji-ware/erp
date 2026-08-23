@@ -157,8 +157,8 @@ export default async function HrPage({
                         <Badge
                           className={
                             e.contractType === "PJ"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-slate-100 text-slate-600"
+                              ? "badge-tone badge-info"
+                              : "badge-tone badge-neutral"
                           }
                         >
                           {e.contractType}

@@ -31,7 +31,7 @@ export function ShareToggle({
       <button
         className={`inline-flex items-center rounded-md px-1.5 py-1 transition-colors ${
           shared
-            ? "bg-green-100 text-green-700 hover:bg-green-200"
+            ? "badge-tone badge-success"
             : "text-slate-400 hover:bg-slate-100 hover:text-slate-700"
         }`}
         title={shared ? "Compartilhado — clique para tornar privado" : "Compartilhar com a equipe"}

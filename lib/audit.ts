@@ -37,8 +37,8 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 };
 
 export const AUDIT_ACTION_COLORS: Record<string, string> = {
-  CREATE: "bg-green-100 text-green-700",
-  UPDATE: "bg-blue-100 text-blue-700",
-  DELETE: "bg-red-100 text-red-700",
-  STATUS: "bg-amber-100 text-amber-700",
+  CREATE: "badge-tone badge-success",
+  UPDATE: "badge-tone badge-info",
+  DELETE: "badge-tone badge-danger",
+  STATUS: "badge-tone badge-warn",
 };

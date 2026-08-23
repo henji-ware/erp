@@ -14,7 +14,7 @@ import { OwnerTag } from "../components/OwnerTag";
 import DocumentInput from "../components/DocumentInput";
 import SubmitButton from "../components/SubmitButton";
 import StageSelect from "./StageSelect";
-import { KanbanCard, KanbanColumn } from "./KanbanBoard";
+import { KanbanBoard, KanbanCard, KanbanColumn } from "./KanbanBoard";
 import { createLead, convertLeadToCustomer, deleteLead } from "./actions";
 import { getCurrentUser, crmScope, isAdmin, ownerNames } from "@/lib/auth";
 
@@ -115,12 +115,15 @@ export default async function LeadsPage({
       </div>
 
       {/* Kanban */}
-      <p className="mb-3 flex items-center gap-1.5 text-xs text-slate-400">
-        <Icon name="arrowRight" size={13} />
-        Arraste um cartão pela alça para mudar a etapa — ou use o seletor
-        “Mover para” dentro dele.
+      <p className="mb-3 flex items-start gap-1.5 text-xs text-slate-400">
+        <span className="mt-0.5 shrink-0"><Icon name="arrowRight" size={13} /></span>
+        <span>
+          Segure a alça <span className="text-slate-500">⠿</span> e arraste para
+          mudar a etapa — funciona no toque também. Aproxime das bordas para a
+          lista rolar sozinha, ou use o seletor “Mover para” dentro do cartão.
+        </span>
       </p>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
+      <KanbanBoard>
         {LEAD_STAGES.map((stage) => (
           <KanbanColumn key={stage} stage={stage}>
             <div className="mb-3 flex items-center justify-between px-1">
@@ -156,7 +159,7 @@ export default async function LeadsPage({
                     <p className="text-[11px] text-slate-400">por {owners.get(l.ownerId)}</p>
                   )}
                   {l.stage === "LOST" && l.lossReason && (
-                    <Badge className="mt-1 bg-red-100 text-red-700">
+                    <Badge className="mt-1 badge-tone badge-danger">
                       {LEAD_LOSS_REASON_LABELS[l.lossReason]}
                     </Badge>
                   )}
@@ -201,7 +204,7 @@ export default async function LeadsPage({
             </div>
           </KanbanColumn>
         ))}
-      </div>
+      </KanbanBoard>
     </div>
   );
 }

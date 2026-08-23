@@ -5,6 +5,7 @@ import { AI_PROVIDERS } from "@/lib/ai/providers";
 import { AIProviderId } from "@/lib/ai/types";
 import { activeCredentials, availableModels, configuredProviders, useAISettings } from "../../components/useAISettings";
 import { Icon, type IconName } from "../../components/icons";
+import { Alert } from "../../components/ui";
 
 interface ProposalAIAssistantProps {
   proposalType: string;
@@ -44,7 +45,14 @@ export default function ProposalAIAssistant({
   const [error, setError] = useState("");
   const [generatedText, setGeneratedText] = useState("");
   const [feedback, setFeedback] = useState("");
+  // Modelo e tempo da última geração: com onze provedores e troca rápida no
+  // seletor, dizer QUEM escreveu o texto evita comparar versões no escuro.
+  const [lastRun, setLastRun] = useState<{ model: string; ms: number } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Proposta é documento que vai ao cliente: saber o tamanho antes de aplicar
+  // importa mais aqui do que num chat.
+  const wordCount = generatedText.trim() ? generatedText.trim().split(/\s+/).length : 0;
 
   const creds = activeCredentials(settings, {
     provider: providerOverride || undefined,
@@ -69,7 +77,9 @@ export default function ProposalAIAssistant({
     setError("");
     setFeedback("");
     setGeneratedText("");
+    setLastRun(null);
 
+    const startedAt = Date.now();
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -99,6 +109,10 @@ export default function ProposalAIAssistant({
       if (!data.text?.trim()) throw new Error("O modelo devolveu um texto vazio. Tente outro modelo.");
 
       setGeneratedText(data.text);
+      setLastRun({
+        model: data.model || creds.model,
+        ms: typeof data.latencyMs === "number" ? data.latencyMs : Date.now() - startedAt,
+      });
     } catch (err: any) {
       if (err?.name !== "AbortError") setError(err.message);
     } finally {
@@ -107,18 +121,35 @@ export default function ProposalAIAssistant({
     }
   };
 
-  const handleApplyToForm = () => {
+  /**
+   * Leva o texto para o campo de escopo.
+   *
+   * `mode: "append"` existe porque substituir era a única opção: quem já
+   * tinha escrito meia proposta e pedia "análise de riscos" perdia o que
+   * havia digitado, sem desfazer.
+   */
+  const handleApplyToForm = (mode: "replace" | "append" = "replace") => {
     if (!generatedText) return;
 
+    const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="scope"]');
+    const current = onApplyScope ? currentScope ?? "" : (textarea?.value ?? "");
+    const next =
+      mode === "append" && current.trim()
+        ? `${current.trimEnd()}\n\n${generatedText}`
+        : generatedText;
+
     if (onApplyScope) {
-      onApplyScope(generatedText);
-      setFeedback("Texto inserido no escopo. Não esqueça de salvar a proposta.");
+      onApplyScope(next);
+      setFeedback(
+        mode === "append"
+          ? "Texto acrescentado ao final do escopo. Não esqueça de salvar."
+          : "Texto inserido no escopo. Não esqueça de salvar a proposta.",
+      );
       return;
     }
 
     // Sem callback: escreve direto no textarea do formulário. O setter nativo é
     // necessário porque o React ignora a atribuição direta em .value.
-    const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="scope"]');
     if (!textarea) {
       setError("Campo de escopo não encontrado nesta tela. Use o botão Copiar.");
       return;
@@ -127,10 +158,14 @@ export default function ProposalAIAssistant({
       window.HTMLTextAreaElement.prototype,
       "value"
     )?.set;
-    setter?.call(textarea, generatedText);
+    setter?.call(textarea, next);
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
     textarea.focus();
-    setFeedback("Texto inserido no escopo. Não esqueça de salvar a proposta.");
+    setFeedback(
+      mode === "append"
+        ? "Texto acrescentado ao final do escopo. Não esqueça de salvar."
+        : "Texto inserido no escopo. Não esqueça de salvar a proposta.",
+    );
   };
 
   const handleCopy = async () => {
@@ -297,29 +332,20 @@ export default function ProposalAIAssistant({
                 )}
               </button>
 
-              {error && (
-                <div
-                  role="alert"
-                  className="alert-surface alert-danger rounded-xl p-3 text-xs leading-relaxed text-slate-700"
-                >
-                  {error}
-                </div>
-              )}
-              {feedback && (
-                <div
-                  role="status"
-                  className="p-3 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs"
-                >
-                  {feedback}
-                </div>
-              )}
+              {/* `bg-emerald-50` não é token do tema: no modo escuro a caixa
+                  de sucesso ficava verde-clarinha brilhando na tela. */}
+              {error && <Alert tone="danger" size="sm">{error}</Alert>}
+              {feedback && <Alert tone="success" size="sm">{feedback}</Alert>}
 
               {/* Resultado */}
               {generatedText && (
                 <div className="space-y-2 pt-1 animate-fade-in">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                     <span className="text-xs font-bold text-slate-800">Resultado gerado</span>
-                    <span className="text-xs text-slate-500">Revise antes de aplicar</span>
+                    <span className="text-[11px] text-slate-500">
+                      {wordCount} palavras · {generatedText.length} caracteres
+                      {lastRun && ` · ${lastRun.model} em ${(lastRun.ms / 1000).toFixed(1)}s`}
+                    </span>
                   </div>
 
                   <textarea
@@ -329,16 +355,42 @@ export default function ProposalAIAssistant({
                     className="input text-xs leading-relaxed"
                   />
 
+                  <p className="text-[11px] text-slate-400">
+                    Revise antes de aplicar — o texto é um rascunho, e a
+                    responsabilidade técnica continua sendo do engenheiro.
+                  </p>
+
                   <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleGenerate}
+                      disabled={loading}
+                      className="btn-secondary btn-sm mr-auto"
+                      title="Gerar outra versão com as mesmas opções"
+                    >
+                      <Icon name="ai" size={13} /> Gerar de novo
+                    </button>
                     <button type="button" onClick={handleCopy} className="btn-secondary btn-sm">
-                      Copiar texto
+                      Copiar
                     </button>
                     <button
                       type="button"
-                      onClick={handleApplyToForm}
-                      className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => handleApplyToForm("append")}
+                      className="btn-secondary btn-sm"
+                      title="Mantém o que já está escrito e acrescenta abaixo"
                     >
-                      Inserir no escopo da proposta
+                      Acrescentar ao final
+                    </button>
+                    {/* `text-white` seria um TIRO NO PÉ aqui: `white` é token do
+                        tema e aponta para a superfície, então no escuro o texto
+                        do botão ficaria quase preto sobre o verde. */}
+                    <button
+                      type="button"
+                      onClick={() => handleApplyToForm("replace")}
+                      style={{ color: "#ffffff" }}
+                      className="btn btn-sm bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      Substituir o escopo
                     </button>
                   </div>
                 </div>

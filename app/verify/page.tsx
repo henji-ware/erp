@@ -29,7 +29,7 @@ export default async function VerifyPage({
         </div>
         {ok ? (
           <>
-            <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-600">
+            <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full badge-tone badge-success">
               <Icon name="check" size={24} />
             </span>
             <h1 className="text-xl font-bold text-slate-900">E-mail confirmado!</h1>
@@ -39,7 +39,7 @@ export default async function VerifyPage({
           </>
         ) : (
           <>
-            <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+            <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full badge-tone badge-danger">
               <Icon name="close" size={24} />
             </span>
             <h1 className="text-xl font-bold text-slate-900">Link inválido ou expirado</h1>

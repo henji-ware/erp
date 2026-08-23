@@ -211,8 +211,8 @@ export default async function FinancePage({
                         <Badge
                           className={
                             t.type === "RECEIVABLE"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
+                              ? "badge-tone badge-success"
+                              : "badge-tone badge-danger"
                           }
                         >
                           {TX_TYPE_LABELS[t.type]}

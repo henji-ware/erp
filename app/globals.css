@@ -986,3 +986,71 @@ html.no-anim *::after {
   height: 1.25rem;
   border-radius: 0.375rem;
 }
+
+/* =========================================================================
+   KANBAN — alça de arrasto
+
+   No desktop a alça só aparece com o mouse em cima, para não poluir o cartão.
+   No celular NÃO existe hover: `group-hover:opacity-100` deixaria a alça
+   invisível (ou, pior, grudada visível depois de um toque, por causa do
+   :hover persistente dos navegadores móveis). Onde o ponteiro é grosso ela
+   fica sempre visível e com alvo de 36px, que é o mínimo confortável.
+   ========================================================================= */
+@media (hover: hover) and (pointer: fine) {
+  .kanban-grip {
+    opacity: 0;
+  }
+  .group:hover .kanban-grip,
+  .kanban-grip:focus-visible {
+    opacity: 1;
+  }
+  .kanban-grip {
+    cursor: grab;
+  }
+  .kanban-grip:active {
+    cursor: grabbing;
+  }
+}
+
+.kanban-grip {
+  touch-action: none;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .kanban-grip {
+    opacity: 1;
+    /* No toque a alça precisa se ler como um controle, não como enfeite. */
+    background-color: color-mix(in srgb, var(--c-slate-200) 70%, transparent);
+    color: var(--c-slate-500);
+  }
+}
+
+/* Durante o arrasto o cartão não deve animar o transform: a animação
+   competiria com o translate3d que segue o dedo e o cartão ficaria "mole". */
+.kanban-dragging {
+  transition: none !important;
+}
+
+/* =========================================================================
+   BADGES DE ESTADO
+
+   Mesma armadilha dos alertas: `bg-amber-100 text-amber-700` não é token do
+   tema, então no modo escuro a pílula continuava creme com texto marrom —
+   um retângulo claro brilhando no meio de uma tabela escura.
+
+   Aqui a cor entra como --badge-color e é misturada: o fundo é a cor em
+   transparência (funciona sobre cartão e sobre a página) e o texto mistura a
+   mesma cor com --c-slate-900, o neutro de maior contraste, que já inverte
+   com o modo.
+   ========================================================================= */
+.badge-tone {
+  background-color: color-mix(in srgb, var(--badge-color) 20%, transparent);
+  color: color-mix(in srgb, var(--badge-color) 46%, var(--c-slate-900));
+}
+
+.badge-neutral { --badge-color: var(--c-slate-400); }
+.badge-info    { --badge-color: #3b82f6; }
+.badge-warn    { --badge-color: #f59e0b; }
+.badge-success { --badge-color: #10b981; }
+.badge-danger  { --badge-color: #ef4444; }
+.badge-accent  { --badge-color: var(--accent); }

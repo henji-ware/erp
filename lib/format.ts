@@ -95,11 +95,11 @@ export const PROJECT_STATUS_LABELS: Record<string, string> = {
 };
 
 export const PROJECT_STATUS_COLORS: Record<string, string> = {
-  ORCAMENTO: "bg-slate-100 text-slate-700",
-  APROVADO: "bg-blue-100 text-blue-700",
-  EM_EXECUCAO: "bg-amber-100 text-amber-700",
-  CONCLUIDO: "bg-green-100 text-green-700",
-  CANCELADO: "bg-red-100 text-red-700",
+  ORCAMENTO: "badge-tone badge-neutral",
+  APROVADO: "badge-tone badge-info",
+  EM_EXECUCAO: "badge-tone badge-warn",
+  CONCLUIDO: "badge-tone badge-success",
+  CANCELADO: "badge-tone badge-danger",
 };
 
 // ---- Inspeções e Laudos ----
@@ -110,9 +110,9 @@ export const INSPECTION_STATUS_LABELS: Record<string, string> = {
   LAUDO_EMITIDO: "Laudo emitido",
 };
 export const INSPECTION_STATUS_COLORS: Record<string, string> = {
-  AGENDADA: "bg-blue-100 text-blue-700",
-  REALIZADA: "bg-amber-100 text-amber-700",
-  LAUDO_EMITIDO: "bg-green-100 text-green-700",
+  AGENDADA: "badge-tone badge-info",
+  REALIZADA: "badge-tone badge-warn",
+  LAUDO_EMITIDO: "badge-tone badge-success",
 };
 
 // Classificação de risco por cores (padrão DRR / NR-11)
@@ -123,9 +123,9 @@ export const RISK_LABELS: Record<string, string> = {
   VERMELHO: "Vermelho (crítico)",
 };
 export const RISK_COLORS: Record<string, string> = {
-  VERDE: "bg-green-100 text-green-700",
-  AMARELO: "bg-amber-100 text-amber-700",
-  VERMELHO: "bg-red-100 text-red-700",
+  VERDE: "badge-tone badge-success",
+  AMARELO: "badge-tone badge-warn",
+  VERMELHO: "badge-tone badge-danger",
 };
 
 // ---- Agendamentos ----
@@ -142,9 +142,9 @@ export const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
   CANCELLED: "Cancelado",
 };
 export const APPOINTMENT_STATUS_COLORS: Record<string, string> = {
-  SCHEDULED: "bg-blue-100 text-blue-700",
-  DONE: "bg-green-100 text-green-700",
-  CANCELLED: "bg-red-100 text-red-700",
+  SCHEDULED: "badge-tone badge-info",
+  DONE: "badge-tone badge-success",
+  CANCELLED: "badge-tone badge-danger",
 };
 
 // Dias até a remoção automática de itens da Lixeira.
@@ -157,8 +157,8 @@ export const USER_ROLE_LABELS: Record<string, string> = {
   USER: "Usuário",
 };
 export const USER_ROLE_COLORS: Record<string, string> = {
-  ADMIN: "bg-brand-100 text-brand-700",
-  USER: "bg-slate-100 text-slate-600",
+  ADMIN: "badge-tone badge-accent",
+  USER: "badge-tone badge-neutral",
 };
 
 // ---- Categorias de vendedor (RH) ----
@@ -251,11 +251,11 @@ export const LEAD_STAGE_LABELS: Record<string, string> = {
 };
 
 export const LEAD_STAGE_COLORS: Record<string, string> = {
-  NEW: "bg-slate-100 text-slate-700",
-  CONTACTED: "bg-blue-100 text-blue-700",
-  PROPOSAL: "bg-amber-100 text-amber-700",
-  WON: "bg-green-100 text-green-700",
-  LOST: "bg-red-100 text-red-700",
+  NEW: "badge-tone badge-neutral",
+  CONTACTED: "badge-tone badge-info",
+  PROPOSAL: "badge-tone badge-warn",
+  WON: "badge-tone badge-success",
+  LOST: "badge-tone badge-danger",
 };
 
 // ---- Pedidos ----
@@ -274,10 +274,10 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
 };
 
 export const ORDER_STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-slate-100 text-slate-700",
-  CONFIRMED: "bg-blue-100 text-blue-700",
-  INVOICED: "bg-green-100 text-green-700",
-  CANCELLED: "bg-red-100 text-red-700",
+  DRAFT: "badge-tone badge-neutral",
+  CONFIRMED: "badge-tone badge-info",
+  INVOICED: "badge-tone badge-success",
+  CANCELLED: "badge-tone badge-danger",
 };
 
 // ---- Financeiro ----
@@ -296,9 +296,9 @@ export const TX_STATUS_LABELS: Record<string, string> = {
 };
 
 export const TX_STATUS_COLORS: Record<string, string> = {
-  PENDING: "bg-amber-100 text-amber-700",
-  PARTIAL: "bg-blue-100 text-blue-700",
-  PAID: "bg-green-100 text-green-700",
+  PENDING: "badge-tone badge-warn",
+  PARTIAL: "badge-tone badge-info",
+  PAID: "badge-tone badge-success",
 };
 
 // ---- Formas de pagamento ----
@@ -327,10 +327,10 @@ export const RENTAL_STATUS_LABELS: Record<string, string> = {
   CANCELLED: "Cancelado",
 };
 export const RENTAL_STATUS_COLORS: Record<string, string> = {
-  ACTIVE: "bg-blue-100 text-blue-700",
-  RETURNED: "bg-green-100 text-green-700",
-  OVERDUE: "bg-red-100 text-red-700",
-  CANCELLED: "bg-slate-100 text-slate-600",
+  ACTIVE: "badge-tone badge-info",
+  RETURNED: "badge-tone badge-success",
+  OVERDUE: "badge-tone badge-danger",
+  CANCELLED: "badge-tone badge-neutral",
 };
 
 // ---- Contratos de manutenção ----
@@ -363,9 +363,9 @@ export const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
   ENDED: "Encerrado",
 };
 export const MAINTENANCE_STATUS_COLORS: Record<string, string> = {
-  ACTIVE: "bg-green-100 text-green-700",
-  PAUSED: "bg-amber-100 text-amber-700",
-  ENDED: "bg-slate-100 text-slate-600",
+  ACTIVE: "badge-tone badge-success",
+  PAUSED: "badge-tone badge-warn",
+  ENDED: "badge-tone badge-neutral",
 };
 
 // Nome do ícone correspondente (componente Icon)

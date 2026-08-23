@@ -87,7 +87,7 @@ export function PageHeader({
 
 export function Badge({
   children,
-  className = "bg-slate-100 text-slate-700",
+  className = "badge-tone badge-neutral",
 }: {
   children: React.ReactNode;
   className?: string;

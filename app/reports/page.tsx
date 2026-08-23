@@ -145,8 +145,8 @@ export default async function ReportsPage({
             <Badge
               className={
                 data.winRate >= 50
-                  ? "bg-green-100 text-green-700"
-                  : "bg-amber-100 text-amber-700"
+                  ? "badge-tone badge-success"
+                  : "badge-tone badge-warn"
               }
             >
               {data.winRate.toFixed(0)}% de conversão
@@ -235,10 +235,10 @@ export default async function ReportsPage({
                     <Badge
                       className={
                         p.cls === "A"
-                          ? "bg-green-100 text-green-700"
+                          ? "badge-tone badge-success"
                           : p.cls === "B"
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-slate-100 text-slate-600"
+                            ? "badge-tone badge-warn"
+                            : "badge-tone badge-neutral"
                       }
                     >
                       {p.cls}
