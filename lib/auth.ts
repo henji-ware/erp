@@ -45,6 +45,18 @@ export function isAdmin(user: { role: string } | null | undefined): boolean {
 // os próprios registros OU os marcados como compartilhados.
 // Use dentro de `where`: { deletedAt: null, ...crmScope(user) }.
 // Quando houver busca (outro OR), combine com AND: { AND: [crmScope(user), { OR: [...busca] }] }.
+/**
+ * Confere que o usuário da sessão é administrador.
+ *
+ * Server action não devolve erro para a tela por padrão, então o padrão aqui
+ * é o mesmo do resto do projeto: a ação simplesmente não faz nada. Esconder
+ * o botão na interface é conforto; a checagem que vale é esta, porque um
+ * formulário pode ser postado à mão.
+ */
+export async function isCurrentUserAdmin(): Promise<boolean> {
+  return isAdmin(await getCurrentUser());
+}
+
 export function crmScope(
   user: { id: number; role: string } | null | undefined,
 ): { OR?: ({ ownerId: number } | { shared: boolean })[] } {

@@ -1,11 +1,23 @@
 "use server";
 
+// POLÍTICA DE ESTOQUE
+//
+// Mexer no SALDO é de administrador: acerto de inventário, entrada por
+// compra e o estoque inicial de um item novo. Sem isso, qualquer usuário
+// podia corrigir o próprio erro de contagem sem ninguém saber — e o razão
+// registra quem fez, mas não impede.
+//
+// CONSUMIR estoque continua sendo de todos: confirmar pedido, alugar
+// equipamento, montar orçamento. Essas baixas acontecem pelo fluxo de
+// negócio (applyConfirm), não por edição direta, e travá-las inviabilizaria
+// o trabalho do vendedor.
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { parseMoney } from "@/lib/money";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isCurrentUserAdmin } from "@/lib/auth";
 import type { StockReason } from "@prisma/client";
 
 export async function createProduct(formData: FormData) {
@@ -20,6 +32,14 @@ export async function createProduct(formData: FormData) {
 
   const kind = formData.get("kind") === "SERVICE" ? "SERVICE" : "PRODUCT";
 
+  // Estoque inicial é saldo: quem não é administrador cria o item zerado e
+  // pede a entrada da compra. Senão o "só admin edita estoque" cairia por
+  // terra — bastaria recriar o item com o número desejado.
+  const admin = await isCurrentUserAdmin();
+  const estoqueInicial =
+    kind === "SERVICE" || !admin ? 0 : Math.max(0, int(formData.get("stock")));
+
+  const user = await getCurrentUser();
   const product = await prisma.product.create({
     data: {
       sku,
@@ -27,9 +47,26 @@ export async function createProduct(formData: FormData) {
       kind,
       price: num(formData.get("price")),
       cost: num(formData.get("cost")),
-      stock: kind === "SERVICE" ? 0 : int(formData.get("stock")),
+      stock: estoqueInicial,
     },
   });
+
+  // Saldo de abertura entra no razão como qualquer outro movimento — sem
+  // isso o item já nasceria com um número que o histórico não explica.
+  if (estoqueInicial > 0) {
+    await prisma.stockMovement.create({
+      data: {
+        productId: product.id,
+        quantity: estoqueInicial,
+        balance: estoqueInicial,
+        reason: "ADJUSTMENT",
+        note: "Saldo inicial do cadastro",
+        userId: user?.id ?? null,
+        userName: user?.name ?? null,
+      },
+    });
+  }
+
   await logAudit({ action: "CREATE", entity: "Produto", entityId: product.id, summary: `"${name}" (${sku}) criado` });
 
   revalidatePath("/products");
@@ -56,6 +93,13 @@ export async function updateProduct(formData: FormData) {
     ? await prisma.product.findUnique({ where: { id }, select: { stock: true } })
     : null;
 
+  // Converter um item COM saldo em serviço zera esse saldo — é edição de
+  // estoque por outro caminho. Com saldo zero a conversão é inofensiva e
+  // segue liberada.
+  if (anterior && anterior.stock !== 0 && !(await isCurrentUserAdmin())) {
+    redirect(`/products/${id}?semPermissao=estoque`);
+  }
+
   await prisma.product.update({
     where: { id },
     data: {
@@ -68,7 +112,7 @@ export async function updateProduct(formData: FormData) {
   });
 
   if (virouServico && anterior && anterior.stock !== 0) {
-    const user = await getCurrentUser();
+    const autor = await getCurrentUser();
     await prisma.stockMovement.create({
       data: {
         productId: id,
@@ -76,8 +120,8 @@ export async function updateProduct(formData: FormData) {
         balance: 0,
         reason: "ADJUSTMENT",
         note: "Item convertido em serviço — saldo zerado",
-        userId: user?.id ?? null,
-        userName: user?.name ?? null,
+        userId: autor?.id ?? null,
+        userName: autor?.name ?? null,
       },
     });
   }
@@ -140,6 +184,9 @@ async function moveStock(opts: {
 }
 
 export async function adjustStock(formData: FormData) {
+  // Acerto de inventário é edição direta de saldo: só administrador.
+  if (!(await isCurrentUserAdmin())) return;
+
   const id = Number(formData.get("id"));
   const delta = int(formData.get("delta"));
   if (!id || !delta) return;
@@ -168,6 +215,9 @@ export async function adjustStock(formData: FormData) {
 
 /** Entrada de mercadoria por compra: é o caminho pelo qual o estoque SOBE. */
 export async function receiveStock(formData: FormData) {
+  // Entrada de mercadoria também mexe no saldo (e no custo): administrador.
+  if (!(await isCurrentUserAdmin())) return;
+
   const id = Number(formData.get("id"));
   const quantity = int(formData.get("quantity"));
   if (!id || quantity <= 0) return;

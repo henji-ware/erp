@@ -6,6 +6,7 @@ import { Icon } from "../components/icons";
 import { SearchBar } from "../components/SearchBar";
 import { Pagination } from "../components/Pagination";
 import { parsePage, paginate } from "@/lib/pagination";
+import { isCurrentUserAdmin } from "@/lib/auth";
 import SubmitButton from "../components/SubmitButton";
 import { createProduct, deleteProduct, adjustStock } from "./actions";
 
@@ -17,6 +18,10 @@ export default async function ProductsPage({
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { q, page: pageParam } = await searchParams;
+  // Saldo é editável só por administrador (ver a política em ./actions.ts).
+  // Aqui é só conforto: esconder o controle em vez de deixar um botão que
+  // não faz nada. A checagem que vale está na server action.
+  const admin = await isCurrentUserAdmin();
   const where = {
     deletedAt: null,
     ...(q
@@ -80,10 +85,17 @@ export default async function ProductsPage({
                 <input name="cost" type="number" step="0.01" min="0" className="input" />
               </div>
             </div>
-            <div>
-              <label className="label">Estoque inicial</label>
-              <input name="stock" type="number" min="0" defaultValue={0} className="input" />
-            </div>
+            {admin ? (
+              <div>
+                <label className="label">Estoque inicial</label>
+                <input name="stock" type="number" min="0" defaultValue={0} className="input" />
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400">
+                O item nasce com estoque zero. A entrada da compra é feita por
+                um administrador.
+              </p>
+            )}
             <SubmitButton>Cadastrar produto</SubmitButton>
           </form>
         </div>
@@ -96,14 +108,14 @@ export default async function ProductsPage({
                 <th className="th">Produto</th>
                 <th className="th">Preço</th>
                 <th className="th">Estoque</th>
-                <th className="th text-center">Ajuste</th>
+                {admin && <th className="th text-center">Ajuste</th>}
                 <th className="th"></th>
               </tr>
             </thead>
             <tbody>
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={admin ? 5 : 4}>
                     <EmptyState>Nenhum produto cadastrado.</EmptyState>
                   </td>
                 </tr>
@@ -137,6 +149,7 @@ export default async function ProductsPage({
                         </Badge>
                       )}
                     </td>
+                    {admin && (
                     <td className="td">
                       {p.kind === "SERVICE" ? (
                         <p className="text-center text-slate-400">—</p>
@@ -161,6 +174,7 @@ export default async function ProductsPage({
                         </div>
                       )}
                     </td>
+                    )}
                     <td className="td">
                       <div className="flex items-center justify-end gap-1">
                         <Link href={`/products/${p.id}`} className="btn-ghost px-3 py-1.5 text-xs">

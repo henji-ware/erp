@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { isCurrentUserAdmin } from "@/lib/auth";
 import { PageHeader, Alert, Badge } from "../../components/ui";
 import { Icon } from "../../components/icons";
 import SubmitButton from "../../components/SubmitButton";
@@ -15,11 +16,18 @@ const HISTORICO = 40;
 
 export default async function EditProductPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ semPermissao?: string }>;
 }) {
-  const { id } = await params;
+  const [{ id }, { semPermissao }] = await Promise.all([params, searchParams]);
   const productId = Number(id);
+
+  // Editar SALDO é de administrador; ver o histórico é de todos — é ele que
+  // permite ao vendedor entender por que um item está zerado sem precisar
+  // perguntar.
+  const admin = await isCurrentUserAdmin();
 
   const [product, movements, suppliers] = await Promise.all([
     prisma.product.findUnique({ where: { id: productId } }),
@@ -50,6 +58,14 @@ export default async function EditProductPage({
           </Link>
         }
       />
+
+      {semPermissao === "estoque" && (
+        <Alert tone="warn" title="Alteração não aplicada" className="mb-4">
+          Converter um item que ainda tem saldo em serviço zera esse saldo, e
+          isso é edição de estoque — reservada a administradores. Zere o
+          estoque antes, ou peça a conversão a um administrador.
+        </Alert>
+      )}
 
       <div className="card p-6">
         <h2 className="mb-4 font-semibold text-slate-800">Dados do item</h2>
@@ -115,6 +131,13 @@ export default async function EditProductPage({
               </Alert>
             )}
 
+            {!admin ? (
+              <Alert tone="neutral" size="sm">
+                Só administradores movimentam o saldo. Você continua usando o
+                item normalmente — em orçamentos, pedidos e locações — e a baixa
+                acontece sozinha quando o pedido é confirmado.
+              </Alert>
+            ) : (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {/* Entrada por compra */}
               <form action={receiveStock} className="space-y-3 rounded-lg border border-slate-200 p-4">
@@ -170,6 +193,7 @@ export default async function EditProductPage({
                 <SubmitButton className="btn-ghost w-full">Aplicar acerto</SubmitButton>
               </form>
             </div>
+            )}
           </div>
 
           {/* Razão */}
