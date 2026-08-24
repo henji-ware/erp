@@ -80,11 +80,11 @@ revisa o texto já existente.
 
 ### Como funciona uma pergunta
 
-O navegador envia a pergunta junto da chave de API da conta. A rota exige sessão
-válida e responde `401` em JSON se não houver. Em seguida lê do banco o resumo do
-ERP, apenas para leitura, e valida a URL base informada, bloqueando endereços de
-rede interna. Só então chama o provedor de IA, e devolve a resposta ao navegador
-em partes, conforme ela é gerada.
+O navegador envia apenas a pergunta — a chave de API fica no servidor. A rota
+exige sessão válida e responde `401` em JSON se não houver. Em seguida busca a
+chave da conta, lê do banco o resumo do ERP (apenas leitura) e valida a URL base,
+bloqueando endereços de rede interna. Só então chama o provedor de IA, e devolve a
+resposta ao navegador em partes, conforme ela é gerada.
 
 ### Provedores disponíveis
 
@@ -115,20 +115,27 @@ estava salvo não aparecer mais nessa lista, ele é descartado automaticamente.
 
 ### Onde a chave de API fica guardada
 
-A chave fica no `localStorage` do navegador, em um espaço separado por conta, e é
-enviada ao servidor apenas no corpo de cada consulta.
+A chave é gravada **cifrada no banco** (AES-256-GCM), ligada à conta do usuário.
+O servidor a decifra apenas no instante de chamar o provedor; ela nunca volta ao
+navegador. A tela mostra só os quatro últimos caracteres, o suficiente para a
+pessoa reconhecer qual chave está salva.
 
 O cookie guarda somente o provedor escolhido, o modelo e a URL base — nunca a
-chave. No banco de dados não é gravado nada.
+chave. Cookie viaja em toda requisição e é legível por qualquer script da página,
+então não é lugar para segredo.
 
-São duas as razões. Cookie viaja em toda requisição e é legível por qualquer
-script da página, então não é lugar para segredo. E a separação por conta impede
-que, num computador compartilhado, quem entrar depois herde e gaste a chave de
-quem usou antes.
+A cifra usa a variável `AI_ENCRYPTION_KEY`; sem ela, o `SESSION_SECRET` serve de
+origem. **Trocar esse segredo torna as chaves guardadas ilegíveis** — o sistema
+continua de pé (cai na chave do `.env`, se houver, e a tela avisa), mas cada
+usuário precisa cadastrar a dele de novo. Não há recuperação.
 
-Isso tem uma consequência: como a chave nunca sai do navegador, ela não acompanha
-o usuário para outro computador. Para uma chave única da equipe, use a variável de
-ambiente do servidor e deixe o campo em branco.
+Como a chave vive na conta e não na máquina, ela acompanha o usuário em qualquer
+computador ou celular. Para uma chave única da equipe, use a variável de ambiente
+do servidor: ela vale para quem não cadastrar a própria.
+
+Antes desta versão a chave ficava no `localStorage` do navegador. Quem já tinha
+uma cadastrada não precisa refazer nada: na primeira carga ela é enviada ao
+servidor e apagada do navegador.
 
 ### Chaves no servidor
 

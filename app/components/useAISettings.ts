@@ -15,9 +15,14 @@ import { saveApiKey } from "@/app/settings/ai-key-actions";
 const CHANGE_EVENT = "drr-ai-settings-changed";
 
 /**
- * Conta logada, publicada pelo layout no <body>. As configurações de IA são
- * guardadas por conta: num computador compartilhado, sem isso o próximo a
- * entrar herdaria a chave de API de quem usou antes — e gastaria a cota dele.
+ * Conta logada, publicada pelo layout no <body>. As PREFERÊNCIAS de IA
+ * (provedor, modelo, URL base) continuam separadas por conta aqui: num
+ * computador compartilhado, sem isso o próximo a entrar herdaria a
+ * configuração de quem usou antes.
+ *
+ * A chave de API já não passa por este arquivo — ela vive cifrada no banco
+ * (lib/ai/credentials.ts). O que resta aqui é a migração de quem ainda tem
+ * uma chave guardada de versões anteriores.
  */
 function scope(): string {
   if (typeof document === "undefined") return "anon";

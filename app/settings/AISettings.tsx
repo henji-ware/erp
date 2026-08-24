@@ -5,6 +5,7 @@ import { AI_PROVIDERS } from "@/lib/ai/providers";
 import { AIModelInfo, AIProviderId, AISettingsData } from "@/lib/ai/types";
 import { useAISettings } from "../components/useAISettings";
 import { Icon } from "../components/icons";
+import { Alert } from "../components/ui";
 import { saveApiKey, removeApiKey } from "./ai-key-actions";
 import type { CredentialView } from "@/lib/ai/credentials";
 
@@ -279,19 +280,23 @@ export default function AISettings({
         )}
       </div>
 
-      {/* Aviso de onde a chave é guardada */}
-      <p className="text-xs text-slate-500 leading-relaxed rounded-lg border border-slate-200 bg-slate-50 p-3">
-        A chave fica salva <strong>somente neste navegador</strong> e vai ao servidor apenas no
-        momento de cada consulta — nunca em cookie. Ela vale só para a sua conta: quem entrar
-        com outro usuário nesta máquina não usa a sua chave.
+      {/* Onde a chave fica guardada. O texto anterior descrevia o desenho
+          antigo (localStorage) e virou mentira quando a chave passou a ser
+          cifrada no banco — aviso de segurança errado é pior que nenhum. */}
+      <Alert tone="neutral" size="sm">
+        A chave é guardada <strong>cifrada no servidor</strong>, ligada à sua
+        conta. Ela nunca volta para o navegador: aqui aparecem só os quatro
+        últimos caracteres, para você reconhecer qual está salva. Como fica na
+        sua conta e não na máquina, funciona de qualquer computador ou celular
+        em que você entrar — e ninguém mais usa a sua.
         {isAdmin && (
           <>
             {" "}
-            Para uma chave única da equipe, defina a variável de ambiente no servidor e deixe o
-            campo em branco.
+            Se a empresa tiver uma chave única no <code className="font-mono">.env</code> do
+            servidor, ela é usada por quem não cadastrar a própria.
           </>
         )}
-      </p>
+      </Alert>
 
       {/* Grade de provedores */}
       <div>
