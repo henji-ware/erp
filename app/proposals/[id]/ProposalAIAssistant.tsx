@@ -139,8 +139,6 @@ export default function ProposalAIAssistant({
           customInstructions,
           provider: creds.provider,
           model: creds.model,
-          apiKey: creds.apiKey,
-          baseUrl: creds.baseUrl,
         }),
       });
 

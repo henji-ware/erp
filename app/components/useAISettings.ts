@@ -9,6 +9,7 @@ import {
   parseAISettings,
 } from "@/lib/ai/settings";
 import { AIProviderId, AISettingsData } from "@/lib/ai/types";
+import { saveApiKey } from "@/app/settings/ai-key-actions";
 
 /** Disparado ao salvar, para as telas abertas na mesma aba se atualizarem. */
 const CHANGE_EVENT = "drr-ai-settings-changed";
@@ -41,16 +42,51 @@ function read(): AISettingsData {
 }
 
 /**
- * Grava o cookie apenas com o que não é segredo. O cookie existe só para o
- * servidor renderizar a tela de Configurações já com o provedor certo; as
- * chaves ficam de fora de propósito, porque cookie viaja em toda requisição e
- * é legível por qualquer script da página.
+ * Grava o cookie das preferências. Hoje `AISettingsData` já não carrega
+ * segredo nenhum — as chaves vivem cifradas no banco —, então não há mais o
+ * que separar antes de escrever.
  */
 function writePublicCookie(settings: AISettingsData) {
-  const { apiKeys, ...publicSettings } = settings;
-  const value = encodeURIComponent(JSON.stringify(publicSettings));
+  const value = encodeURIComponent(JSON.stringify(settings));
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${cookieName()}=${value}; path=/; max-age=31536000; SameSite=Lax${secure}`;
+}
+
+/**
+ * Migra a chave que ficou no localStorage de antes desta versão.
+ *
+ * Manda para o servidor (onde é cifrada) e apaga do navegador. Sem isto, quem
+ * já usava o sistema teria a chave apagada do localStorage e precisaria
+ * cadastrá-la de novo sem entender por quê — e uma cópia em claro ficaria
+ * para trás em cada navegador usado até hoje.
+ */
+function migrarChavesAntigas() {
+  for (const key of [storageKey(), AI_SETTINGS_STORAGE_KEY]) {
+    const raw = localStorage.getItem(key);
+    if (!raw || !raw.includes("apiKeys")) continue;
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    const chaves = parsed.apiKeys;
+    delete parsed.apiKeys;
+    // Apaga PRIMEIRO: se o envio falhar, o segredo já saiu do navegador e o
+    // usuário cadastra de novo. O inverso deixaria a cópia em claro para trás.
+    localStorage.setItem(key, JSON.stringify(parsed));
+
+    if (chaves && typeof chaves === "object") {
+      for (const [provider, value] of Object.entries(chaves as Record<string, unknown>)) {
+        if (typeof value === "string" && value.trim()) {
+          void saveApiKey(provider, value).catch(() => {
+            // Sem sessão ou sem segredo no servidor: o usuário recadastra.
+          });
+        }
+      }
+    }
+  }
 }
 
 export function saveAISettings(next: AISettingsData) {
@@ -83,6 +119,7 @@ export function useAISettings() {
     // de API dentro do cookie. Move para o espaço da conta e apaga o antigo,
     // para não sobrar configuração compartilhada entre usuários da máquina.
     try {
+      migrarChavesAntigas();
       const legacy = localStorage.getItem(AI_SETTINGS_STORAGE_KEY);
       if (legacy) {
         if (!localStorage.getItem(storageKey())) localStorage.setItem(storageKey(), legacy);
@@ -123,7 +160,7 @@ export function availableModels(settings: AISettingsData, provider: AIProviderId
   return settings.customModels[provider] ?? [];
 }
 
-/** Provedor, modelo e chave que uma chamada de IA deve usar agora. */
+/** Provedor e modelo que uma chamada de IA deve usar agora. */
 export function activeCredentials(
   settings: AISettingsData,
   override?: { provider?: AIProviderId; model?: string }
@@ -134,7 +171,9 @@ export function activeCredentials(
     // Sem fallback para o catálogo do código: um modelo que a conta não tem
     // só produz 404. Vazio aqui significa "ainda não configurado".
     model: override?.model || settings.defaultModels[provider] || "",
-    apiKey: settings.apiKeys[provider] || "",
+    // Sem apiKey aqui de propósito: quem resolve a chave é o servidor, a
+    // partir do que está cifrado no banco. O navegador não precisa dela para
+    // nada e passá-la adiante só recriaria o caminho que foi fechado.
     baseUrl: settings.customBaseUrls[provider] || "",
   };
 }

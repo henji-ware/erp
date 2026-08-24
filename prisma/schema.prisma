@@ -181,6 +181,33 @@ model User {
   createdAt     DateTime     @default(now())
   leads         Lead[]       @relation("LeadOwner")
   tokens        EmailToken[]
+  aiCredentials AICredential[]
+}
+
+/// Chave de API de um provedor de IA, por usuário.
+///
+/// A chave NUNCA fica em claro: `keyCipher` é AES-256-GCM (ver lib/ai/crypto.ts)
+/// e o servidor decifra só no instante de chamar o provedor. O navegador jamais
+/// recebe a chave de volta — só `keyHint`, os quatro últimos caracteres, que
+/// existem para a pessoa reconhecer QUAL chave está salva.
+///
+/// Antes isto morava no localStorage do navegador: sumia ao trocar de máquina,
+/// era legível por qualquer script da página e viajava no corpo de toda
+/// chamada de IA.
+model AICredential {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  provider  String // AIProviderId ("anthropic", "gemini", …)
+  keyCipher String // v1.<iv>.<tag>.<cifra>
+  keyHint   String // últimos 4 caracteres, para exibição
+  baseUrl   String? // URL base própria (não é segredo, mas é por usuário)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt @default(now())
+
+  // Uma chave por provedor por usuário: salvar de novo substitui a anterior.
+  @@unique([userId, provider])
+  @@index([userId])
 }
 
 // Códigos enviados por e-mail. type: VERIFY (confirmar e-mail) | RESET (trocar senha)

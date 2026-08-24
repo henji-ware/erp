@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AI_PROVIDERS, isAIProviderId } from "@/lib/ai/providers";
-import { assertSafeBaseUrl, getEffectiveApiKey, getEffectiveBaseUrl } from "@/lib/ai/settings";
+import { assertSafeBaseUrl, getEffectiveBaseUrl } from "@/lib/ai/settings";
 import { errorMessage, requireUser } from "@/lib/ai/guard";
 import { AIModelInfo, AIProviderId } from "@/lib/ai/types";
+import { resolveApiKey, resolveBaseUrl } from "@/lib/ai/credentials";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +21,16 @@ export async function POST(req: NextRequest) {
 
     const provider: AIProviderId = body.provider;
     const providerConfig = AI_PROVIDERS[provider];
-    const apiKey = getEffectiveApiKey(
-      provider,
-      typeof body.apiKey === "string" ? body.apiKey : undefined
-    );
+    // Esta rota é uma das DUAS que ainda aceitam chave no corpo, e por um
+    // motivo legítimo: ao cadastrar uma chave nova a pessoa quer carregar os
+    // modelos antes de salvar. Se o corpo não trouxer chave, vale a guardada.
+    const digitada = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+    const apiKey = digitada || (await resolveApiKey(auth.user.id, provider));
+
+    const baseUrlDigitada = typeof body.baseUrl === "string" ? body.baseUrl.trim() : "";
     const baseUrl = getEffectiveBaseUrl(
       provider,
-      typeof body.baseUrl === "string" ? body.baseUrl : undefined
+      baseUrlDigitada || (await resolveBaseUrl(auth.user.id, provider)),
     );
 
     assertSafeBaseUrl(provider, baseUrl);

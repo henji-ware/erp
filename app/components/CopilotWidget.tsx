@@ -233,8 +233,6 @@ export default function CopilotWidget() {
             .map((m) => ({ role: m.role, content: m.content })),
           provider: creds.provider,
           model: creds.model,
-          apiKey: creds.apiKey,
-          baseUrl: creds.baseUrl,
           stream: true,
         }),
       });

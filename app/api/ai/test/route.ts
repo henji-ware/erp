@@ -3,6 +3,8 @@ import { executeAICompletion } from "@/lib/ai/client";
 import { errorMessage, requireUser } from "@/lib/ai/guard";
 import { isAdmin } from "@/lib/auth";
 import { AIProviderId } from "@/lib/ai/types";
+import { isAIProviderId } from "@/lib/ai/providers";
+import { resolveApiKey, resolveBaseUrl } from "@/lib/ai/credentials";
 
 export const dynamic = "force-dynamic";
 
@@ -12,14 +14,22 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
+    if (!isAIProviderId(body.provider)) {
+      return NextResponse.json({ ok: false, error: "Provedor desconhecido." }, { status: 400 });
+    }
     const provider: AIProviderId = body.provider;
+
+    // A outra rota que aceita chave digitada: testar antes de salvar é o
+    // ponto dela. Sem chave no corpo, testa a que está guardada.
+    const digitada = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+    const baseUrlDigitada = typeof body.baseUrl === "string" ? body.baseUrl.trim() : "";
 
     let retries = 0;
     const result = await executeAICompletion({
       provider,
       model: typeof body.model === "string" ? body.model : undefined,
-      apiKey: typeof body.apiKey === "string" ? body.apiKey : undefined,
-      baseUrl: typeof body.baseUrl === "string" ? body.baseUrl : undefined,
+      apiKey: digitada || (await resolveApiKey(auth.user.id, provider)),
+      baseUrl: baseUrlDigitada || (await resolveBaseUrl(auth.user.id, provider)),
       messages: [{ role: "user", content: "Responda apenas: OK" }],
       maxTokens: 64,
       temperature: 0.1,

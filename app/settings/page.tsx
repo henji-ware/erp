@@ -21,6 +21,7 @@ import DensityToggle from "./DensityToggle";
 import AISettings from "./AISettings";
 import SettingsTabs from "./SettingsTabs";
 import { getServerAISettings } from "@/lib/ai/server-settings";
+import { listCredentials, canStoreSecrets } from "@/lib/ai/credentials";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,10 @@ export default async function SettingsPage() {
     getServerAISettings(),
   ]);
   const admin = isAdmin(user);
+
+  // Só a dica dos últimos caracteres vem para a tela — a chave em si nunca
+  // sai do servidor.
+  const savedKeys = user ? await listCredentials(user.id) : [];
 
   // Contadores do sistema (ignoram a Lixeira) só são exibidos para
   // administradores — então nem são consultados para os demais.
@@ -76,7 +81,12 @@ export default async function SettingsPage() {
             hint: "Escolha o provedor e o modelo usados pelo DeskHelper AI e pelo assistente de propostas.",
             content: (
               <div className="card p-6">
-                <AISettings initialSettings={aiSettings} isAdmin={admin} />
+                <AISettings
+                  initialSettings={aiSettings}
+                  savedKeys={savedKeys}
+                  canStore={canStoreSecrets()}
+                  isAdmin={admin}
+                />
               </div>
             ),
           },

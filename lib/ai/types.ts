@@ -82,14 +82,15 @@ export interface AICompletionOptionsWithStream extends AICompletionOptions {
 export interface AISettingsData {
   activeProvider: AIProviderId;
   defaultModels: Partial<Record<AIProviderId, string>>;
-  /**
-   * Só existe no navegador (localStorage). Nunca é gravado em cookie: cookie
-   * viaja em toda requisição e é legível por qualquer script da página.
-   */
-  apiKeys: Partial<Record<AIProviderId, string>>;
+  // As chaves NÃO ficam mais aqui. Elas vivem cifradas no banco, por usuário
+  // (ver lib/ai/credentials.ts): antes moravam no localStorage, sumiam ao
+  // trocar de máquina, eram legíveis por qualquer script da página e viajavam
+  // no corpo de toda chamada de IA. O navegador hoje só conhece a dica dos
+  // quatro últimos caracteres.
   customBaseUrls: Partial<Record<AIProviderId, string>>;
   customModels: Partial<Record<AIProviderId, string[]>>;
 }
 
 /** O subconjunto não sensível que pode ser persistido em cookie para o SSR. */
-export type AIPublicSettings = Omit<AISettingsData, "apiKeys">;
+/** Mantido como alias: hoje AISettingsData já não tem segredo algum. */
+export type AIPublicSettings = AISettingsData;

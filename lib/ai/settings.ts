@@ -3,13 +3,13 @@ import { AIProviderId, AISettingsData } from "./types";
 
 /**
  * Cookie com as preferências de IA — provedor ativo, modelo padrão e URLs base.
- * NÃO guarda chaves de API: cookie é enviado em toda requisição e é legível por
- * qualquer script da página. As chaves ficam só no localStorage do navegador e
- * são enviadas apenas no corpo das chamadas para /api/ai/*.
+ * Segredo nenhum passa por aqui: cookie viaja em toda requisição e é legível
+ * por qualquer script da página. As chaves de API ficam cifradas no banco
+ * (lib/ai/credentials.ts) e nunca chegam ao navegador.
  */
 export const AI_SETTINGS_COOKIE = "drr_ai_settings";
 
-/** Chave do localStorage (preferências + chaves de API). */
+/** Chave do localStorage (só preferências — segredo nenhum). */
 export const AI_SETTINGS_STORAGE_KEY = "drr_ai_settings";
 
 export function getDefaultAISettings(): AISettingsData {
@@ -20,7 +20,6 @@ export function getDefaultAISettings(): AISettingsData {
   return {
     activeProvider: DEFAULT_AI_PROVIDER,
     defaultModels: {},
-    apiKeys: {},
     customBaseUrls: {},
     customModels: {},
   };
@@ -78,23 +77,24 @@ export function parseAISettings(rawJson?: string): AISettingsData {
       ? parsed.activeProvider
       : defaults.activeProvider,
     defaultModels: asStringMap(parsed.defaultModels),
-    apiKeys: asStringMap(parsed.apiKeys),
     customBaseUrls: asStringMap(parsed.customBaseUrls),
     customModels,
   };
 }
 
 /**
- * Chave de API efetiva:
- * 1. A que o usuário digitou nas Configurações (fica no navegador dele);
- * 2. A variável de ambiente do servidor (.env), quando existir.
+ * Chave de API efetiva para uma chamada já em andamento.
+ *
+ * `resolvedKey` é a que as rotas resolveram do banco (ou a digitada, no
+ * cadastro). O fallback de ambiente fica aqui como última instância — é a
+ * chave da empresa, quando existir.
  */
 export function getEffectiveApiKey(
   providerId: AIProviderId,
-  userApiKey?: string
+  resolvedKey?: string
 ): string | undefined {
-  if (userApiKey && userApiKey.trim().length > 0) {
-    return userApiKey.trim();
+  if (resolvedKey && resolvedKey.trim().length > 0) {
+    return resolvedKey.trim();
   }
 
   const envVar = AI_PROVIDERS[providerId]?.keyEnvVar;

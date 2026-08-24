@@ -4,6 +4,8 @@ import { errorMessage, requireUser } from "@/lib/ai/guard";
 import { isAdmin } from "@/lib/auth";
 import { AIProviderId } from "@/lib/ai/types";
 import { isProposalAIType, type ProposalAIType } from "@/lib/proposals";
+import { resolveApiKey, resolveBaseUrl } from "@/lib/ai/credentials";
+import { isAIProviderId } from "@/lib/ai/providers";
 
 export const dynamic = "force-dynamic";
 
@@ -106,11 +108,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const type: GenerationType = isProposalAIType(body.type) ? body.type : "full";
 
+    // Mesma regra do chat: a chave é resolvida no servidor, não recebida.
+    const provider: AIProviderId | undefined = isAIProviderId(body.provider)
+      ? body.provider
+      : undefined;
+
     const completion = await executeAICompletion({
-      provider: (body.provider as AIProviderId) || undefined,
+      provider,
       model: typeof body.model === "string" ? body.model : undefined,
-      apiKey: typeof body.apiKey === "string" ? body.apiKey : undefined,
-      baseUrl: typeof body.baseUrl === "string" ? body.baseUrl : undefined,
+      apiKey: provider ? await resolveApiKey(auth.user.id, provider) : undefined,
+      baseUrl: provider ? await resolveBaseUrl(auth.user.id, provider) : undefined,
       messages: [{ role: "user", content: buildPrompt(type, body) }],
       systemPrompt: SYSTEM_PROMPT,
       // A tabela de vistoria é formato, não redação: com temperatura alta o

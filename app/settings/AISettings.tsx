@@ -5,12 +5,24 @@ import { AI_PROVIDERS } from "@/lib/ai/providers";
 import { AIModelInfo, AIProviderId, AISettingsData } from "@/lib/ai/types";
 import { useAISettings } from "../components/useAISettings";
 import { Icon } from "../components/icons";
+import { saveApiKey, removeApiKey } from "./ai-key-actions";
+import type { CredentialView } from "@/lib/ai/credentials";
 
 export default function AISettings({
   initialSettings,
+  savedKeys = [],
+  canStore = true,
   isAdmin = false,
 }: {
   initialSettings?: AISettingsData;
+  /**
+   * Chaves já guardadas, vindas do servidor — SEM a chave em si, só a dica
+   * dos últimos caracteres. É o suficiente para a pessoa reconhecer qual
+   * está salva, e nada além disso chega ao navegador.
+   */
+  savedKeys?: CredentialView[];
+  /** O servidor tem segredo de criptografia configurado? */
+  canStore?: boolean;
   /** Só administrador mexe no .env do servidor; para os demais isso é ruído. */
   isAdmin?: boolean;
 }) {
@@ -25,6 +37,9 @@ export default function AISettings({
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string; latency?: number } | null>(null);
   const [savedAt, setSavedAt] = useState(0);
   const [showKey, setShowKey] = useState(false);
+  const [keys, setKeys] = useState<CredentialView[]>(savedKeys);
+  const [keyBusy, setKeyBusy] = useState(false);
+  const [keyError, setKeyError] = useState("");
 
   // Rascunhos locais dos campos de texto: gravar a cada tecla escrevia o
   // localStorage e o cookie caractere por caractere e piscava o aviso de
@@ -36,10 +51,12 @@ export default function AISettings({
   const currentConfig = AI_PROVIDERS[selectedProvider];
   // Sem cair no catálogo do código: vazio significa "ainda não escolhido".
   const activeModel = settings.defaultModels[selectedProvider] || "";
-  const storedKey = settings.apiKeys[selectedProvider] || "";
   const storedUrl = settings.customBaseUrls[selectedProvider] || "";
-  const currentKey = keyDraft ?? storedKey;
+  // O campo NUNCA é pré-preenchido: a chave guardada não volta do servidor.
+  // Vazio aqui significa "usar a que já está salva".
+  const currentKey = keyDraft ?? "";
   const currentUrl = urlDraft ?? storedUrl;
+  const savedKey = keys.find((k) => k.provider === selectedProvider);
 
   // Só modelos vindos da API do usuário. O catálogo do código serve apenas
   // para dar nome e descrição a esses IDs, nunca como lista oferecida —
@@ -72,10 +89,48 @@ export default function AISettings({
     setSavedAt(Date.now());
   };
 
-  const commitKey = (value: string) => {
+  /** Guarda a chave no servidor (cifrada) e limpa o campo. */
+  const commitKey = async (value: string) => {
+    const key = value.trim();
+    if (!key) return;
+
+    setKeyBusy(true);
+    setKeyError("");
+    const res = await saveApiKey(selectedProvider, key, currentUrl);
+    setKeyBusy(false);
+
+    if (!res.ok) {
+      setKeyError(res.error);
+      return;
+    }
+    // O rascunho é descartado assim que a chave sai daqui: nada de manter
+    // uma cópia em claro no estado do React mais tempo que o necessário.
     setKeyDraft(null);
-    if (value === storedKey) return;
-    commit({ apiKeys: { ...settings.apiKeys, [selectedProvider]: value } });
+    setKeys((prev) => [
+      ...prev.filter((k) => k.provider !== selectedProvider),
+      {
+        provider: selectedProvider,
+        hint: res.hint,
+        baseUrl: currentUrl || null,
+        updatedAt: new Date(),
+        broken: false,
+      },
+    ]);
+    setSavedAt(Date.now());
+  };
+
+  const dropKey = async () => {
+    setKeyBusy(true);
+    setKeyError("");
+    const res = await removeApiKey(selectedProvider);
+    setKeyBusy(false);
+    if (!res.ok) {
+      setKeyError(res.error);
+      return;
+    }
+    setKeyDraft(null);
+    setKeys((prev) => prev.filter((k) => k.provider !== selectedProvider));
+    setSavedAt(Date.now());
   };
 
   const commitUrl = (value: string) => {
@@ -161,12 +216,12 @@ export default function AISettings({
     if (!loaded) return;
     if (liveLoaded[selectedProvider]) return;
     const needsKey = currentConfig?.requiresApiKey;
-    if (needsKey && !storedKey) return;
+    if (needsKey && !savedKey) return;
 
     const t = setTimeout(() => loadModels({ silent: true }), 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded, selectedProvider, storedKey]);
+  }, [loaded, selectedProvider, savedKey]);
 
   const testConnection = async () => {
     setTesting(true);
@@ -249,7 +304,7 @@ export default function AISettings({
           {Object.values(AI_PROVIDERS).map((p) => {
             const isSelected = selectedProvider === p.id;
             const isDefault = settings.activeProvider === p.id;
-            const hasKey = Boolean(settings.apiKeys[p.id]);
+            const hasKey = keys.some((k) => k.provider === p.id);
 
             return (
               <button
@@ -332,27 +387,13 @@ export default function AISettings({
                 <label htmlFor="ai-key" className="label text-xs mb-0">
                   Chave de API ({currentConfig.keyEnvVar})
                 </label>
-                <div className="flex items-center gap-2">
-                  {storedKey && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setKeyDraft("");
-                        commitKey("");
-                      }}
-                      className="text-xs text-red-600 hover:underline"
-                    >
-                      Remover
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setShowKey(!showKey)}
-                    className="text-xs text-slate-500 hover:text-slate-800 underline"
-                  >
-                    {showKey ? "Ocultar" : "Mostrar"}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  className="text-xs text-slate-500 underline hover:text-slate-800"
+                >
+                  {showKey ? "Ocultar" : "Mostrar"}
+                </button>
               </div>
               {/* type="text" + máscara por CSS, de propósito: com type="password"
                   o navegador trata o campo como login e preenche sozinho com a
@@ -370,15 +411,60 @@ export default function AISettings({
                 data-bwignore
                 data-form-type="other"
                 value={currentKey}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setKeyDraft(v);
-                  scheduleCommit(() => commitKey(v));
-                }}
-                onBlur={(e) => commitKey(e.target.value)}
-                placeholder={`Cole sua ${currentConfig.keyEnvVar} ou deixe em branco`}
+                onChange={(e) => setKeyDraft(e.target.value)}
+                disabled={keyBusy || !canStore}
+                placeholder={
+                  savedKey
+                    ? "Cole uma chave nova para substituir a atual"
+                    : `Cole sua ${currentConfig.keyEnvVar}`
+                }
                 className={`input text-xs ${showKey ? "font-mono" : "input-secret"}`}
               />
+
+              {/* Salvar é um clique explícito, não um debounce. A chave sai do
+                  navegador para o servidor uma única vez, no momento em que a
+                  pessoa manda — não a cada tecla digitada. */}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => commitKey(currentKey)}
+                  disabled={!currentKey.trim() || keyBusy || !canStore}
+                  className="btn-primary btn-sm"
+                >
+                  {keyBusy ? "Salvando..." : savedKey ? "Substituir chave" : "Salvar chave"}
+                </button>
+
+                {savedKey && (
+                  <>
+                    <span className="font-mono text-xs text-slate-500">
+                      salva: ••••{savedKey.hint}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={dropKey}
+                      disabled={keyBusy}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Remover
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {savedKey?.broken && (
+                <p className="mt-2 text-xs text-amber-600">
+                  A chave está guardada mas o servidor não consegue mais lê-la —
+                  o segredo de criptografia mudou. Cadastre a chave de novo.
+                </p>
+              )}
+              {keyError && <p className="mt-2 text-xs text-red-600">{keyError}</p>}
+              {!canStore && (
+                <p className="mt-2 text-xs text-amber-600">
+                  O servidor não tem <code className="font-mono">AI_ENCRYPTION_KEY</code>{" "}
+                  configurada. Sem ela a chave só poderia ser guardada em claro,
+                  então o cadastro fica bloqueado.
+                </p>
+              )}
               {currentKey && !/^(sk-|gsk_|xai-|csk-|AIza|co-|or-|[A-Za-z0-9_-]{24,})/.test(currentKey.trim()) && (
                 <p className="mt-1 text-xs text-amber-600">
                   Isto não parece uma chave de API. Se o navegador preencheu o campo
@@ -441,7 +527,7 @@ export default function AISettings({
 
           {/* Saída manual para configuração antiga que ficou presa no
               navegador — inclusive modelos que não existem mais. */}
-          {(activeModel || models.length > 0 || storedKey) && (
+          {(activeModel || models.length > 0 || savedKey) && (
             <button
               type="button"
               onClick={() => {
@@ -501,7 +587,7 @@ export default function AISettings({
                 Nenhum modelo carregado ainda
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                {currentConfig?.requiresApiKey && !storedKey
+                {currentConfig?.requiresApiKey && !savedKey
                   ? "Informe a chave de API acima. Assim que ela for salva, a lista é buscada automaticamente na sua conta."
                   : "Use o botão acima para buscar na API do provedor exatamente os modelos que a sua chave pode usar."}
               </p>
