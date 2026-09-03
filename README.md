@@ -36,7 +36,7 @@ segurança.
 
 ## Requisitos
 
-- Node.js 20 ou superior.
+- Node.js 22.6 ou superior.
 - PostgreSQL acessível para desenvolvimento.
 - npm.
 

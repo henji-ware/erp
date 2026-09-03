@@ -8,7 +8,7 @@ consulte [`DEPLOY.md`](DEPLOY.md).
 - Ubuntu LTS atualizado.
 - Usuário administrativo com `sudo`; login SSH direto como `root` desativado.
 - Autenticação SSH por chave e firewall ativo.
-- Node.js 20 ou superior, npm, Git, Nginx e PM2.
+- Node.js 22.6 ou superior, npm, Git, Nginx e PM2.
 - PostgreSQL com backup e usuário exclusivo para a aplicação.
 - Domínio apontando para a VPS.
 

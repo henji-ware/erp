@@ -17,7 +17,7 @@
     "security:audit": "node scripts/security-audit.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.6"
   },
   "dependencies": {
     "@prisma/client": "6.12.0",
