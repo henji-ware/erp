@@ -1,112 +1,81 @@
-# Rodar o ERP da DRR em uma VPS
+# Deploy seguro em VPS
 
-Guia para colocar o sistema numa VPS Linux (Ubuntu 22.04/24.04), acessível pela
-internet e sempre ligado. Como a VPS tem **disco persistente**, o **SQLite** e os
-**anexos em disco** continuam funcionando — não precisa de Postgres nem de nuvem.
+Use este guia para uma VPS Linux mantida pela sua equipe. Para a opção gerenciada,
+consulte [`DEPLOY.md`](DEPLOY.md).
 
-> O sistema detecta automaticamente: **sem** `BLOB_READ_WRITE_TOKEN`, os anexos
-> são salvos no disco da VPS (pasta `uploads/`). É só não definir essa variável.
+## Pré-requisitos
 
----
+- Ubuntu LTS atualizado.
+- Usuário administrativo com `sudo`; login SSH direto como `root` desativado.
+- Autenticação SSH por chave e firewall ativo.
+- Node.js 20 ou superior, npm, Git, Nginx e PM2.
+- PostgreSQL com backup e usuário exclusivo para a aplicação.
+- Domínio apontando para a VPS.
 
-## 0) Escolher uma VPS
-~US$ 4–6/mês: **Hetzner**, **DigitalOcean**, **Contabo**, **Linode**, **AWS Lightsail**.
-Crie uma instância **Ubuntu 22.04/24.04** (1 vCPU / 1–2 GB RAM bastam) e anote o
-**IP público**. (Opcional) Aponte um domínio: registro **A** `erp.suaempresa.com.br → IP`.
+Não use SQLite em produção. O schema atual do projeto exige PostgreSQL.
 
-## 1) Acessar
+## Instalação
+
+Clone o repositório com um usuário sem privilégios e restrinja as permissões:
+
 ```bash
-ssh root@IP_DA_VPS
+sudo install -d -o erp -g erp -m 0750 /var/www/erp
+sudo -u erp git clone https://github.com/henji-ware/erp.git /var/www/erp
+cd /var/www/erp
+sudo -u erp npm ci
 ```
 
-## 2) Instalar Node.js 20 + Git
+Crie `/var/www/erp/.env` com permissão `0600` e os mesmos valores descritos em
+[`.env.production.example`](.env.production.example). Não copie o arquivo para
+logs, tickets ou comandos que fiquem no histórico do shell.
+
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt-get install -y nodejs git
-node -v   # v20.x
+sudo chown erp:erp /var/www/erp/.env
+sudo chmod 600 /var/www/erp/.env
 ```
 
-## 3) Enviar o projeto
-**Via Git (recomendado):** suba a pasta `erp-crm` para um repositório privado e:
+Prepare e compile:
+
 ```bash
-mkdir -p /var/www && cd /var/www
-git clone SEU_REPOSITORIO erp-crm
+sudo -u erp npm run db:deploy
+sudo -u erp npm run build
+sudo -u erp pm2 start ecosystem.config.js
+sudo -u erp pm2 save
 ```
-**Ou copie do seu PC** (rode no Windows, na pasta Downloads):
-```powershell
-scp -r erp-crm root@IP_DA_VPS:/var/www/erp-crm
-```
-> Não envie `node_modules`, `.next`, `prisma/dev.db` nem `uploads`.
 
-## 4) Variáveis de ambiente
+> [!CAUTION]
+> Nunca execute `db:seed` ou `db:reset` em produção. Ambos apagam dados.
+
+## Nginx e HTTPS
+
+Copie `deploy/nginx-erp.conf`, substitua `SEU_DOMINIO`, valide com
+`nginx -t` e habilite HTTPS com Certbot. Exponha somente as portas 22, 80 e
+443; a porta 3000 deve aceitar conexões apenas de `127.0.0.1`.
+
+Depois de confirmar HTTPS, mantenha o redirecionamento permanente de HTTP para
+HTTPS. O aplicativo já envia HSTS e outros cabeçalhos de segurança.
+
+## Atualização
+
 ```bash
-cd /var/www/erp-crm
-node -e "console.log('SESSION_SECRET=\"'+require('crypto').randomBytes(48).toString('hex')+'\"')"
-# copie a linha gerada para dentro do .env abaixo:
-cat > .env <<'EOF'
-DATABASE_URL="file:./dev.db"
-SESSION_SECRET="COLE_A_CHAVE_GERADA_AQUI"
-EOF
-```
-> **Não** defina `BLOB_READ_WRITE_TOKEN` — assim os anexos ficam no disco da VPS.
-
-## 5) Instalar, criar o banco e compilar
-```bash
-npm install
-npm run db:push      # cria as tabelas (SQLite)
-npm run db:seed      # SÓ na 1ª vez (popula dados/usuários de exemplo)
-npm run build
+cd /var/www/erp
+sudo -u erp git pull --ff-only
+sudo -u erp npm ci
+sudo -u erp npm run db:deploy
+sudo -u erp npm run build
+sudo -u erp pm2 restart erp-drr
 ```
 
-## 6) Manter rodando com PM2
-```bash
-npm install -g pm2
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup          # rode o comando que ele imprimir (liga no boot)
-```
-Úteis: `pm2 status`, `pm2 logs erp-drr`, `pm2 restart erp-drr`.
-O app fica em `http://127.0.0.1:3000` na VPS.
+Faça backup do banco e dos anexos antes de mudanças de schema. Teste
+periodicamente a restauração; um backup nunca restaurado é apenas uma hipótese.
 
-## 7) Nginx (porta 80/443) + HTTPS
-```bash
-apt-get install -y nginx
-cp deploy/nginx-erp.conf /etc/nginx/sites-available/erp
-# edite o arquivo e troque SEU_DOMINIO
-ln -s /etc/nginx/sites-available/erp /etc/nginx/sites-enabled/erp
-nginx -t && systemctl reload nginx
+## Checklist operacional
 
-apt-get install -y certbot python3-certbot-nginx
-certbot --nginx -d erp.suaempresa.com.br    # HTTPS grátis
-```
-
-## 8) Firewall
-```bash
-ufw allow OpenSSH
-ufw allow 'Nginx Full'
-ufw enable
-```
-> Não exponha a porta 3000 direto — o Nginx faz o proxy.
-
-## ✅ Pronto
-Acesse `https://erp.suaempresa.com.br` (ou `http://IP_DA_VPS` sem domínio).
-Você e a outra pessoa entram com os logins e compartilham os mesmos dados.
-
----
-
-## Atualizar depois (sem perder dados)
-```bash
-cd /var/www/erp-crm
-git pull
-npm install
-npm run db:push        # aplica mudanças de schema (NUNCA use db:reset!)
-npm run build
-pm2 restart erp-drr
-```
-> O banco (`prisma/dev.db`) e os anexos (`uploads/`) ficam no disco e são preservados.
-
-## Backup
-```bash
-cp prisma/dev.db ~/backup-$(date +%F).db
-tar czf ~/uploads-$(date +%F).tgz uploads
-```
+- Atualizações automáticas de segurança do sistema operacional.
+- SSH por chave, sem senha e sem login direto de `root`.
+- PostgreSQL não exposto à internet.
+- Segredos independentes e fora do Git.
+- Backups cifrados, com retenção e teste de restauração.
+- Logs sem credenciais, tokens ou dados pessoais desnecessários.
+- Dependabot, CodeQL e alertas do GitHub revisados.
+- Monitoramento de disponibilidade e espaço em disco.
