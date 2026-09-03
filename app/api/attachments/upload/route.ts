@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { blobToken } from "@/lib/blob";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { consumeRateLimit } from "@/lib/rate-limit";
 
 // Diagnóstico (não expõe o valor do token): abre no navegador logado e mostra
 // se o servidor enxerga o token do Blob e se consegue gravar de verdade.
@@ -43,8 +44,16 @@ export async function GET() {
 // Assim o arquivo não passa pelo servidor e escapa do limite de ~4,5 MB
 // por requisição da Vercel. Protegido pelo middleware (exige sessão).
 export async function POST(request: Request): Promise<NextResponse> {
-  const body = (await request.json()) as HandleUploadBody;
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+    const rate = consumeRateLimit(`attachment-upload:${user.id}`, 20, 60 * 60 * 1000);
+    if (!rate.allowed) {
+      return NextResponse.json({ error: "Limite de uploads excedido" }, { status: 429 });
+    }
+    const body = (await request.json()) as HandleUploadBody;
     const token = blobToken();
     if (!token) {
       return NextResponse.json(
@@ -56,21 +65,27 @@ export async function POST(request: Request): Promise<NextResponse> {
       body,
       request,
       token,
-      onBeforeGenerateToken: async () => ({
-        access: "private", // o store é privado: arquivos só saem pelo app (autenticado)
-        allowedContentTypes: [
-          "application/pdf",
-          "application/msword",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ],
-        maximumSizeInBytes: 100 * 1024 * 1024, // 100 MB
-        addRandomSuffix: true,
-      }),
+      onBeforeGenerateToken: async (pathname) => {
+        if (!/^anexos\/[0-9a-f-]+\.(pdf|doc|docx)$/i.test(pathname)) {
+          throw new Error("Caminho de upload inválido");
+        }
+        return {
+          access: "private", // o store é privado: arquivos só saem pelo app (autenticado)
+          allowedContentTypes: [
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          ],
+          maximumSizeInBytes: 100 * 1024 * 1024, // 100 MB
+          addRandomSuffix: true,
+        };
+      },
       // O registro no banco é feito pelo cliente após o upload concluir.
       onUploadCompleted: async () => {},
     });
     return NextResponse.json(jsonResponse);
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
+    console.error("[attachments] autorização de upload falhou", error);
+    return NextResponse.json({ error: "Não foi possível autorizar o upload" }, { status: 400 });
   }
 }

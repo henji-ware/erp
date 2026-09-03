@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, isAdmin, hashPassword } from "@/lib/auth";
+import { getCurrentUser, isAdmin, hashPassword, isValidNewPassword } from "@/lib/auth";
 import { asEnum, USER_ROLES } from "@/lib/format";
 import { logAudit } from "@/lib/audit";
 import { isEmailConfigured, sendEmail, emailLayout, emailButton } from "@/lib/email";
@@ -21,7 +21,7 @@ export async function createUser(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  if (!name || !email || password.length < 4) return;
+  if (!name || !email || !isValidNewPassword(password)) return;
 
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists) return;
@@ -67,6 +67,7 @@ export async function updateUser(formData: FormData) {
   if (!id || !name || !email) return;
 
   const password = String(formData.get("password") ?? "");
+  if (password && !isValidNewPassword(password)) return;
   const role = asEnum(USER_ROLES, formData.get("role"), "USER");
 
   // E-mail já usado por OUTRO usuário? Não deixa duplicar (evita erro).
@@ -95,7 +96,7 @@ export async function updateUser(formData: FormData) {
       role,
       active,
       emailVerified: formData.get("emailVerified") === "on",
-      ...(password.length >= 4 ? { passwordHash: hashPassword(password) } : {}),
+      ...(password ? { passwordHash: hashPassword(password) } : {}),
     },
   });
   await logAudit({ action: "UPDATE", entity: "Usuário", entityId: id, summary: `Usuário "${name}" editado` });

@@ -70,7 +70,7 @@ export default async function EditUserPage({
           </div>
           <div>
             <label className="label">Nova senha (deixe em branco para manter)</label>
-            <input name="password" type="text" minLength={4} className="input" placeholder="••••" />
+            <input name="password" type="password" minLength={12} maxLength={128} className="input" placeholder="mín. 12 caracteres" autoComplete="new-password" />
           </div>
           <div className="flex gap-2 pt-2">
             <SubmitButton>Salvar alterações</SubmitButton>

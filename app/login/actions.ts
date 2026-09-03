@@ -3,13 +3,14 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { verifyPassword } from "@/lib/auth";
-import { signToken, SESSION_COOKIE } from "@/lib/session";
+import { MAX_PASSWORD_LENGTH, verifyPassword } from "@/lib/auth";
+import { signToken, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/session";
 import { consumeRateLimit, requestIdentity } from "@/lib/rate-limit";
 
 export async function login(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  if (password.length > MAX_PASSWORD_LENGTH) redirect("/login?error=1");
 
   const ip = await requestIdentity();
   const ipRate = consumeRateLimit(`login-ip:${ip}`, 20, 15 * 60 * 1000);
@@ -34,7 +35,7 @@ export async function login(formData: FormData) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7, // 7 dias
+    maxAge: SESSION_MAX_AGE_SECONDS,
   });
 
   redirect("/");

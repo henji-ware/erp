@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { hashPassword } from "@/lib/auth";
+import { hashPassword, isValidNewPassword } from "@/lib/auth";
 import { createResetCode, consumeToken } from "@/lib/tokens";
 import { isEmailConfigured, sendEmail, emailLayout, emailCode } from "@/lib/email";
 import { consumeRateLimit, requestIdentity } from "@/lib/rate-limit";
@@ -51,7 +51,7 @@ export async function resetPassword(formData: FormData) {
   const code = String(formData.get("code") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const fail = `/reset?email=${encodeURIComponent(email)}&error=1`;
-  if (!email || !code || password.length < 4) redirect(fail);
+  if (!email || !code || !isValidNewPassword(password)) redirect(fail);
 
   const ip = await requestIdentity();
   const rate = consumeRateLimit(`reset-confirm:${ip}:${email}`, 5, 15 * 60 * 1000);

@@ -1,77 +1,89 @@
-# Publicar o ERP DRR na nuvem (Vercel)
+# Deploy seguro na Vercel
 
-Stack: **Vercel** (hospedagem) + **Vercel Postgres** (banco) + **Vercel Blob** (anexos).
-Você precisa de 2 contas grátis: **GitHub** e **Vercel**.
+Este guia complementa o [README](README.md). Ele não contém credenciais,
+endereços reais nem dados de produção.
 
-> Enquanto não publicar, a versão local continua funcionando normalmente (SQLite).
+## 1. Infraestrutura
 
----
+Crie:
 
-## 1) Criar contas
+- um projeto na Vercel;
+- um banco PostgreSQL, como Neon;
+- um Vercel Blob privado para anexos;
+- opcionalmente, uma conta Resend com domínio verificado.
 
-- GitHub: https://github.com/signup
-- Vercel: https://vercel.com/signup → entre **com o GitHub** (botão "Continue with GitHub").
+Use projetos e credenciais separados para produção, preview e desenvolvimento.
 
-## 2) Criar o banco (Vercel Postgres)
+## 2. Segredos
 
-No painel da Vercel: **Storage → Create Database → Postgres** → escolha a região (ex.: Washington / São Paulo) → Create.
-Depois, na aba **".env.local"** do banco, copie a linha `DATABASE_URL=...`.
+Configure as variáveis diretamente no painel da Vercel. Não cole valores em
+arquivos versionados, issues, logs ou mensagens de commit.
 
-## 3) Criar o armazenamento de arquivos (Vercel Blob)
+Variáveis obrigatórias:
 
-**Storage → Create Database → Blob** → Create. Copie o valor de `BLOB_READ_WRITE_TOKEN`.
-
-## 4) Preparar o banco (uma vez)
-
-Cole, no arquivo `erp-crm/.env`, as variáveis copiadas:
-
-```
-DATABASE_URL="postgres://...(da Vercel)..."
-SESSION_SECRET="uma-string-longa-e-aleatoria"
-BLOB_READ_WRITE_TOKEN="vercel_blob_rw_...(da Vercel)..."
-```
-
-Me avise que eu troco o banco para PostgreSQL e rodo a criação das tabelas + dados
-(`npm run db:deploy`). (Ou você mesmo roda esse comando.)
-
-## 5) Subir o código para o GitHub
-
-```
-cd erp-crm
-git init
-git add -A
-git commit -m "ERP DRR"
-```
-Crie um repositório vazio no GitHub e siga as instruções "push an existing repository":
-```
-git remote add origin https://github.com/SEU_USUARIO/erp-drr.git
-git branch -M main
-git push -u origin main
+```text
+DATABASE_URL
+DATABASE_URL_UNPOOLED
+SESSION_SECRET
+AI_ENCRYPTION_KEY
+CRON_SECRET
+APP_URL
 ```
 
-## 6) Publicar na Vercel
+Para anexos, configure `BLOB_READ_WRITE_TOKEN`. Para e-mails, configure
+`RESEND_API_KEY` e `EMAIL_FROM`. Chaves dos provedores de IA são opcionais.
 
-Vercel → **Add New → Project** → importe o repositório `erp-drr`.
-Em **Environment Variables**, adicione (Production + Preview + Development):
+Gere valores independentes para os três segredos. Um exemplo local de comando é:
 
-| Nome | Valor |
-|------|-------|
-| `DATABASE_URL` | a do Vercel Postgres |
-| `SESSION_SECRET` | uma string longa aleatória |
-| `BLOB_READ_WRITE_TOKEN` | o token do Vercel Blob |
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
 
-Clique **Deploy**. Em ~1 min sai uma URL tipo `https://erp-drr.vercel.app`.
+Não reutilize segredos entre ambientes. Se algum valor tiver sido publicado,
+revogue-o no provedor e gere outro; apenas apagar o texto do Git não basta.
 
-## 7) Pronto
+## 3. Banco
 
-Você e o Representante Demo acessam essa URL de **qualquer lugar**, fazem login
-(admin@example.test / operador@example.test · senha `[REMOVIDO_DO_HISTORICO]`) e
-compartilham os mesmos dados.
+Com as variáveis apontando para o ambiente correto:
 
----
+```bash
+npm ci
+npm run db:deploy
+```
 
-### Observações
-- Os anexos passam a ser guardados no Vercel Blob (URL não-listada). O download
-  continua passando pelo login do sistema.
-- Para atualizar o sistema depois: `git push` → a Vercel publica sozinha.
-- O banco local (SQLite) e o da nuvem (Postgres) são independentes.
+O comando de deploy apenas sincroniza o schema. Ele não executa o seed.
+
+> [!CAUTION]
+> `npm run db:seed` e `npm run db:reset` apagam dados. Use-os somente em
+> bancos descartáveis de desenvolvimento.
+
+## 4. Publicação
+
+Conecte o repositório à Vercel e mantenha a branch `main` como produção.
+Antes do deploy, execute:
+
+```bash
+npm test
+npm run build
+npm run security:audit
+```
+
+Depois da publicação, valide:
+
+- login, logout e recuperação de senha;
+- separação entre administrador e usuário comum;
+- upload e download de anexos privados;
+- rotas de cron com e sem o cabeçalho de autorização;
+- integração de e-mail;
+- variáveis de preview separadas das de produção.
+
+## 5. Operação
+
+- Ative proteção da branch `main`, Dependabot, secret scanning e CodeQL.
+- Revise alertas de segurança antes de cada release.
+- Rotacione credenciais quando alguém perder acesso à equipe.
+- Faça backup e teste a restauração do banco.
+- Nunca use dados reais no seed, nos testes ou em screenshots públicas.
+
+Vulnerabilidades devem ser relatadas de forma privada conforme
+[`SECURITY.md`](SECURITY.md).

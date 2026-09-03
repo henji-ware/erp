@@ -5,6 +5,13 @@ import { verifyToken, SESSION_COOKIE } from "./session";
 
 // ---- Senhas (scrypt, sem dependências externas) ----
 
+export const MIN_PASSWORD_LENGTH = 12;
+export const MAX_PASSWORD_LENGTH = 128;
+
+export function isValidNewPassword(password: string): boolean {
+  return password.length >= MIN_PASSWORD_LENGTH && password.length <= MAX_PASSWORD_LENGTH;
+}
+
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
   const hash = scryptSync(password, salt, 64).toString("hex");

@@ -54,7 +54,7 @@ export default async function UsersPage() {
             </div>
             <div>
               <label className="label">Senha *</label>
-              <input name="password" type="text" required minLength={4} className="input" placeholder="mín. 4 caracteres" />
+              <input name="password" type="password" required minLength={12} maxLength={128} className="input" placeholder="mín. 12 caracteres" autoComplete="new-password" />
             </div>
             <div>
               <label className="label">Papel</label>

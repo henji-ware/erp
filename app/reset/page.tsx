@@ -48,7 +48,7 @@ export default async function ResetPage({
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                   <Icon name="lock" size={17} />
                 </span>
-                <input name="password" type="password" required minLength={4} className="input pl-10" placeholder="mín. 4 caracteres" />
+                <input name="password" type="password" required minLength={12} maxLength={128} className="input pl-10" placeholder="mín. 12 caracteres" autoComplete="new-password" />
               </div>
             </div>
             <button type="submit" className="btn-primary w-full py-2.5">Salvar nova senha</button>

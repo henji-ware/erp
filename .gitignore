@@ -19,8 +19,9 @@ next-env.d.ts
 npm-debug.log*
 
 # env (segredos — nunca commitar)
-.env
-.env*.local
+.env*
+!.env.example
+!.env.*.example
 
 # database (SQLite)
 /prisma/dev.db

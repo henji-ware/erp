@@ -11,14 +11,18 @@
     "test": "node --experimental-strip-types --import ./tests/ts-resolve.mjs --test tests/*.test.mts",
     "lint": "next lint",
     "db:push": "prisma db push",
-    "db:deploy": "prisma db push && node prisma/seed.mjs",
+    "db:deploy": "prisma db push",
     "db:seed": "node prisma/seed.mjs",
-    "db:reset": "prisma db push --force-reset && node prisma/seed.mjs"
+    "db:reset": "prisma db push --force-reset && node prisma/seed.mjs",
+    "security:audit": "node scripts/security-audit.mjs"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
-    "@prisma/client": "^6.5.0",
+    "@prisma/client": "6.12.0",
     "@vercel/blob": "^2.5.0",
-    "next": "^15.1.6",
+    "next": "15.5.25",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "resend": "^6.16.0"
@@ -28,15 +32,18 @@
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "autoprefixer": "^10.4.20",
-    "postcss": "^8.5.1",
-    "prisma": "^6.5.0",
+    "postcss": "8.5.28",
+    "prisma": "6.12.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3"
   },
+  "overrides": {
+    "postcss": "$postcss"
+  },
   "allowScripts": {
-    "@prisma/client@6.19.3": true,
-    "@prisma/engines@6.19.3": true,
-    "prisma@6.19.3": true,
-    "sharp@0.34.5": true
+    "@prisma/client@6.12.0": true,
+    "@prisma/engines@6.12.0": true,
+    "prisma@6.12.0": true,
+    "sharp@0.35.4": true
   }
 }
