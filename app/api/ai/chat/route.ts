@@ -4,7 +4,7 @@ import { buildSystemPromptWithERPContext, getERPContextForAI } from "@/lib/ai/co
 import { errorMessage, requireUser } from "@/lib/ai/guard";
 import { isAdmin } from "@/lib/auth";
 import { AIMessage, AIProviderId } from "@/lib/ai/types";
-import { resolveApiKey, resolveBaseUrl } from "@/lib/ai/credentials";
+import { resolveProviderAuth } from "@/lib/ai/credentials";
 import { isAIProviderId } from "@/lib/ai/providers";
 
 export const dynamic = "force-dynamic";
@@ -42,14 +42,12 @@ export async function POST(req: NextRequest) {
     // requisição. Antes o navegador a enviava em toda mensagem do chat, o
     // que a expunha a qualquer script da página e a qualquer proxy no
     // caminho. `body.apiKey` é ignorado de propósito.
-    const apiKey = provider ? await resolveApiKey(auth.user.id, provider) : undefined;
-    const baseUrl = provider ? await resolveBaseUrl(auth.user.id, provider) : undefined;
+    const providerAuth = await resolveProviderAuth(auth.user.id, provider || "gemini");
 
     const options = {
       provider,
       model: typeof body.model === "string" ? body.model : undefined,
-      apiKey,
-      baseUrl,
+      ...providerAuth,
       messages,
       systemPrompt: buildSystemPromptWithERPContext(
         await getERPContextForAI(auth.user),

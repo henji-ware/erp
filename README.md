@@ -21,6 +21,7 @@ feito na Vercel, com Neon, Vercel Blob e Resend.
 - Controle de acesso por papel, proprietário e compartilhamento.
 - Auditoria, lixeira com expurgo e anexos privados.
 - DeskHelper AI com múltiplos provedores e ações sujeitas a confirmação.
+- OAuth no OpenRouter e Google Gemini, além das chaves de API.
 - Interface responsiva, busca global e temas claro/escuro.
 
 ## Arquitetura
@@ -104,6 +105,17 @@ O modelo completo e comentado está em
 Gere segredos com um gerador criptográfico. Não reutilize o mesmo valor entre
 sessão, criptografia e cron. Trocar `AI_ENCRYPTION_KEY` torna as chaves de IA já
 armazenadas ilegíveis; planeje a rotação antes de fazê-la.
+
+## Conectar contas de IA
+
+Em **Configurações → Inteligência Artificial**, conecte o OpenRouter sem copiar
+a chave, ou autorize o Gemini com Google após configurar o OAuth no servidor.
+As chaves manuais continuam disponíveis.
+
+OAuth não significa acesso gratuito ou uso da assinatura ChatGPT/Claude:
+cotas e cobranças continuam sendo as do provedor e projeto autorizado.
+A integração com assinatura ChatGPT via Codex ainda não está implementada.
+Consulte [provedores compatíveis e configuração OAuth](docs/AI-OAUTH.md).
 
 ## Segurança
 

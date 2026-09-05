@@ -1,6 +1,7 @@
 import { AI_PROVIDERS } from "./providers";
 import { assertSafeBaseUrl, getEffectiveApiKey, getEffectiveBaseUrl } from "./settings";
-import { AICompletionOptions, AICompletionResult, AIMessage, AIProviderId } from "./types";
+import type { AICompletionOptions, AICompletionResult, AIMessage, AIProviderId } from "./types";
+import { geminiAuthHeaders } from "./request-auth";
 
 /**
  * Motor universal de execução para todos os provedores de IA.
@@ -81,6 +82,8 @@ export interface ResolvedCall {
   provider: AIProviderId;
   model: string;
   apiKey: string;
+  authType?: "api-key" | "oauth";
+  quotaProject?: string;
   baseUrl: string;
   systemPrompt?: string;
   messages: AIMessage[];
@@ -105,8 +108,9 @@ export function resolveCall(options: AICompletionOptions): ResolvedCall {
         "carregue os modelos da sua conta e selecione um."
     );
   }
-  const apiKey = getEffectiveApiKey(provider, options.apiKey);
-  const baseUrl = getEffectiveBaseUrl(provider, options.baseUrl);
+  const apiKey = options.authType === "oauth" ? options.apiKey : getEffectiveApiKey(provider, options.apiKey);
+  if (options.authType === "oauth" && provider !== "gemini" && provider !== "openrouter") throw new Error("OAuth não suportado neste provedor.");
+  const baseUrl = options.authType === "oauth" ? providerConfig.defaultBaseUrl! : getEffectiveBaseUrl(provider, options.baseUrl);
 
   assertSafeBaseUrl(provider, baseUrl);
 
@@ -133,6 +137,8 @@ export function resolveCall(options: AICompletionOptions): ResolvedCall {
     provider,
     model,
     apiKey: apiKey || "",
+    authType: options.authType,
+    quotaProject: options.quotaProject,
     baseUrl,
     systemPrompt,
     messages,
@@ -343,8 +349,8 @@ function geminiPayload(call: ResolvedCall) {
 function geminiUrl(call: ResolvedCall, stream: boolean): string {
   const method = stream ? "streamGenerateContent" : "generateContent";
   const base = (call.baseUrl || "https://generativelanguage.googleapis.com").replace(/\/+$/, "");
-  const sse = stream ? "&alt=sse" : "";
-  return `${base}/v1beta/models/${encodeURIComponent(call.model)}:${method}?key=${encodeURIComponent(call.apiKey)}${sse}`;
+  const sse = stream ? "?alt=sse" : "";
+  return `${base}/v1beta/models/${encodeURIComponent(call.model)}:${method}${sse}`;
 }
 
 async function callGemini(
@@ -354,7 +360,8 @@ async function callGemini(
 ): Promise<AICompletionResult> {
   const res = await fetch(geminiUrl(call, false), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...geminiAuthHeaders(call.apiKey, call.authType, call.quotaProject) },
+    redirect: "error",
     body: JSON.stringify(geminiPayload(call)),
     signal,
   });
@@ -484,6 +491,7 @@ async function callOpenAICompatible(
 ): Promise<AICompletionResult> {
   const res = await fetch(openAIEndpoint(call.baseUrl), {
     method: "POST",
+    redirect: call.authType === "oauth" ? "error" : "follow",
     headers: openAIHeaders(call),
     body: JSON.stringify(openAIPayload(call, false)),
     signal,
@@ -554,13 +562,15 @@ async function openStream(call: ResolvedCall, signal: AbortSignal): Promise<Resp
   if (call.provider === "gemini") {
     return fetch(geminiUrl(call, true), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...geminiAuthHeaders(call.apiKey, call.authType, call.quotaProject) },
+      redirect: "error",
       body: JSON.stringify(geminiPayload(call)),
       signal,
     });
   }
   return fetch(openAIEndpoint(call.baseUrl), {
     method: "POST",
+    redirect: call.authType === "oauth" ? "error" : "follow",
     headers: openAIHeaders(call),
     body: JSON.stringify(openAIPayload(call, true)),
     signal,

@@ -1,4 +1,4 @@
-import { AIProviderConfig, AIProviderId } from "./types";
+import type { AIProviderConfig, AIProviderId } from "./types";
 
 /**
  * Catálogo de provedores e modelos.
@@ -265,5 +265,5 @@ export const DEFAULT_AI_PROVIDER: AIProviderId = "gemini";
 export const AI_PROVIDER_IDS = Object.keys(AI_PROVIDERS) as AIProviderId[];
 
 export function isAIProviderId(value: unknown): value is AIProviderId {
-  return typeof value === "string" && value in AI_PROVIDERS;
+  return typeof value === "string" && Object.hasOwn(AI_PROVIDERS, value);
 }

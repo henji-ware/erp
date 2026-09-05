@@ -1,5 +1,5 @@
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, isAIProviderId } from "./providers";
-import { AIProviderId, AISettingsData } from "./types";
+import type { AIProviderId, AISettingsData } from "./types";
 
 /**
  * Cookie com as preferências de IA — provedor ativo, modelo padrão e URLs base.

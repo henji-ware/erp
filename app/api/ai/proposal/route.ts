@@ -4,7 +4,7 @@ import { errorMessage, requireUser } from "@/lib/ai/guard";
 import { isAdmin } from "@/lib/auth";
 import { AIProviderId } from "@/lib/ai/types";
 import { isProposalAIType, type ProposalAIType } from "@/lib/proposals";
-import { resolveApiKey, resolveBaseUrl } from "@/lib/ai/credentials";
+import { resolveProviderAuth } from "@/lib/ai/credentials";
 import { isAIProviderId } from "@/lib/ai/providers";
 
 export const dynamic = "force-dynamic";
@@ -116,8 +116,7 @@ export async function POST(req: NextRequest) {
     const completion = await executeAICompletion({
       provider,
       model: typeof body.model === "string" ? body.model : undefined,
-      apiKey: provider ? await resolveApiKey(auth.user.id, provider) : undefined,
-      baseUrl: provider ? await resolveBaseUrl(auth.user.id, provider) : undefined,
+      ...await resolveProviderAuth(auth.user.id, provider || "gemini"),
       messages: [{ role: "user", content: buildPrompt(type, body) }],
       systemPrompt: SYSTEM_PROMPT,
       // A tabela de vistoria é formato, não redação: com temperatura alta o

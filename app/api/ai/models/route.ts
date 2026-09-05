@@ -3,7 +3,8 @@ import { AI_PROVIDERS, isAIProviderId } from "@/lib/ai/providers";
 import { assertSafeBaseUrl, getEffectiveBaseUrl } from "@/lib/ai/settings";
 import { errorMessage, requireUser } from "@/lib/ai/guard";
 import { AIModelInfo, AIProviderId } from "@/lib/ai/types";
-import { resolveApiKey, resolveBaseUrl } from "@/lib/ai/credentials";
+import { resolveProviderAuth } from "@/lib/ai/credentials";
+import { geminiAuthHeaders } from "@/lib/ai/request-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +26,12 @@ export async function POST(req: NextRequest) {
     // motivo legítimo: ao cadastrar uma chave nova a pessoa quer carregar os
     // modelos antes de salvar. Se o corpo não trouxer chave, vale a guardada.
     const digitada = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
-    const apiKey = digitada || (await resolveApiKey(auth.user.id, provider));
-
     const baseUrlDigitada = typeof body.baseUrl === "string" ? body.baseUrl.trim() : "";
+    const providerAuth = await resolveProviderAuth(auth.user.id, provider, digitada, baseUrlDigitada);
+    const { apiKey } = providerAuth;
     const baseUrl = getEffectiveBaseUrl(
       provider,
-      baseUrlDigitada || (await resolveBaseUrl(auth.user.id, provider)),
+      providerAuth.baseUrl,
     );
 
     assertSafeBaseUrl(provider, baseUrl);
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const liveModels = await fetchLiveModels(provider, apiKey, baseUrl);
+    const liveModels = await fetchLiveModels(provider, apiKey, baseUrl, providerAuth.authType, providerAuth.quotaProject);
 
     return NextResponse.json({
       ok: true,
@@ -82,14 +83,16 @@ function decorate(id: string, preConfigured: AIModelInfo[], extra?: Partial<AIMo
 async function fetchLiveModels(
   provider: AIProviderId,
   apiKey?: string,
-  baseUrl?: string
+  baseUrl?: string,
+  authType?: "api-key" | "oauth",
+  quotaProject?: string,
 ): Promise<AIModelInfo[]> {
   const preConfigured = AI_PROVIDERS[provider]?.models || [];
 
   switch (provider) {
     case "gemini": {
-      const url = `${(baseUrl || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")}/v1beta/models?key=${encodeURIComponent(apiKey!)}&pageSize=200`;
-      const res = await fetch(url, { signal: timeout() });
+      const url = `${(baseUrl || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")}/v1beta/models?pageSize=200`;
+      const res = await fetch(url, { headers: geminiAuthHeaders(apiKey!, authType, quotaProject), signal: timeout(), redirect: "error", cache: "no-store" });
       if (!res.ok) throw new Error(`Google respondeu ${res.status}. Verifique a chave de API.`);
       const data = await res.json();
       const list: AIModelInfo[] = (data.models || [])
@@ -143,6 +146,8 @@ async function fetchLiveModels(
       const res = await fetch("https://openrouter.ai/api/v1/models", {
         headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
         signal: timeout(),
+        redirect: "error",
+        cache: "no-store",
       });
       if (!res.ok) throw new Error(`OpenRouter respondeu ${res.status}.`);
       const data = await res.json();

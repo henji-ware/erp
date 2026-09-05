@@ -14,6 +14,9 @@ export default function AISettings({
   savedKeys = [],
   canStore = true,
   isAdmin = false,
+  oauthAvailable = { openrouter: false, gemini: false },
+  oauthProvider,
+  oauthResult,
 }: {
   initialSettings?: AISettingsData;
   /**
@@ -26,10 +29,13 @@ export default function AISettings({
   canStore?: boolean;
   /** Só administrador mexe no .env do servidor; para os demais isso é ruído. */
   isAdmin?: boolean;
+  oauthAvailable?: { openrouter: boolean; gemini: boolean };
+  oauthProvider?: "openrouter" | "gemini";
+  oauthResult?: string;
 }) {
   const { settings, setSettings, loaded } = useAISettings();
   const [selectedProvider, setSelectedProvider] = useState<AIProviderId>(
-    initialSettings?.activeProvider || "gemini"
+    oauthProvider || initialSettings?.activeProvider || "gemini"
   );
   const [loadingModels, setLoadingModels] = useState(false);
   const [modelsMap, setModelsMap] = useState<Partial<Record<AIProviderId, AIModelInfo[]>>>({});
@@ -41,6 +47,8 @@ export default function AISettings({
   const [keys, setKeys] = useState<CredentialView[]>(savedKeys);
   const [keyBusy, setKeyBusy] = useState(false);
   const [keyError, setKeyError] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [oauthNotice, setOAuthNotice] = useState(oauthResult);
 
   // Rascunhos locais dos campos de texto: gravar a cada tecla escrevia o
   // localStorage e o cookie caractere por caractere e piscava o aviso de
@@ -58,6 +66,8 @@ export default function AISettings({
   const currentKey = keyDraft ?? "";
   const currentUrl = urlDraft ?? storedUrl;
   const savedKey = keys.find((k) => k.provider === selectedProvider);
+  const usesOAuth = savedKey?.authType === "oauth" && !currentKey.trim();
+  const supportsOAuth = selectedProvider === "openrouter" || selectedProvider === "gemini";
 
   // Só modelos vindos da API do usuário. O catálogo do código serve apenas
   // para dar nome e descrição a esses IDs, nunca como lista oferecida —
@@ -76,7 +86,7 @@ export default function AISettings({
 
   // Assim que o localStorage é lido, o painel abre no provedor que está ativo.
   useEffect(() => {
-    if (loaded) setSelectedProvider(settings.activeProvider);
+    if (loaded) setSelectedProvider(oauthProvider || settings.activeProvider);
     // só na carga inicial: depois quem manda é o clique do usuário
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
@@ -84,6 +94,29 @@ export default function AISettings({
   useEffect(() => () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!oauthResult) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("oauth");
+    url.searchParams.delete("provider");
+    window.history.replaceState(window.history.state, "", url);
+  }, [oauthResult]);
+
+  const connectOAuth = async () => {
+    setConnecting(true);
+    setKeyError("");
+    setOAuthNotice(undefined);
+    try {
+      const response = await fetch(`/api/ai/oauth/${selectedProvider}`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok || typeof data.url !== "string") throw new Error(data.error || "Não foi possível iniciar a conexão.");
+      window.location.assign(data.url);
+    } catch (error) {
+      setKeyError(error instanceof Error ? error.message : "Não foi possível iniciar a conexão.");
+      setConnecting(false);
+    }
+  };
 
   const commit = (patch: Partial<AISettingsData>) => {
     setSettings({ ...settings, ...patch });
@@ -115,9 +148,11 @@ export default function AISettings({
         baseUrl: currentUrl || null,
         updatedAt: new Date(),
         broken: false,
+        authType: "api-key",
       },
     ]);
     setSavedAt(Date.now());
+    setLiveLoaded((prev) => ({ ...prev, [selectedProvider]: false }));
   };
 
   const dropKey = async () => {
@@ -131,6 +166,8 @@ export default function AISettings({
     }
     setKeyDraft(null);
     setKeys((prev) => prev.filter((k) => k.provider !== selectedProvider));
+    setLiveLoaded((prev) => ({ ...prev, [selectedProvider]: false }));
+    setModelsMap((prev) => ({ ...prev, [selectedProvider]: undefined }));
     setSavedAt(Date.now());
   };
 
@@ -284,11 +321,9 @@ export default function AISettings({
           antigo (localStorage) e virou mentira quando a chave passou a ser
           cifrada no banco — aviso de segurança errado é pior que nenhum. */}
       <Alert tone="neutral" size="sm">
-        A chave é guardada <strong>cifrada no servidor</strong>, ligada à sua
-        conta. Ela nunca volta para o navegador: aqui aparecem só os quatro
-        últimos caracteres, para você reconhecer qual está salva. Como fica na
-        sua conta e não na máquina, funciona de qualquer computador ou celular
-        em que você entrar — e ninguém mais usa a sua.
+        Chaves e tokens são guardados <strong>cifrados no servidor</strong>, ligados à sua
+        conta do ERP. Os segredos salvos não voltam para o navegador.
+        Você pode conectar por OAuth nos provedores compatíveis ou cadastrar uma chave manualmente.
         {isAdmin && (
           <>
             {" "}
@@ -340,7 +375,7 @@ export default function AISettings({
                 {hasKey && (
                   <span className="mt-2 inline-flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    Chave salva
+                    {keys.find((k) => k.provider === p.id)?.authType === "oauth" ? "Conta conectada" : "Chave salva"}
                   </span>
                 )}
               </button>
@@ -382,6 +417,52 @@ export default function AISettings({
               "Definir como principal"
             )}
           </button>
+        </div>
+
+        {oauthNotice && (
+          <Alert tone={oauthNotice === "success" ? "success" : "neutral"} size="sm">
+            {oauthNotice === "success"
+              ? "Conta conectada. Carregue os modelos, escolha um e use Definir como principal se quiser ativar este provedor."
+              : oauthNotice === "cancelled"
+                ? "Autorização cancelada. A conexão anterior foi mantida."
+                : "Não foi possível concluir a autorização. Sua sessão ou o código pode ter expirado. Tente conectar novamente."}
+          </Alert>
+        )}
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+          <p className="text-sm font-semibold text-slate-900">Conectar com sua conta</p>
+          {supportsOAuth ? (
+            <>
+              <p className="text-xs text-slate-600">
+                {selectedProvider === "openrouter"
+                  ? "Autorize o ERP no OpenRouter sem copiar uma chave. Você poderá usar os modelos disponíveis lá, inclusive GPT, conforme o saldo e as permissões da sua conta OpenRouter. Isso não utiliza a assinatura ChatGPT."
+                  : "Autorize o acesso ao Gemini pela sua conta Google. O uso consome a cota do projeto Google Cloud configurado pelo administrador, não a assinatura do aplicativo Gemini. A permissão Google Cloud solicitada é ampla: use uma conta com acesso restrito ao projeto de IA."}
+              </p>
+              <button type="button" onClick={connectOAuth}
+                disabled={connecting || keyBusy || !canStore || !oauthAvailable[selectedProvider as "openrouter" | "gemini"]}
+                className="btn-primary btn-sm">
+                {connecting ? "Redirecionando…" : `${savedKey?.authType === "oauth" ? "Reconectar" : "Conectar"} ${selectedProvider === "gemini" ? "com Google" : "com OpenRouter"}`}
+              </button>
+              {savedKey && <p className="text-xs text-slate-500">Ao autorizar, a conexão acima substituirá a credencial atual deste provedor.</p>}
+              {!oauthAvailable[selectedProvider as "openrouter" | "gemini"] && (
+                <p className="text-xs text-amber-700">
+                  {isAdmin ? (selectedProvider === "gemini"
+                    ? "Configure APP_URL, GOOGLE_AI_OAUTH_CLIENT_ID, GOOGLE_AI_OAUTH_CLIENT_SECRET e GOOGLE_AI_PROJECT_ID no servidor. Consulte docs/AI-OAUTH.md."
+                    : "Configure APP_URL e um segredo de criptografia no servidor para habilitar o OAuth.")
+                    : "O administrador precisa habilitar esta conexão no servidor."}
+                </p>
+              )}
+              {savedKey?.authType === "oauth" && <p className="text-xs text-slate-500">Remover desconecta apenas do ERP. Revogue também a autorização na conta Google ou a chave delegada no OpenRouter. Sem credencial pessoal, a chave da empresa poderá ser usada.</p>}
+            </>
+          ) : (
+            <p className="text-xs text-slate-600">
+              {selectedProvider === "openai"
+                ? "O login com assinatura ChatGPT é oferecido pelo Codex. Esta integração usa a API OpenAI e continua exigindo chave; usar a assinatura aqui exige um serviço Codex separado, ainda não integrado. Como alternativa, conecte o OpenRouter para acessar modelos GPT com a conta OpenRouter."
+                : !currentConfig.requiresApiKey
+                  ? "Este servidor pode funcionar localmente sem chave ou OAuth. Configure o endereço do serviço."
+                  : "OAuth de conta não está disponível nesta integração. Use a chave de API do provedor. Login no painel e assinatura do chat não equivalem a acesso à API."}
+            </p>
+          )}
         </div>
 
         {/* Chave e URL base */}
@@ -442,7 +523,7 @@ export default function AISettings({
                 {savedKey && (
                   <>
                     <span className="font-mono text-xs text-slate-500">
-                      salva: ••••{savedKey.hint}
+                      {savedKey.authType === "oauth" ? "OAuth conectado" : `salva: ••••${savedKey.hint}`}
                     </span>
                     <button
                       type="button"
@@ -450,7 +531,7 @@ export default function AISettings({
                       disabled={keyBusy}
                       className="text-xs text-red-600 hover:underline"
                     >
-                      Remover
+                      {savedKey.authType === "oauth" ? "Desconectar" : "Remover"}
                     </button>
                   </>
                 )}
@@ -492,7 +573,8 @@ export default function AISettings({
               id="ai-url"
               type="text"
               spellCheck={false}
-              value={currentUrl}
+              value={usesOAuth ? currentConfig.defaultBaseUrl || "" : currentUrl}
+              disabled={usesOAuth}
               onChange={(e) => {
                 const v = e.target.value;
                 setUrlDraft(v);
@@ -593,7 +675,7 @@ export default function AISettings({
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 {currentConfig?.requiresApiKey && !savedKey
-                  ? "Informe a chave de API acima. Assim que ela for salva, a lista é buscada automaticamente na sua conta."
+                  ? "Conecte sua conta por OAuth, quando disponível, ou salve uma chave de API para carregar os modelos."
                   : "Use o botão acima para buscar na API do provedor exatamente os modelos que a sua chave pode usar."}
               </p>
             </div>

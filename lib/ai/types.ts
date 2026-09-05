@@ -54,6 +54,9 @@ export interface AICompletionOptions {
   provider?: AIProviderId;
   model?: string;
   apiKey?: string;
+  /** Resolvido exclusivamente no servidor, nunca aceito do corpo HTTP. */
+  authType?: "api-key" | "oauth";
+  quotaProject?: string;
   baseUrl?: string;
   messages: AIMessage[];
   systemPrompt?: string;

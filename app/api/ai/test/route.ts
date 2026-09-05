@@ -4,7 +4,7 @@ import { errorMessage, requireUser } from "@/lib/ai/guard";
 import { isAdmin } from "@/lib/auth";
 import { AIProviderId } from "@/lib/ai/types";
 import { isAIProviderId } from "@/lib/ai/providers";
-import { resolveApiKey, resolveBaseUrl } from "@/lib/ai/credentials";
+import { resolveProviderAuth } from "@/lib/ai/credentials";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +28,7 @@ export async function POST(req: NextRequest) {
     const result = await executeAICompletion({
       provider,
       model: typeof body.model === "string" ? body.model : undefined,
-      apiKey: digitada || (await resolveApiKey(auth.user.id, provider)),
-      baseUrl: baseUrlDigitada || (await resolveBaseUrl(auth.user.id, provider)),
+      ...await resolveProviderAuth(auth.user.id, provider, digitada, baseUrlDigitada),
       messages: [{ role: "user", content: "Responda apenas: OK" }],
       maxTokens: 64,
       temperature: 0.1,

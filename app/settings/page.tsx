@@ -22,10 +22,14 @@ import AISettings from "./AISettings";
 import SettingsTabs from "./SettingsTabs";
 import { getServerAISettings } from "@/lib/ai/server-settings";
 import { listCredentials, canStoreSecrets } from "@/lib/ai/credentials";
+import { isOAuthProvider, oauthAvailability } from "@/lib/ai/oauth";
 
 export const dynamic = "force-dynamic";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const query = await searchParams;
+  const oauthProvider = isOAuthProvider(query.provider) ? query.provider : undefined;
+  const oauthResult = typeof query.oauth === "string" && ["success", "error", "cancelled"].includes(query.oauth) ? query.oauth : undefined;
   const [store, user, aiSettings] = await Promise.all([
     cookies(),
     getCurrentUser(),
@@ -86,6 +90,9 @@ export default async function SettingsPage() {
                   savedKeys={savedKeys}
                   canStore={canStoreSecrets()}
                   isAdmin={admin}
+                  oauthAvailable={oauthAvailability()}
+                  oauthProvider={oauthResult ? oauthProvider : undefined}
+                  oauthResult={oauthResult}
                 />
               </div>
             ),
