@@ -2,6 +2,7 @@ import { AI_PROVIDERS } from "./providers";
 import { assertSafeBaseUrl, getEffectiveApiKey, getEffectiveBaseUrl } from "./settings";
 import type { AICompletionOptions, AICompletionResult, AIMessage, AIProviderId } from "./types";
 import { geminiAuthHeaders } from "./request-auth";
+import { runAgentCompletion } from "./agent-runtime";
 
 /**
  * Motor universal de execução para todos os provedores de IA.
@@ -82,8 +83,9 @@ export interface ResolvedCall {
   provider: AIProviderId;
   model: string;
   apiKey: string;
-  authType?: "api-key" | "oauth";
+  authType?: "api-key" | "oauth" | "codex" | "claude-code";
   quotaProject?: string;
+  agentUserId?: number;
   baseUrl: string;
   systemPrompt?: string;
   messages: AIMessage[];
@@ -108,13 +110,17 @@ export function resolveCall(options: AICompletionOptions): ResolvedCall {
         "carregue os modelos da sua conta e selecione um."
     );
   }
-  const apiKey = options.authType === "oauth" ? options.apiKey : getEffectiveApiKey(provider, options.apiKey);
+  const usesAgent = options.authType === "codex" || options.authType === "claude-code";
+  const apiKey = options.authType === "oauth" || usesAgent ? options.apiKey : getEffectiveApiKey(provider, options.apiKey);
   if (options.authType === "oauth" && provider !== "gemini" && provider !== "openrouter") throw new Error("OAuth não suportado neste provedor.");
-  const baseUrl = options.authType === "oauth" ? providerConfig.defaultBaseUrl! : getEffectiveBaseUrl(provider, options.baseUrl);
+  if (options.authType === "codex" && provider !== "openai") throw new Error("Esta conexão Codex só pode ser usada com a OpenAI.");
+  if (options.authType === "claude-code" && provider !== "anthropic") throw new Error("Esta conexão Claude Code só pode ser usada com a Anthropic.");
+  if (usesAgent && !options.agentUserId) throw new Error("Conexão de agente inválida. Reconecte sua conta.");
+  const baseUrl = options.authType === "oauth" || usesAgent ? providerConfig.defaultBaseUrl! : getEffectiveBaseUrl(provider, options.baseUrl);
 
   assertSafeBaseUrl(provider, baseUrl);
 
-  if (providerConfig.requiresApiKey && !apiKey) {
+  if (providerConfig.requiresApiKey && !apiKey && !usesAgent) {
     // Mandar um colaborador "definir a variável no servidor" não ajuda: ele não
     // tem esse acesso. A dica de .env fica só para administrador.
     throw new Error(
@@ -139,6 +145,7 @@ export function resolveCall(options: AICompletionOptions): ResolvedCall {
     apiKey: apiKey || "",
     authType: options.authType,
     quotaProject: options.quotaProject,
+    agentUserId: options.agentUserId,
     baseUrl,
     systemPrompt,
     messages,
@@ -237,6 +244,16 @@ export async function executeAICompletion(
   const { signal, done } = withTimeout(options.signal);
 
   try {
+    if ((call.authType === "codex" || call.authType === "claude-code") && call.agentUserId) {
+      return await runAgentCompletion({
+        provider: call.provider,
+        userId: call.agentUserId,
+        model: call.model,
+        messages: call.messages,
+        systemPrompt: call.systemPrompt,
+        signal,
+      });
+    }
     return await withRetry(
       () => {
         switch (call.provider) {
@@ -360,7 +377,7 @@ async function callGemini(
 ): Promise<AICompletionResult> {
   const res = await fetch(geminiUrl(call, false), {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...geminiAuthHeaders(call.apiKey, call.authType, call.quotaProject) },
+    headers: { "Content-Type": "application/json", ...geminiAuthHeaders(call.apiKey, call.authType === "oauth" ? "oauth" : "api-key", call.quotaProject) },
     redirect: "error",
     body: JSON.stringify(geminiPayload(call)),
     signal,
@@ -562,7 +579,7 @@ async function openStream(call: ResolvedCall, signal: AbortSignal): Promise<Resp
   if (call.provider === "gemini") {
     return fetch(geminiUrl(call, true), {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...geminiAuthHeaders(call.apiKey, call.authType, call.quotaProject) },
+      headers: { "Content-Type": "application/json", ...geminiAuthHeaders(call.apiKey, call.authType === "oauth" ? "oauth" : "api-key", call.quotaProject) },
       redirect: "error",
       body: JSON.stringify(geminiPayload(call)),
       signal,
@@ -605,6 +622,18 @@ export async function* streamAICompletion(
   let full = "";
 
   try {
+    if ((call.authType === "codex" || call.authType === "claude-code") && call.agentUserId) {
+      const result = await runAgentCompletion({
+        provider: call.provider,
+        userId: call.agentUserId,
+        model: call.model,
+        messages: call.messages,
+        systemPrompt: call.systemPrompt,
+        signal,
+      });
+      if (result.text) yield { type: "delta", text: result.text };
+      return result;
+    }
     if (call.provider === "cohere") {
       const result = await withRetry(() => callCohere(call, signal, startTime), undefined, signal);
       if (result.text) yield { type: "delta", text: result.text };

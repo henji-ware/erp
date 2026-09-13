@@ -305,7 +305,7 @@ export default function CopilotWidget() {
           isError: true,
           content:
             `**Não consegui responder.**\n\n${err.message}\n\n` +
-            "Verifique a chave e o modelo em Configurações > Inteligência Artificial, ou escolha outro provedor no seletor acima.",
+            "Verifique a conexão e o modelo em Configurações > IA, ou escolha outro provedor no seletor acima.",
         });
       }
     } finally {
@@ -537,7 +537,7 @@ export default function CopilotWidget() {
             <Alert tone="warn" size="sm" className="mx-3 mb-2">
               Nenhum modelo configurado. Abra{" "}
               <a href="/settings#ia" className="font-semibold underline">
-                Configurações › Inteligência Artificial
+                Configurações › IA
               </a>
               , informe a chave do provedor e carregue os modelos da sua conta.
             </Alert>

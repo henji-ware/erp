@@ -1,6 +1,6 @@
 # Conexão de provedores de IA
 
-Em **Configurações → Inteligência Artificial**, conecte uma conta compatível,
+Em **Configurações → IA**, conecte uma conta compatível,
 carregue modelos e escolha o provedor principal. OAuth autoriza o uso de IA;
 não é login no ERP e não muda as permissões do usuário.
 
@@ -10,17 +10,31 @@ não é login no ERP e não muda as permissões do usuário.
 | --- | --- |
 | OpenRouter | OAuth PKCE ou chave manual. O OAuth gera uma chave delegada sem copiar/colar. |
 | Google Gemini | OAuth com renovação automática ou chave manual. Exige Google Cloud. |
-| OpenAI / GPT | Chave da API. Assinatura ChatGPT via Codex ainda não integrada. |
-| Anthropic / Claude | Chave da API. Fluxos do CLI e de federação não integrados. |
+| OpenAI / GPT | Conta ChatGPT pelo Codex (navegador + código de dispositivo) ou chave da API. |
+| Anthropic / Claude | Conta pelo Claude Code instalado no servidor ou chave da API. |
 | DeepSeek, Groq, Mistral, xAI, Cohere | Chave da API; OAuth de conta não implementado. |
 | Ollama, servidor próprio | Acesso ao servidor local/compatível, sem OAuth. |
 
 Não há um fluxo OAuth universal. OAuth de conectores (Gmail, Drive etc.) não
-substitui a autenticação da API do modelo. O login ChatGPT documentado pelo
-[Codex App Server](https://developers.openai.com/codex/app-server/) exige outra
-arquitetura: processo Codex, autenticação e isolamento por usuário. Não basta
-enviar esse token ao endpoint de chat da API OpenAI. Esta versão não executa
-Codex no servidor nem reutiliza credenciais do computador do administrador.
+substitui a autenticação da API do modelo. O login ChatGPT usa o
+[Codex App Server](https://developers.openai.com/codex/app-server/) com
+autenticação e diretório isolados por usuário. O navegador recebe somente o
+endereço e o código de dispositivo; os tokens ficam no servidor.
+
+## Codex e Claude Code no servidor
+
+Esta opção funciona tanto com o ERP executado localmente quanto em um servidor
+Node persistente, como uma VPS. Uma implantação serverless comum não mantém o
+processo de login nem o diretório de credenciais.
+
+1. Instale `codex` e, se quiser Claude, `claude` para o usuário do serviço.
+2. Defina `AI_AGENT_DATA_DIR` para um volume persistente e privado.
+3. Se os binários não estiverem no `PATH`, defina `CODEX_BIN` e `CLAUDE_BIN`.
+4. Em **Configurações → IA**, escolha OpenAI ou Anthropic e clique em conectar.
+
+Os CLIs filhos recebem um ambiente limpo: segredos do ERP, como banco de dados
+e sessão, não são herdados. As respostas rodam sem ferramentas, em diretório
+isolado. Desconectar também encerra a sessão do CLI daquele usuário.
 
 ## Configuração comum
 

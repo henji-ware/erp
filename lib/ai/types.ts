@@ -13,6 +13,8 @@ export type AIProviderId =
 
 export type AIModelTier = "flagship" | "fast" | "reasoning" | "specialized";
 
+export type AIAuthType = "api-key" | "oauth" | "codex" | "claude-code";
+
 export interface AIModelInfo {
   id: string;
   name: string;
@@ -55,7 +57,9 @@ export interface AICompletionOptions {
   model?: string;
   apiKey?: string;
   /** Resolvido exclusivamente no servidor, nunca aceito do corpo HTTP. */
-  authType?: "api-key" | "oauth";
+  authType?: AIAuthType;
+  /** Identificador interno usado apenas pelos runtimes Codex/Claude Code. */
+  agentUserId?: number;
   quotaProject?: string;
   baseUrl?: string;
   messages: AIMessage[];

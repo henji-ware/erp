@@ -73,14 +73,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     <div className="max-w-5xl">
       <PageHeader
         title="Configurações"
-        subtitle="Inteligência artificial, aparência, preferências e informações do sistema"
+        subtitle="IA, aparência, preferências e informações do sistema"
       />
 
       <SettingsTabs
         tabs={[
           {
             id: "ia",
-            label: "Inteligência Artificial",
+            label: "IA",
             icon: "ai",
             hint: "Escolha o provedor e o modelo usados pelo DeskHelper AI e pelo assistente de propostas.",
             content: (

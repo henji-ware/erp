@@ -15,6 +15,7 @@ next-env.d.ts
 .DS_Store
 *.pem
 .claude/
+/.data/ai-agent-auth/
 
 # debug
 npm-debug.log*

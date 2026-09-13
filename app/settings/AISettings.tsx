@@ -49,6 +49,15 @@ export default function AISettings({
   const [keyError, setKeyError] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [oauthNotice, setOAuthNotice] = useState(oauthResult);
+  const [agentLogin, setAgentLogin] = useState<{
+    status: "starting" | "waiting" | "connected" | "failed";
+    available: boolean;
+    verificationUrl?: string;
+    userCode?: string;
+    output?: string;
+    error?: string;
+  } | null>(null);
+  const [agentCode, setAgentCode] = useState("");
 
   // Rascunhos locais dos campos de texto: gravar a cada tecla escrevia o
   // localStorage e o cookie caractere por caractere e piscava o aviso de
@@ -66,8 +75,9 @@ export default function AISettings({
   const currentKey = keyDraft ?? "";
   const currentUrl = urlDraft ?? storedUrl;
   const savedKey = keys.find((k) => k.provider === selectedProvider);
-  const usesOAuth = savedKey?.authType === "oauth" && !currentKey.trim();
+  const usesManagedAuth = savedKey?.authType !== undefined && savedKey.authType !== "api-key" && !currentKey.trim();
   const supportsOAuth = selectedProvider === "openrouter" || selectedProvider === "gemini";
+  const supportsAgentLogin = selectedProvider === "openai" || selectedProvider === "anthropic";
 
   // Só modelos vindos da API do usuário. O catálogo do código serve apenas
   // para dar nome e descrição a esses IDs, nunca como lista oferecida —
@@ -103,6 +113,35 @@ export default function AISettings({
     window.history.replaceState(window.history.state, "", url);
   }, [oauthResult]);
 
+  useEffect(() => {
+    if (!agentLogin || agentLogin.status !== "waiting" || !supportsAgentLogin) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await fetch(`/api/ai/agent/${selectedProvider}`, { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Não foi possível acompanhar a conexão.");
+        setAgentLogin(data);
+        if (data.status === "connected") {
+          const authType = selectedProvider === "openai" ? "codex" : "claude-code";
+          setKeys((prev) => [...prev.filter((key) => key.provider !== selectedProvider), {
+            provider: selectedProvider,
+            hint: selectedProvider === "openai" ? "Codex" : "Claude Code",
+            baseUrl: null,
+            updatedAt: new Date(),
+            broken: false,
+            authType,
+          }]);
+          setLiveLoaded((prev) => ({ ...prev, [selectedProvider]: false }));
+          window.clearInterval(timer);
+        }
+      } catch (error) {
+        setAgentLogin((current) => current ? { ...current, status: "failed", error: error instanceof Error ? error.message : "Falha ao acompanhar a conexão." } : current);
+        window.clearInterval(timer);
+      }
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [agentLogin?.status, selectedProvider, supportsAgentLogin]);
+
   const connectOAuth = async () => {
     setConnecting(true);
     setKeyError("");
@@ -114,6 +153,49 @@ export default function AISettings({
       window.location.assign(data.url);
     } catch (error) {
       setKeyError(error instanceof Error ? error.message : "Não foi possível iniciar a conexão.");
+      setConnecting(false);
+    }
+  };
+
+  const connectAgent = async () => {
+    setConnecting(true);
+    setKeyError("");
+    setAgentLogin(null);
+    try {
+      const response = await fetch(`/api/ai/agent/${selectedProvider}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const data = await response.json();
+      setAgentLogin(data);
+      if (!response.ok || !data.ok) throw new Error(data.error || "Não foi possível iniciar a conexão.");
+      if (typeof data.verificationUrl === "string") window.open(data.verificationUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setKeyError(error instanceof Error ? error.message : "Não foi possível iniciar a conexão.");
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const submitClaudeCode = async () => {
+    const code = agentCode.trim();
+    if (!code) return;
+    setConnecting(true);
+    setKeyError("");
+    try {
+      const response = await fetch(`/api/ai/agent/${selectedProvider}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await response.json();
+      setAgentLogin(data);
+      if (!response.ok || !data.ok) throw new Error(data.error || "Não foi possível enviar o código.");
+      setAgentCode("");
+    } catch (error) {
+      setKeyError(error instanceof Error ? error.message : "Não foi possível enviar o código.");
+    } finally {
       setConnecting(false);
     }
   };
@@ -158,7 +240,10 @@ export default function AISettings({
   const dropKey = async () => {
     setKeyBusy(true);
     setKeyError("");
-    const res = await removeApiKey(selectedProvider);
+    const isAgent = savedKey?.authType === "codex" || savedKey?.authType === "claude-code";
+    const res = isAgent
+      ? await fetch(`/api/ai/agent/${selectedProvider}`, { method: "DELETE" }).then(async (response) => ({ ok: response.ok, ...(await response.json()) }))
+      : await removeApiKey(selectedProvider);
     setKeyBusy(false);
     if (!res.ok) {
       setKeyError(res.error);
@@ -195,6 +280,8 @@ export default function AISettings({
     setSelectedProvider(id);
     setTestResult(null);
     setShowKey(false);
+    setAgentLogin(null);
+    setAgentCode("");
   };
 
   const loadModels = async (opts: { silent?: boolean } = {}) => {
@@ -323,7 +410,7 @@ export default function AISettings({
       <Alert tone="neutral" size="sm">
         Chaves e tokens são guardados <strong>cifrados no servidor</strong>, ligados à sua
         conta do ERP. Os segredos salvos não voltam para o navegador.
-        Você pode conectar por OAuth nos provedores compatíveis ou cadastrar uma chave manualmente.
+        Você pode conectar uma conta nos provedores compatíveis ou cadastrar uma chave manualmente.
         {isAdmin && (
           <>
             {" "}
@@ -334,9 +421,9 @@ export default function AISettings({
       </Alert>
 
       {/* Grade de provedores */}
-      <div>
-        <label className="label mb-2 font-medium">Provedor a configurar</label>
-        <p className="mb-2 text-xs text-slate-500">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+        <SectionTitle number="1" title="Escolha o provedor" description="Você pode deixar vários prontos e alternar quando quiser." />
+        <p className="mb-3 text-xs text-slate-500">
           Dá para deixar vários configurados e trocar na hora, pelo seletor dentro do DeskHelper AI.
           O marcado como principal é o que o ERP usa por padrão.
         </p>
@@ -375,19 +462,20 @@ export default function AISettings({
                 {hasKey && (
                   <span className="mt-2 inline-flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    {keys.find((k) => k.provider === p.id)?.authType === "oauth" ? "Conta conectada" : "Chave salva"}
+                    {keys.find((k) => k.provider === p.id)?.authType === "api-key" ? "Chave salva" : "Conta conectada"}
                   </span>
                 )}
               </button>
             );
           })}
         </div>
-      </div>
+      </section>
 
       {/* Painel do provedor */}
-      <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-5">
+      <section className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-5 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
           <div>
+            <SectionTitle number="2" title="Conecte e configure" description="Use sua conta ou uma chave de API como alternativa." />
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-bold text-slate-900">{currentConfig?.name}</h3>
               <span
@@ -429,9 +517,54 @@ export default function AISettings({
           </Alert>
         )}
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
-          <p className="text-sm font-semibold text-slate-900">Conectar com sua conta</p>
-          {supportsOAuth ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700"><Icon name="ai" size={14} /></span>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Conectar com sua conta</p>
+              <p className="text-[11px] text-slate-500">Opção recomendada quando disponível</p>
+            </div>
+          </div>
+          {supportsAgentLogin ? (
+            <>
+              <p className="text-xs text-slate-600">
+                {selectedProvider === "openai"
+                  ? "Entre com sua conta ChatGPT pelo navegador. O ERP usa o Codex App Server e um código de dispositivo, portanto funciona também quando o sistema está em uma VPS e não depende de callback em localhost."
+                  : "Use a conta já autorizada pelo Claude Code. O executável Claude Code precisa estar instalado no mesmo servidor do ERP; o fluxo abaixo encaminha a autorização do navegador sem expor os tokens ao navegador do ERP."}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={connectAgent}
+                  disabled={connecting || keyBusy || !canStore || agentLogin?.status === "waiting"}
+                  className="btn-primary btn-sm">
+                  {connecting ? "Iniciando…" : `${savedKey?.authType === (selectedProvider === "openai" ? "codex" : "claude-code") ? "Reconectar" : "Conectar"} com ${selectedProvider === "openai" ? "ChatGPT" : "Claude Code"}`}
+                </button>
+                {savedKey && <p className="text-xs text-slate-500">Uma nova autorização substitui a credencial atual deste provedor.</p>}
+              </div>
+              {agentLogin?.status === "waiting" && selectedProvider === "openai" && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+                  <p>Abra o login da OpenAI e informe este código:</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <code className="rounded bg-white px-3 py-1.5 text-base font-bold tracking-widest">{agentLogin.userCode}</code>
+                    {agentLogin.verificationUrl && <a className="font-semibold underline" href={agentLogin.verificationUrl} target="_blank" rel="noreferrer">Abrir login da OpenAI</a>}
+                  </div>
+                  <p className="mt-2 text-blue-700">Aguardando você concluir no navegador…</p>
+                </div>
+              )}
+              {agentLogin?.status === "waiting" && selectedProvider === "anthropic" && (
+                <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+                  {agentLogin.verificationUrl && <a className="font-semibold underline" href={agentLogin.verificationUrl} target="_blank" rel="noreferrer">Abrir autorização do Claude</a>}
+                  {agentLogin.output && <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded bg-white p-2 font-mono text-[11px]">{agentLogin.output}</pre>}
+                  <div className="flex gap-2">
+                    <input className="input text-xs" value={agentCode} onChange={(event) => setAgentCode(event.target.value)} placeholder="Cole o código aqui, se o Claude Code solicitar" />
+                    <button type="button" className="btn-secondary btn-sm" disabled={!agentCode.trim() || connecting} onClick={submitClaudeCode}>Enviar</button>
+                  </div>
+                </div>
+              )}
+              {agentLogin?.status === "connected" && <Alert tone="success" size="sm">Conta conectada. Agora carregue os modelos e escolha qual usar.</Alert>}
+              {agentLogin?.status === "failed" && agentLogin.error && <p className="text-xs text-red-700">{agentLogin.error}</p>}
+              {!canStore && <p className="text-xs text-amber-700">O administrador precisa configurar AI_ENCRYPTION_KEY antes de conectar contas.</p>}
+            </>
+          ) : supportsOAuth ? (
             <>
               <p className="text-xs text-slate-600">
                 {selectedProvider === "openrouter"
@@ -456,9 +589,7 @@ export default function AISettings({
             </>
           ) : (
             <p className="text-xs text-slate-600">
-              {selectedProvider === "openai"
-                ? "O login com assinatura ChatGPT é oferecido pelo Codex. Esta integração usa a API OpenAI e continua exigindo chave; usar a assinatura aqui exige um serviço Codex separado, ainda não integrado. Como alternativa, conecte o OpenRouter para acessar modelos GPT com a conta OpenRouter."
-                : !currentConfig.requiresApiKey
+              {!currentConfig.requiresApiKey
                   ? "Este servidor pode funcionar localmente sem chave ou OAuth. Configure o endereço do serviço."
                   : "OAuth de conta não está disponível nesta integração. Use a chave de API do provedor. Login no painel e assinatura do chat não equivalem a acesso à API."}
             </p>
@@ -466,7 +597,12 @@ export default function AISettings({
         </div>
 
         {/* Chave e URL base */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-4">
+            <p className="text-sm font-semibold text-slate-900">Chave de API e endereço</p>
+            <p className="text-[11px] text-slate-500">Alternativa para integrações técnicas ou endpoints próprios</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {currentConfig?.requiresApiKey && (
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -523,7 +659,7 @@ export default function AISettings({
                 {savedKey && (
                   <>
                     <span className="font-mono text-xs text-slate-500">
-                      {savedKey.authType === "oauth" ? "OAuth conectado" : `salva: ••••${savedKey.hint}`}
+                      {savedKey.authType === "oauth" ? "OAuth conectado" : savedKey.authType === "codex" ? "ChatGPT via Codex" : savedKey.authType === "claude-code" ? "Conta via Claude Code" : `salva: ••••${savedKey.hint}`}
                     </span>
                     <button
                       type="button"
@@ -531,7 +667,7 @@ export default function AISettings({
                       disabled={keyBusy}
                       className="text-xs text-red-600 hover:underline"
                     >
-                      {savedKey.authType === "oauth" ? "Desconectar" : "Remover"}
+                      {savedKey.authType && savedKey.authType !== "api-key" ? "Desconectar" : "Remover"}
                     </button>
                   </>
                 )}
@@ -573,8 +709,8 @@ export default function AISettings({
               id="ai-url"
               type="text"
               spellCheck={false}
-              value={usesOAuth ? currentConfig.defaultBaseUrl || "" : currentUrl}
-              disabled={usesOAuth}
+              value={usesManagedAuth ? currentConfig.defaultBaseUrl || "" : currentUrl}
+              disabled={usesManagedAuth}
               onChange={(e) => {
                 const v = e.target.value;
                 setUrlDraft(v);
@@ -589,8 +725,11 @@ export default function AISettings({
               <code className="font-mono">{currentConfig?.defaultBaseUrl || "padrão do serviço"}</code>
             </p>
           </div>
+          </div>
         </div>
 
+        <div className="border-t border-slate-200 pt-5">
+          <SectionTitle number="3" title="Escolha o modelo" description="Carregue apenas os modelos liberados para a conexão acima." />
         {/* Ações */}
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <button
@@ -656,7 +795,7 @@ export default function AISettings({
         )}
 
         {/* Modelos */}
-        <div className="space-y-3 pt-1">
+        <div className="space-y-3 pt-4">
           <div className="flex items-center justify-between gap-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
               Modelos da sua conta{models.length > 0 ? ` (${models.length})` : ""}
@@ -728,6 +867,19 @@ export default function AISettings({
           </div>
 
         </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function SectionTitle({ number, title, description }: { number: string; title: string; description: string }) {
+  return (
+    <div className="mb-3 flex items-start gap-3">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">{number}</span>
+      <div>
+        <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+        <p className="text-xs text-slate-500">{description}</p>
       </div>
     </div>
   );

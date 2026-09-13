@@ -5,6 +5,7 @@ import { errorMessage, requireUser } from "@/lib/ai/guard";
 import { AIModelInfo, AIProviderId } from "@/lib/ai/types";
 import { resolveProviderAuth } from "@/lib/ai/credentials";
 import { geminiAuthHeaders } from "@/lib/ai/request-auth";
+import { listAgentModels } from "@/lib/ai/agent-runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,8 @@ export async function POST(req: NextRequest) {
 
     assertSafeBaseUrl(provider, baseUrl);
 
-    if (providerConfig.requiresApiKey && !apiKey) {
+    const usesAgent = providerAuth.authType === "codex" || providerAuth.authType === "claude-code";
+    if (providerConfig.requiresApiKey && !apiKey && !usesAgent) {
       return NextResponse.json(
         {
           ok: false,
@@ -46,7 +48,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const liveModels = await fetchLiveModels(provider, apiKey, baseUrl, providerAuth.authType, providerAuth.quotaProject);
+    const liveModels = providerAuth.authType === "codex" || providerAuth.authType === "claude-code"
+      ? await listAgentModels(auth.user.id, provider as "openai" | "anthropic")
+      : await fetchLiveModels(provider, apiKey, baseUrl, providerAuth.authType, providerAuth.quotaProject);
 
     return NextResponse.json({
       ok: true,

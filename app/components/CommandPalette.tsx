@@ -27,7 +27,7 @@ const ITEMS: NavItem[] = [
   },
   {
     id: "ai-settings",
-    title: "Configurações de IA e Modelos",
+    title: "IA e modelos",
     subtitle: "Anthropic, Gemini, OpenAI, DeepSeek, Groq, Mistral, Ollama",
     category: "IA & Assistentes",
     icon: "ai",

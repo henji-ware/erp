@@ -108,13 +108,15 @@ armazenadas ilegíveis; planeje a rotação antes de fazê-la.
 
 ## Conectar contas de IA
 
-Em **Configurações → Inteligência Artificial**, conecte o OpenRouter sem copiar
+Em **Configurações → IA**, conecte o OpenRouter sem copiar
 a chave, ou autorize o Gemini com Google após configurar o OAuth no servidor.
 As chaves manuais continuam disponíveis.
 
 OAuth não significa acesso gratuito ou uso da assinatura ChatGPT/Claude:
 cotas e cobranças continuam sendo as do provedor e projeto autorizado.
-A integração com assinatura ChatGPT via Codex ainda não está implementada.
+Executando o ERP localmente ou em um servidor Node persistente, também é possível
+conectar a conta ChatGPT pelo Codex (login no navegador com código de dispositivo)
+e a conta do Claude pelo Claude Code instalado na mesma máquina do ERP.
 Consulte [provedores compatíveis e configuração OAuth](docs/AI-OAUTH.md).
 
 ## Segurança
