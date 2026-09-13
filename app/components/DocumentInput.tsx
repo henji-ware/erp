@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { formatDocument, isValidDocument, onlyDigits } from "@/lib/document";
 
 // Campo de CPF/CNPJ com máscara automática e aviso quando o documento é
@@ -17,6 +17,7 @@ export default function DocumentInput({
   required?: boolean;
 }) {
   const [value, setValue] = useState(formatDocument(defaultValue));
+  const inputId = useId();
   const digits = onlyDigits(value);
   // Só acusa erro quando o tamanho já bate com CPF/CNPJ (evita alarme enquanto digita).
   const complete = digits.length === 11 || digits.length === 14;
@@ -24,8 +25,11 @@ export default function DocumentInput({
 
   return (
     <div>
-      <label className="label">{label}</label>
+      <label htmlFor={inputId} className="label">{label}</label>
       <input
+        id={inputId}
+        aria-invalid={invalid}
+        aria-describedby={invalid ? `${inputId}-error` : undefined}
         name={name}
         required={required}
         value={value}
@@ -38,7 +42,7 @@ export default function DocumentInput({
         className={`input ${invalid ? "border-red-400 focus:border-red-500" : ""}`}
       />
       {invalid && (
-        <p className="mt-1 text-xs text-red-600">
+        <p id={`${inputId}-error`} role="status" className="mt-1 text-xs text-red-600">
           {digits.length === 11 ? "CPF inválido" : "CNPJ inválido"} — confira os números.
         </p>
       )}

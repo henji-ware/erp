@@ -31,7 +31,7 @@ const ITEMS: NavItem[] = [
     subtitle: "Anthropic, Gemini, OpenAI, DeepSeek, Groq, Mistral, Ollama",
     category: "IA & Assistentes",
     icon: "ai",
-    href: "/settings",
+    href: "/settings#ia",
     keywords: "ia modelos chaves api settings claude gpt deepseek groq configuracoes",
   },
 
@@ -49,6 +49,11 @@ const ITEMS: NavItem[] = [
   { id: "mod-prod", title: "Equipamentos & Serviços", category: "Módulos", icon: "products", href: "/products", keywords: "estoque catalogo precos" },
   { id: "mod-rent", title: "Locações de Equipamentos", category: "Módulos", icon: "rental", href: "/rentals", keywords: "aluguel pta plataforma" },
   { id: "mod-fin", title: "Financeiro", category: "Módulos", icon: "finance", href: "/finance", keywords: "contas pagar receber fluxo caixa" },
+  { id: "mod-orders", title: "Vendas / Pedidos", category: "Módulos", icon: "orders", href: "/orders", keywords: "venda pedido faturamento" },
+  { id: "mod-calendar", title: "Agendamentos", category: "Módulos", icon: "calendar", href: "/appointments", keywords: "agenda calendario compromisso visita" },
+  { id: "mod-suppliers", title: "Fornecedores", category: "Módulos", icon: "suppliers", href: "/suppliers", keywords: "fornecedor compras parceiros" },
+  { id: "mod-hr", title: "RH / Equipe", category: "Módulos", icon: "hr", href: "/hr", keywords: "funcionarios colaboradores equipe recursos humanos" },
+  { id: "mod-trash", title: "Lixeira", category: "Módulos", icon: "trash", href: "/trash", keywords: "excluidos restaurar recuperar" },
   { id: "mod-rep", title: "Relatórios & Análise", category: "Módulos", icon: "reports", href: "/reports", keywords: "curva abc kpi comissoes" },
   { id: "mod-set", title: "Configurações & Temas", category: "Módulos", icon: "settings", href: "/settings", keywords: "aparencia tema cores" },
 ];
@@ -129,6 +134,7 @@ export default function CommandPalette() {
   );
 
   const handleInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing) return;
     const count = filteredItems.length;
     if (e.key === "Escape") {
       e.preventDefault();
@@ -141,7 +147,8 @@ export default function CommandPalette() {
       if (count) setSelectedIndex((prev) => (prev - 1 + count) % count);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (filteredItems[selectedIndex]) handleSelect(filteredItems[selectedIndex]);
+      if ((e.ctrlKey || e.metaKey) && query.trim()) askAI();
+      else if (filteredItems[selectedIndex]) handleSelect(filteredItems[selectedIndex]);
       else if (query.trim()) askAI();
     }
   };
@@ -201,7 +208,7 @@ export default function CommandPalette() {
                   Perguntar ao DeskHelper AI: &quot;{query}&quot;
                 </span>
                 <span className="block text-xs opacity-80">
-                  Usa o modelo ativo e os dados do ERP
+                  Ctrl/⌘ + Enter · Preparar pergunta no assistente
                 </span>
               </span>
               <span className="shrink-0 text-[11px] uppercase font-bold px-2 py-0.5 rounded bg-brand-600 text-on-accent font-mono">

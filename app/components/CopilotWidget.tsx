@@ -7,6 +7,7 @@ import { activeCredentials, availableModels, configuredProviders, useAISettings 
 import { RichText } from "./RichText";
 import { Icon, type IconName } from "./icons";
 import { Alert } from "./ui";
+import ProviderLogo from "./ProviderLogo";
 import AIActionCard, { type ActionResult } from "./AIActionCard";
 import {
   extractActions,
@@ -67,11 +68,13 @@ export default function CopilotWidget() {
   // permanece montado com o painel fechado — dentro do cartão, fechar e
   // reabrir o Copilot rearmava o botão "Criar" e duplicava o registro.
   const [doneActions, setDoneActions] = useState<Record<string, ActionResult>>({});
+  const [conversationId, setConversationId] = useState(0);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [retryNotice, setRetryNotice] = useState("");
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [copyError, setCopyError] = useState("");
 
   // Provedor/modelo do seletor rápido; vazio = usa o padrão das Configurações.
   const [providerOverride, setProviderOverride] = useState<AIProviderId | "">("");
@@ -80,6 +83,7 @@ export default function CopilotWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const followOutputRef = useRef(true);
 
   const creds = activeCredentials(settings, {
     provider: providerOverride || undefined,
@@ -103,8 +107,12 @@ export default function CopilotWidget() {
   }, []);
 
   useEffect(() => {
-    if (isOpen) messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (isOpen && followOutputRef.current) messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [messages, streamingText, isOpen]);
+
+  useEffect(() => {
+    if (isOpen) inputRef.current?.focus();
+  }, [isOpen]);
 
   // Escape fecha o painel (menos durante uma geração, para não perder o texto).
   useEffect(() => {
@@ -199,8 +207,9 @@ export default function CopilotWidget() {
 
   const handleSend = async (customText?: string) => {
     const textToSend = (customText ?? input).trim();
-    if (!textToSend || loading) return;
+    if (!textToSend || loading || abortRef.current) return;
     if (!creds.model) return;
+    followOutputRef.current = true;
 
     const nextMessages: ChatEntry[] = [...messages, { role: "user", content: textToSend }];
     setMessages(nextMessages);
@@ -229,7 +238,7 @@ export default function CopilotWidget() {
         signal: controller.signal,
         body: JSON.stringify({
           messages: nextMessages
-            .filter((m) => m !== WELCOME)
+            .filter((m) => m !== WELCOME && !m.isError)
             .map((m) => ({ role: m.role, content: m.content })),
           provider: creds.provider,
           model: creds.model,
@@ -247,6 +256,7 @@ export default function CopilotWidget() {
       let buffer = "";
       let meta: { model?: string; latencyMs?: number } = {};
       let streamError = "";
+      let completed = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -269,6 +279,7 @@ export default function CopilotWidget() {
                 `O provedor está sobrecarregado. Tentando novamente (${evt.attempt}/${evt.of})…`
               );
             } else if (evt.type === "done") {
+              completed = true;
               meta = { model: evt.model, latencyMs: evt.latencyMs };
             } else if (evt.type === "error") {
               streamError = evt.error;
@@ -280,6 +291,7 @@ export default function CopilotWidget() {
       }
 
       if (streamError) throw new Error(streamError);
+      if (!completed) throw new Error("A conexão foi interrompida antes de concluir a resposta. Tente novamente.");
 
       if (!accumulated.trim()) {
         throw new Error(
@@ -295,7 +307,7 @@ export default function CopilotWidget() {
       if (err?.name === "AbortError") {
         // Interrompido pelo usuário: guarda o trecho que já saiu.
         if (accumulated.trim()) {
-          finish({ modelUsed: creds.model, content: `${accumulated}\n\n_(interrompido)_` });
+          finish({ modelUsed: creds.model, content: `${previewText(accumulated)}\n\n_(interrompido)_` });
         } else {
           setStreamingText("");
         }
@@ -316,12 +328,13 @@ export default function CopilotWidget() {
   };
 
   const handleCopy = async (text: string, index: number) => {
+    setCopyError("");
     try {
       await navigator.clipboard.writeText(text);
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex(null), 2000);
     } catch {
-      // clipboard bloqueado (http fora de localhost): falha silenciosa
+      setCopyError("Não foi possível copiar. Selecione o texto da resposta e copie manualmente.");
     }
   };
 
@@ -360,19 +373,19 @@ export default function CopilotWidget() {
               </span>
               <div>
                 <h2 className="text-sm font-bold leading-tight">DeskHelper AI · DRR</h2>
-                <p className="text-[11px] surface-dark-muted">Conectado aos dados do ERP</p>
+                <p className="text-[11px] surface-dark-muted">Seu assistente de trabalho</p>
               </div>
             </div>
 
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setMessages([WELCOME])}
+                onClick={() => { setMessages([WELCOME]); setConversationId((id) => id + 1); setDoneActions({}); setCopiedIndex(null); setCopyError(""); setInput(""); inputRef.current?.focus(); }}
                 title="Limpar conversa"
                 disabled={loading}
                 className="px-2 py-1 rounded surface-dark-muted on-dark-hover text-xs disabled:opacity-40 transition-colors"
               >
-                Limpar
+                Nova conversa
               </button>
               <button
                 type="button"
@@ -387,6 +400,7 @@ export default function CopilotWidget() {
 
           {/* Seletor rápido de provedor e modelo */}
           <div className="flex items-center gap-1.5 border-b border-slate-200 bg-slate-100 px-3 py-2 text-xs">
+            <ProviderLogo provider={creds.provider} />
             {/* Bolinha de status: verde quando há modelo carregado, âmbar
                 quando o painel está sem configuração utilizável. */}
             <span
@@ -397,6 +411,7 @@ export default function CopilotWidget() {
             />
             <select
               value={creds.provider}
+              disabled={loading}
               aria-label="Provedor de IA"
               title="Provedor de IA"
               onChange={(e) => {
@@ -420,6 +435,7 @@ export default function CopilotWidget() {
 
             <select
               value={creds.model}
+              disabled={loading}
               aria-label="Modelo de IA"
               title="Modelo de IA"
               onChange={(e) => setModelOverride(e.target.value)}
@@ -439,8 +455,19 @@ export default function CopilotWidget() {
           </div>
 
           {/* Mensagens */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3.5 text-[13px] bg-slate-50/40">
+          <div onScroll={(event) => { const el = event.currentTarget; followOutputRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }} className="flex-1 overflow-y-auto p-4 space-y-3.5 text-[13px] bg-slate-50/40">
+            {messages.length === 1 && (
+              <div className="py-5">
+                <span className="inline-flex rounded-2xl accent-soft accent-icon p-3"><Icon name="ai" size={24} /></span>
+                <h3 className="mt-4 text-xl font-bold text-slate-900">Como posso ajudar hoje?</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">Analise o ERP, prepare mensagens ou monte um cadastro. Você revisa e confirma antes de criar registros.</p>
+                <div className="mt-5 grid grid-cols-2 gap-2">
+                  {QUICK_PROMPTS.map((p) => <button key={p.label} type="button" onClick={() => { setInput(p.text); inputRef.current?.focus(); }} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-left text-xs font-medium text-slate-700 hover:border-brand-500"><Icon name={p.icon} size={16} />{p.label}</button>)}
+                </div>
+              </div>
+            )}
             {messages.map((m, idx) => {
+              if (m === WELCOME) return null;
               const isUser = m.role === "user";
               // Blocos ```drr-acao saem do texto e viram cartão de
               // confirmação — na conversa eles apareceriam como JSON cru.
@@ -452,7 +479,7 @@ export default function CopilotWidget() {
                   <div
                     className={`max-w-[88%] px-3.5 py-3 rounded-2xl leading-relaxed shadow-sm ${
                       isUser
-                        ? "bg-brand-600 text-white rounded-br-sm"
+                        ? "bg-brand-600 text-on-accent rounded-br-sm"
                         : m.isError
                           ? "alert-surface alert-danger rounded-bl-sm"
                           : "bg-white text-slate-900 rounded-bl-sm border border-slate-200"
@@ -468,7 +495,7 @@ export default function CopilotWidget() {
                   {parsed.actions.length > 0 && (
                     <div className="w-full max-w-[88%]">
                       {parsed.actions.map((action, i) => {
-                        const key = `${idx}-${i}`;
+                        const key = `${conversationId}-${idx}-${i}`;
                         return (
                           <AIActionCard
                             key={key}
@@ -492,7 +519,7 @@ export default function CopilotWidget() {
                       )}
                       <button
                         type="button"
-                        onClick={() => handleCopy(m.content, idx)}
+                        onClick={() => handleCopy(parsed.text, idx)}
                         className="hover:text-slate-700 underline font-medium"
                       >
                         {copiedIndex === idx ? "Copiado" : "Copiar"}
@@ -539,17 +566,19 @@ export default function CopilotWidget() {
               <a href="/settings#ia" className="font-semibold underline">
                 Configurações › IA
               </a>
-              , informe a chave do provedor e carregue os modelos da sua conta.
+              , conecte sua conta ou chave de API e carregue os modelos.
             </Alert>
           )}
 
           {/* Perguntas rápidas */}
-          <div className="px-3 py-2 flex flex-wrap gap-1.5 border-t border-slate-100 bg-slate-50/60">
+          {messages.length > 1 && <details className="px-3 py-2 border-t border-slate-100 bg-slate-50/60">
+            <summary className="cursor-pointer text-xs font-medium text-slate-500">Sugestões de tarefas</summary>
+            <div className="mt-2 flex flex-wrap gap-1.5">
             {QUICK_PROMPTS.map((p) => (
               <button
                 key={p.label}
                 type="button"
-                onClick={() => handleSend(p.text)}
+                onClick={() => { setInput(p.text); inputRef.current?.focus(); }}
                 disabled={loading || !creds.model}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-white border border-slate-200 text-slate-600 accent-hover-border hover:text-slate-900 disabled:opacity-40 transition-colors"
               >
@@ -557,22 +586,25 @@ export default function CopilotWidget() {
                 {p.label}
               </button>
             ))}
-          </div>
+            </div>
+          </details>}
 
           {/* Entrada */}
+          {copyError && <p role="status" className="px-3 py-2 text-xs text-slate-600">{copyError}</p>}
           <div className="p-3 bg-white border-t border-slate-200 flex items-end gap-2">
             <textarea
               ref={inputRef}
               rows={2}
+              aria-label="Mensagem para o DeskHelper AI"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault();
                   handleSend();
                 }
               }}
-              placeholder="Pergunte sobre o ERP ou peça um texto… (Enter envia, Shift+Enter quebra linha)"
+              placeholder="O que você quer resolver?"
               className="flex-1 resize-none rounded-xl p-2.5 text-[13px] border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             />
             <button
