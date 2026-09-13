@@ -61,6 +61,8 @@ export interface AICompletionOptions {
   /** Identificador interno usado apenas pelos runtimes Codex/Claude Code. */
   agentUserId?: number;
   quotaProject?: string;
+  /** Conta ChatGPT vinculada ao token Codex; resolvida apenas no servidor. */
+  accountId?: string;
   baseUrl?: string;
   messages: AIMessage[];
   systemPrompt?: string;

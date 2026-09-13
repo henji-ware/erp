@@ -3,6 +3,7 @@ import { assertSafeBaseUrl, getEffectiveApiKey, getEffectiveBaseUrl } from "./se
 import type { AICompletionOptions, AICompletionResult, AIMessage, AIProviderId } from "./types";
 import { geminiAuthHeaders } from "./request-auth";
 import { runAgentCompletion } from "./agent-runtime";
+import { OPENAI_CODEX_BASE_URL } from "./openai-device-oauth";
 
 /**
  * Motor universal de execução para todos os provedores de IA.
@@ -85,6 +86,7 @@ export interface ResolvedCall {
   apiKey: string;
   authType?: "api-key" | "oauth" | "codex" | "claude-code";
   quotaProject?: string;
+  accountId?: string;
   agentUserId?: number;
   baseUrl: string;
   systemPrompt?: string;
@@ -106,17 +108,23 @@ export function resolveCall(options: AICompletionOptions): ResolvedCall {
   const model = (options.model || "").trim();
   if (!model) {
     throw new Error(
-      `Nenhum modelo escolhido para ${providerConfig.name}. Abra Configurações > Inteligência Artificial, ` +
+      `Nenhum modelo escolhido para ${providerConfig.name}. Abra Configurações > IA, ` +
         "carregue os modelos da sua conta e selecione um."
     );
   }
   const usesAgent = options.authType === "codex" || options.authType === "claude-code";
   const apiKey = options.authType === "oauth" || usesAgent ? options.apiKey : getEffectiveApiKey(provider, options.apiKey);
-  if (options.authType === "oauth" && provider !== "gemini" && provider !== "openrouter") throw new Error("OAuth não suportado neste provedor.");
+  if (options.authType === "oauth" && provider !== "gemini" && provider !== "openrouter" && provider !== "openai") throw new Error("OAuth não suportado neste provedor.");
   if (options.authType === "codex" && provider !== "openai") throw new Error("Esta conexão Codex só pode ser usada com a OpenAI.");
   if (options.authType === "claude-code" && provider !== "anthropic") throw new Error("Esta conexão Claude Code só pode ser usada com a Anthropic.");
   if (usesAgent && !options.agentUserId) throw new Error("Conexão de agente inválida. Reconecte sua conta.");
-  const baseUrl = options.authType === "oauth" || usesAgent ? providerConfig.defaultBaseUrl! : getEffectiveBaseUrl(provider, options.baseUrl);
+  const baseUrl = options.authType === "oauth"
+    ? (provider === "openai" ? OPENAI_CODEX_BASE_URL : providerConfig.defaultBaseUrl!)
+    : usesAgent ? providerConfig.defaultBaseUrl! : getEffectiveBaseUrl(provider, options.baseUrl);
+
+  if (options.authType === "oauth" && provider === "openai" && !options.accountId) {
+    throw new Error("Conexão ChatGPT inválida. Reconecte sua conta.");
+  }
 
   assertSafeBaseUrl(provider, baseUrl);
 
@@ -126,8 +134,8 @@ export function resolveCall(options: AICompletionOptions): ResolvedCall {
     throw new Error(
       `Chave de API não configurada para ${providerConfig.name}. ` +
         (options.isAdmin
-          ? `Informe a chave em Configurações > Inteligência Artificial ou defina ${providerConfig.keyEnvVar} no servidor.`
-          : "Informe a chave em Configurações > Inteligência Artificial, ou peça ao administrador para configurá-la.")
+          ? `Informe a chave em Configurações > IA ou defina ${providerConfig.keyEnvVar} no servidor.`
+          : "Informe a chave em Configurações > IA, ou peça ao administrador para configurá-la.")
     );
   }
 
@@ -145,6 +153,7 @@ export function resolveCall(options: AICompletionOptions): ResolvedCall {
     apiKey: apiKey || "",
     authType: options.authType,
     quotaProject: options.quotaProject,
+    accountId: options.accountId,
     agentUserId: options.agentUserId,
     baseUrl,
     systemPrompt,
@@ -217,7 +226,7 @@ async function readError(res: Response, providerName: string): Promise<AIProvide
   if (status === 404) {
     return new AIProviderError(
       `${providerName}: este modelo não existe mais ou não está disponível para a sua chave. ` +
-        `Use "Carregar modelos da minha conta" em Configurações > Inteligência Artificial para ver a lista atual. ${detail}`.trim(),
+        `Use "Carregar modelos da minha conta" em Configurações > IA para ver a lista atual. ${detail}`.trim(),
       { status }
     );
   }
@@ -253,6 +262,9 @@ export async function executeAICompletion(
         systemPrompt: call.systemPrompt,
         signal,
       });
+    }
+    if (call.provider === "openai" && call.authType === "oauth") {
+      return await withRetry(() => callOpenAICodex(call, signal, startTime), options.onRetry, signal);
     }
     return await withRetry(
       () => {
@@ -476,6 +488,49 @@ function openAIHeaders(call: ResolvedCall): Record<string, string> {
   return headers;
 }
 
+function openAICodexHeaders(call: ResolvedCall): Record<string, string> {
+  if (!call.accountId) throw new Error("Conexão ChatGPT inválida. Reconecte sua conta.");
+  return {
+    "Content-Type": "application/json",
+    Accept: "text/event-stream",
+    Authorization: `Bearer ${call.apiKey}`,
+    "ChatGPT-Account-Id": call.accountId,
+    originator: "drr-erp-crm",
+    "User-Agent": "drr-erp-crm/1.0",
+    "x-client-request-id": globalThis.crypto.randomUUID(),
+  };
+}
+
+function openAICodexPayload(call: ResolvedCall) {
+  return {
+    model: call.model,
+    instructions: call.systemPrompt || "",
+    input: call.messages.map((message) => ({
+      type: "message",
+      role: message.role,
+      content: [{
+        type: message.role === "assistant" ? "output_text" : "input_text",
+        text: message.content,
+      }],
+    })),
+    tools: [],
+    tool_choice: "none",
+    parallel_tool_calls: false,
+    store: false,
+    stream: true,
+  };
+}
+
+function openAICodexFetch(call: ResolvedCall, signal: AbortSignal): Promise<Response> {
+  return fetch(`${OPENAI_CODEX_BASE_URL}/responses`, {
+    method: "POST",
+    redirect: "error",
+    headers: openAICodexHeaders(call),
+    body: JSON.stringify(openAICodexPayload(call)),
+    signal,
+  });
+}
+
 /** o1/o3 e os "reasoner" recusam temperature e usam max_completion_tokens. */
 function isReasoningModel(model: string): boolean {
   return /^o\d/.test(model) || model.includes("reasoner") || model.includes("-r1");
@@ -532,6 +587,38 @@ async function callOpenAICompatible(
   };
 }
 
+async function callOpenAICodex(
+  call: ResolvedCall,
+  signal: AbortSignal,
+  startTime: number,
+): Promise<AICompletionResult> {
+  const res = await openAICodexFetch(call, signal);
+  if (!res.ok) throw await readError(res, "OpenAI");
+  let text = "";
+  let completed: any;
+  for await (const raw of readSSE(res)) {
+    if (!raw || raw === "[DONE]") continue;
+    let event: any;
+    try { event = JSON.parse(raw); } catch { continue; }
+    if (event.type === "error") throw new AIProviderError(event.error?.message || "A OpenAI interrompeu a resposta.");
+    text += responseTextDelta(event);
+    if (event.type === "response.completed") completed = event.response;
+  }
+  if (!text && completed) text = responseOutputText(completed);
+  const usage = completed?.usage;
+  return {
+    text,
+    provider: "openai",
+    model: completed?.model || call.model,
+    latencyMs: Date.now() - startTime,
+    usage: {
+      promptTokens: usage?.input_tokens,
+      completionTokens: usage?.output_tokens,
+      totalTokens: usage?.total_tokens,
+    },
+  };
+}
+
 // ----------------------------------------------------------------------------
 // Streaming — o DeskHelper AI mostra a resposta saindo em vez de um spinner longo
 // ----------------------------------------------------------------------------
@@ -568,6 +655,9 @@ export type StreamChunk =
   | { type: "retry"; attempt: number; of: number; waitMs: number; reason: string };
 
 async function openStream(call: ResolvedCall, signal: AbortSignal): Promise<Response> {
+  if (call.provider === "openai" && call.authType === "oauth") {
+    return openAICodexFetch(call, signal);
+  }
   if (call.provider === "anthropic") {
     return fetch(`${call.baseUrl.replace(/\/+$/, "")}/v1/messages`, {
       method: "POST",
@@ -595,6 +685,10 @@ async function openStream(call: ResolvedCall, signal: AbortSignal): Promise<Resp
 }
 
 function parseChunk(call: ResolvedCall, evt: any): string {
+  if (call.provider === "openai" && call.authType === "oauth") {
+    if (evt.type === "error") throw new AIProviderError(evt.error?.message || "A OpenAI interrompeu a resposta.");
+    return responseTextDelta(evt);
+  }
   if (call.provider === "anthropic") {
     if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
       return evt.delta.text || "";
@@ -611,6 +705,18 @@ function parseChunk(call: ResolvedCall, evt: any): string {
     return evt.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("") || "";
   }
   return evt.choices?.[0]?.delta?.content || "";
+}
+
+function responseTextDelta(event: any): string {
+  return event?.type === "response.output_text.delta" && typeof event.delta === "string" ? event.delta : "";
+}
+
+function responseOutputText(response: any): string {
+  return (response?.output || [])
+    .flatMap((item: any) => item?.content || [])
+    .filter((content: any) => content?.type === "output_text" && typeof content.text === "string")
+    .map((content: any) => content.text)
+    .join("");
 }
 
 export async function* streamAICompletion(

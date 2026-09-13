@@ -6,6 +6,7 @@ import { AIModelInfo, AIProviderId } from "@/lib/ai/types";
 import { resolveProviderAuth } from "@/lib/ai/credentials";
 import { geminiAuthHeaders } from "@/lib/ai/request-auth";
 import { listAgentModels } from "@/lib/ai/agent-runtime";
+import { OPENAI_CODEX_BASE_URL } from "@/lib/ai/openai-device-oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     const liveModels = providerAuth.authType === "codex" || providerAuth.authType === "claude-code"
       ? await listAgentModels(auth.user.id, provider as "openai" | "anthropic")
-      : await fetchLiveModels(provider, apiKey, baseUrl, providerAuth.authType, providerAuth.quotaProject);
+      : await fetchLiveModels(provider, apiKey, baseUrl, providerAuth.authType, providerAuth.quotaProject, providerAuth.accountId);
 
     return NextResponse.json({
       ok: true,
@@ -90,8 +91,36 @@ async function fetchLiveModels(
   baseUrl?: string,
   authType?: "api-key" | "oauth",
   quotaProject?: string,
+  accountId?: string,
 ): Promise<AIModelInfo[]> {
   const preConfigured = AI_PROVIDERS[provider]?.models || [];
+
+  if (provider === "openai" && authType === "oauth") {
+    if (!apiKey || !accountId) throw new Error("Conexão ChatGPT inválida. Reconecte sua conta.");
+    const url = `${OPENAI_CODEX_BASE_URL}/models?client_version=drr-erp-crm-1.0`;
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "ChatGPT-Account-Id": accountId,
+        originator: "drr-erp-crm",
+        "User-Agent": "drr-erp-crm/1.0",
+        Accept: "application/json",
+      },
+      signal: timeout(),
+      redirect: "error",
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`OpenAI respondeu ${res.status} ao listar os modelos da conta ChatGPT.`);
+    const data = await res.json();
+    return (data.models || [])
+      .map((model: any) => ({
+        id: model?.slug || model?.id,
+        name: model?.display_name || model?.name || model?.slug || model?.id,
+        description: model?.description || "Modelo disponível na sua assinatura ChatGPT.",
+        tier: "flagship" as const,
+      }))
+      .filter((model: AIModelInfo) => typeof model.id === "string" && model.id.length > 0);
+  }
 
   switch (provider) {
     case "gemini": {

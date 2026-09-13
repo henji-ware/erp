@@ -1,7 +1,8 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { canStoreSecrets, decryptSecret, encryptSecret } from "./crypto";
 
-export type OAuthProvider = "openrouter" | "gemini";
+export type OAuthProvider = "openai" | "openrouter" | "gemini";
+export type RedirectOAuthProvider = Exclude<OAuthProvider, "openai">;
 export const OAUTH_TTL_SECONDS = 600;
 export const GOOGLE_AI_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
 const PAYLOAD_PREFIX = "drr-ai-oauth-v1:";
@@ -12,9 +13,15 @@ export interface OAuthCredential {
   refreshToken?: string;
   expiresAt?: number;
   quotaProject?: string;
+  /** Identifica a assinatura ChatGPT à qual o token Codex pertence. */
+  accountId?: string;
 }
 
 export function isOAuthProvider(value: unknown): value is OAuthProvider {
+  return value === "openai" || value === "openrouter" || value === "gemini";
+}
+
+export function isRedirectOAuthProvider(value: unknown): value is RedirectOAuthProvider {
   return value === "openrouter" || value === "gemini";
 }
 
@@ -42,7 +49,7 @@ export function oauthAvailability(): Record<OAuthProvider, boolean> {
   try { oauthOrigin(); base = canStoreSecrets(); } catch { /* origem ausente */ }
   let google = false;
   try { googleConfig(); google = base; } catch { /* configuração opcional */ }
-  return { openrouter: base, gemini: google };
+  return { openai: base, openrouter: base, gemini: google };
 }
 
 export function oauthCookieName(provider: OAuthProvider): string {
@@ -55,7 +62,7 @@ export function pkceChallenge(verifier: string): string {
 
 interface PendingOAuth {
   purpose: "ai-oauth";
-  provider: OAuthProvider;
+  provider: RedirectOAuthProvider;
   userId: number;
   sessionHash: string;
   state: string;
@@ -64,7 +71,7 @@ interface PendingOAuth {
   callback: string;
 }
 
-export function startOAuth(provider: OAuthProvider, userId: number, session: string, now = Date.now()) {
+export function startOAuth(provider: RedirectOAuthProvider, userId: number, session: string, now = Date.now()) {
   if (!oauthAvailability()[provider] || !session) throw new Error("OAuth indisponível. Verifique a configuração do servidor.");
   const state = randomBytes(32).toString("base64url");
   const verifier = randomBytes(48).toString("base64url");
@@ -89,7 +96,7 @@ export function startOAuth(provider: OAuthProvider, userId: number, session: str
   return { url: url.href, cookie: encryptSecret(JSON.stringify(pending)) };
 }
 
-export function validateOAuth(cookie: string | undefined, provider: OAuthProvider, userId: number, session: string, state: string | null, now = Date.now()): PendingOAuth {
+export function validateOAuth(cookie: string | undefined, provider: RedirectOAuthProvider, userId: number, session: string, state: string | null, now = Date.now()): PendingOAuth {
   try {
     const pending = JSON.parse(decryptSecret(cookie || "") || "null") as PendingOAuth;
     if (!pending || pending.purpose !== "ai-oauth" || pending.provider !== provider || pending.userId !== userId) throw new Error();
@@ -110,7 +117,7 @@ export function decodeOAuthCredential(value: string): OAuthCredential | null {
   if (!value.startsWith(PAYLOAD_PREFIX)) return null;
   try {
     const data = JSON.parse(value.slice(PAYLOAD_PREFIX.length));
-    if (!isOAuthProvider(data.provider) || !validToken(data.accessToken) || (data.refreshToken !== undefined && !validToken(data.refreshToken)) || (data.provider === "gemini" && (!Number.isFinite(data.expiresAt) || typeof data.quotaProject !== "string"))) throw new Error();
+    if (!isOAuthProvider(data.provider) || !validToken(data.accessToken) || (data.refreshToken !== undefined && !validToken(data.refreshToken)) || (data.provider === "gemini" && (!Number.isFinite(data.expiresAt) || typeof data.quotaProject !== "string")) || (data.provider === "openai" && (!validToken(data.refreshToken) || !Number.isFinite(data.expiresAt) || !validAccountId(data.accountId)))) throw new Error();
     return data;
   } catch {
     throw new Error("Credencial OAuth inválida. Reconecte sua conta.");
@@ -119,6 +126,10 @@ export function decodeOAuthCredential(value: string): OAuthCredential | null {
 
 function validToken(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= 8192 && !/[\s\x00-\x1f\x7f]/.test(value);
+}
+
+function validAccountId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 256 && /^[A-Za-z0-9_-]+$/.test(value);
 }
 
 async function tokenRequest(url: string, body: string | URLSearchParams) {

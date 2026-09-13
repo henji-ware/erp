@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AI_PROVIDERS } from "@/lib/ai/providers";
 import { AIModelInfo, AIProviderId, AISettingsData } from "@/lib/ai/types";
 import { useAISettings } from "../components/useAISettings";
@@ -13,9 +13,7 @@ export default function AISettings({
   initialSettings,
   savedKeys = [],
   canStore = true,
-  isAdmin = false,
-  oauthAvailable = { openrouter: false, gemini: false },
-  agentRuntimeAvailable = true,
+  oauthAvailable = { openai: false, openrouter: false, gemini: false },
   oauthProvider,
   oauthResult,
 }: {
@@ -28,11 +26,7 @@ export default function AISettings({
   savedKeys?: CredentialView[];
   /** O servidor tem um segredo de sessão/criptografia para proteger credenciais? */
   canStore?: boolean;
-  /** Só administrador mexe no .env do servidor; para os demais isso é ruído. */
-  isAdmin?: boolean;
-  oauthAvailable?: { openrouter: boolean; gemini: boolean };
-  /** Codex/Claude Code exigem um processo persistente; Vercel não oferece isso. */
-  agentRuntimeAvailable?: boolean;
+  oauthAvailable?: { openai: boolean; openrouter: boolean; gemini: boolean };
   oauthProvider?: "openrouter" | "gemini";
   oauthResult?: string;
 }) {
@@ -51,23 +45,22 @@ export default function AISettings({
   const [keyBusy, setKeyBusy] = useState(false);
   const [keyError, setKeyError] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const [connectionOpen, setConnectionOpen] = useState(false);
+  const [connectionMethod, setConnectionMethod] = useState<"menu" | "account" | "api" | "server">("menu");
   const [oauthNotice, setOAuthNotice] = useState(oauthResult);
-  const [agentLogin, setAgentLogin] = useState<{
-    status: "starting" | "waiting" | "connected" | "failed";
-    available: boolean;
+  const [deviceLogin, setDeviceLogin] = useState<{
+    status: "waiting" | "connected" | "failed";
     verificationUrl?: string;
     userCode?: string;
-    output?: string;
+    intervalSeconds?: number;
     error?: string;
   } | null>(null);
-  const [agentCode, setAgentCode] = useState("");
 
   // Rascunhos locais dos campos de texto: gravar a cada tecla escrevia o
   // localStorage e o cookie caractere por caractere e piscava o aviso de
   // "salvo". Agora o commit acontece ao sair do campo ou após uma pausa.
   const [keyDraft, setKeyDraft] = useState<string | null>(null);
   const [urlDraft, setUrlDraft] = useState<string | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentConfig = AI_PROVIDERS[selectedProvider];
   // Sem cair no catálogo do código: vazio significa "ainda não escolhido".
@@ -78,9 +71,7 @@ export default function AISettings({
   const currentKey = keyDraft ?? "";
   const currentUrl = urlDraft ?? storedUrl;
   const savedKey = keys.find((k) => k.provider === selectedProvider);
-  const usesManagedAuth = savedKey?.authType !== undefined && savedKey.authType !== "api-key" && !currentKey.trim();
   const supportsOAuth = selectedProvider === "openrouter" || selectedProvider === "gemini";
-  const supportsAgentLogin = selectedProvider === "openai" || selectedProvider === "anthropic";
 
   // Só modelos vindos da API do usuário. O catálogo do código serve apenas
   // para dar nome e descrição a esses IDs, nunca como lista oferecida —
@@ -104,9 +95,14 @@ export default function AISettings({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
 
-  useEffect(() => () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-  }, []);
+  useEffect(() => {
+    if (!connectionOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setConnectionOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [connectionOpen]);
 
   useEffect(() => {
     if (!oauthResult) return;
@@ -117,33 +113,32 @@ export default function AISettings({
   }, [oauthResult]);
 
   useEffect(() => {
-    if (!agentLogin || agentLogin.status !== "waiting" || !supportsAgentLogin) return;
+    if (!deviceLogin || deviceLogin.status !== "waiting" || selectedProvider !== "openai") return;
     const timer = window.setInterval(async () => {
       try {
-        const response = await fetch(`/api/ai/agent/${selectedProvider}`, { cache: "no-store" });
+        const response = await fetch("/api/ai/openai-device", { cache: "no-store" });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Não foi possível acompanhar a conexão.");
-        setAgentLogin(data);
+        setDeviceLogin((current) => ({ ...current, ...data }));
         if (data.status === "connected") {
-          const authType = selectedProvider === "openai" ? "codex" : "claude-code";
-          setKeys((prev) => [...prev.filter((key) => key.provider !== selectedProvider), {
-            provider: selectedProvider,
-            hint: selectedProvider === "openai" ? "Codex" : "Claude Code",
+          setKeys((prev) => [...prev.filter((key) => key.provider !== "openai"), {
+            provider: "openai",
+            hint: "ChatGPT",
             baseUrl: null,
             updatedAt: new Date(),
             broken: false,
-            authType,
+            authType: "oauth",
           }]);
-          setLiveLoaded((prev) => ({ ...prev, [selectedProvider]: false }));
+          setLiveLoaded((prev) => ({ ...prev, openai: false }));
           window.clearInterval(timer);
         }
       } catch (error) {
-        setAgentLogin((current) => current ? { ...current, status: "failed", error: error instanceof Error ? error.message : "Falha ao acompanhar a conexão." } : current);
+        setDeviceLogin((current) => current ? { ...current, status: "failed", error: error instanceof Error ? error.message : "Falha ao acompanhar a conexão." } : current);
         window.clearInterval(timer);
       }
-    }, 2000);
+    }, Math.max(3000, (deviceLogin.intervalSeconds || 5) * 1000));
     return () => window.clearInterval(timer);
-  }, [agentLogin?.status, selectedProvider, supportsAgentLogin]);
+  }, [deviceLogin?.status, deviceLogin?.intervalSeconds, selectedProvider]);
 
   const connectOAuth = async () => {
     setConnecting(true);
@@ -160,53 +155,26 @@ export default function AISettings({
     }
   };
 
-  const connectAgent = async () => {
-    if (!agentRuntimeAvailable) return;
+  const connectOpenAI = async () => {
     setConnecting(true);
     setKeyError("");
-    setAgentLogin(null);
+    setDeviceLogin(null);
+    const popup = window.open("about:blank", "_blank");
+    if (popup) popup.opener = null;
     try {
-      const response = await fetch(`/api/ai/agent/${selectedProvider}`, {
+      const response = await fetch("/api/ai/openai-device", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
       });
       const data = await response.json();
-      setAgentLogin(data);
       if (!response.ok || !data.ok) throw new Error(data.error || "Não foi possível iniciar a conexão.");
-      if (typeof data.verificationUrl === "string") window.open(data.verificationUrl, "_blank", "noopener,noreferrer");
+      setDeviceLogin(data);
+      if (popup && typeof data.verificationUrl === "string") popup.location.href = data.verificationUrl;
     } catch (error) {
-      setAgentLogin({
-        available: false,
+      popup?.close();
+      setDeviceLogin({
         status: "failed",
         error: error instanceof Error ? error.message : "Não foi possível iniciar a conexão.",
       });
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  const submitClaudeCode = async () => {
-    const code = agentCode.trim();
-    if (!code) return;
-    setConnecting(true);
-    setKeyError("");
-    try {
-      const response = await fetch(`/api/ai/agent/${selectedProvider}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
-      const data = await response.json();
-      setAgentLogin(data);
-      if (!response.ok || !data.ok) throw new Error(data.error || "Não foi possível enviar o código.");
-      setAgentCode("");
-    } catch (error) {
-      setAgentLogin((current) => ({
-        available: current?.available ?? false,
-        status: "failed",
-        error: error instanceof Error ? error.message : "Não foi possível enviar o código.",
-      }));
     } finally {
       setConnecting(false);
     }
@@ -247,6 +215,7 @@ export default function AISettings({
     ]);
     setSavedAt(Date.now());
     setLiveLoaded((prev) => ({ ...prev, [selectedProvider]: false }));
+    setConnectionOpen(false);
   };
 
   const dropKey = async () => {
@@ -274,11 +243,6 @@ export default function AISettings({
     commit({ customBaseUrls: { ...settings.customBaseUrls, [selectedProvider]: value } });
   };
 
-  const scheduleCommit = (fn: () => void) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(fn, 800);
-  };
-
   const selectModel = (modelId: string) => {
     const id = modelId.trim();
     if (!id) return;
@@ -286,15 +250,19 @@ export default function AISettings({
   };
 
   const switchProvider = (id: AIProviderId) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
     setKeyDraft(null);
     setUrlDraft(null);
     setSelectedProvider(id);
     setTestResult(null);
     setShowKey(false);
     setKeyError("");
-    setAgentLogin(null);
-    setAgentCode("");
+    setDeviceLogin(null);
+  };
+
+  const openConnection = (id: AIProviderId) => {
+    switchProvider(id);
+    setConnectionMethod(id === "ollama" ? "server" : id === "openai" || id === "gemini" || id === "openrouter" ? "menu" : "api");
+    setConnectionOpen(true);
   };
 
   const loadModels = async (opts: { silent?: boolean } = {}) => {
@@ -394,62 +362,31 @@ export default function AISettings({
 
   return (
     <div className="space-y-6">
-      {/* Provedor ativo */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl surface-dark border shadow-lg">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
-            <p className="text-xs font-semibold uppercase tracking-wider surface-dark-muted">
-              Provedor padrão do ERP
-            </p>
+      <section>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Provedores de IA</h2>
+            <p className="text-xs text-slate-500">Cada pessoa conecta a própria conta ou chave, protegida e separada das demais.</p>
           </div>
-          <p className="mt-1 text-lg font-bold flex flex-wrap items-center gap-2">
-            {AI_PROVIDERS[settings.activeProvider]?.name}
-            <span className="text-xs px-2 py-0.5 rounded-full on-dark-chip font-mono font-normal">
-              {settings.defaultModels[settings.activeProvider] || "nenhum modelo escolhido"}
-            </span>
-          </p>
+          <div className="inline-flex items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 sm:self-auto">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            Principal: <strong className="text-slate-900">{AI_PROVIDERS[settings.activeProvider]?.name}</strong>
+            {justSaved && <span className="text-emerald-600">Salvo</span>}
+          </div>
         </div>
-        {justSaved && (
-          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 animate-fade-in">
-            <Icon name="check" size={12} /> Salvo
-          </span>
-        )}
-      </div>
-
-      {/* Onde a chave fica guardada. O texto anterior descrevia o desenho
-          antigo (localStorage) e virou mentira quando a chave passou a ser
-          cifrada no banco — aviso de segurança errado é pior que nenhum. */}
-      <Alert tone="neutral" size="sm">
-        Cada pessoa configura sua própria credencial. Chaves e tokens são guardados
-        <strong> cifrados no servidor</strong> e ligados somente à sua conta do ERP; eles não
-        voltam para o navegador. Nenhuma chave geral da OpenAI ou Anthropic precisa ser
-        configurada no servidor.
-      </Alert>
-
-      {/* Grade de provedores */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
-        <SectionTitle number="1" title="Escolha o provedor" description="Você pode deixar vários prontos e alternar quando quiser." />
-        <p className="mb-3 text-xs text-slate-500">
-          Dá para deixar vários configurados e trocar na hora, pelo seletor dentro do DeskHelper AI.
-          O marcado como principal é o que o ERP usa por padrão.
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {Object.values(AI_PROVIDERS).map((p) => {
             const isSelected = selectedProvider === p.id;
             const isDefault = settings.activeProvider === p.id;
             const hasKey = keys.some((k) => k.provider === p.id);
 
             return (
-              <button
+              <div
                 key={p.id}
-                type="button"
-                onClick={() => switchProvider(p.id)}
-                aria-pressed={isSelected}
-                className={`relative flex flex-col items-start p-3 rounded-xl border text-left transition-all ${
+                className={`relative flex min-h-36 flex-col rounded-2xl border bg-white p-3 transition-all ${
                   isSelected
-                    ? "accent-selected accent-ring shadow-md"
-                    : "border-slate-200 hover:border-slate-300 bg-white"
+                    ? "accent-ring border-slate-400 shadow-md"
+                    : "border-slate-200 hover:border-slate-300 hover:shadow-sm"
                 }`}
               >
                 {isDefault && (
@@ -458,21 +395,18 @@ export default function AISettings({
                     title="Provedor ativo"
                   />
                 )}
-                {/* Nome inteiro. Quebrar no primeiro espaço produzia rótulos
-                    sem sentido: "Servidor / próprio", "Mistral / AI". */}
-                <span className="w-full pr-3 text-sm font-bold text-slate-900 leading-tight">
-                  {p.name}
-                </span>
-                <span className="mt-1 w-full text-xs text-slate-500 leading-snug line-clamp-2">
-                  {p.tagline}
-                </span>
-                {hasKey && (
-                  <span className="mt-2 inline-flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    {keys.find((k) => k.provider === p.id)?.authType === "api-key" ? "Chave salva" : "Conta conectada"}
+                <button type="button" onClick={() => switchProvider(p.id)} aria-pressed={isSelected} className="flex flex-1 flex-col items-start text-left">
+                  <ProviderLogo provider={p.id} />
+                  <span className="mt-3 w-full pr-3 text-sm font-bold leading-tight text-slate-900">{p.name}</span>
+                  <span className={`mt-1 inline-flex items-center gap-1 text-[11px] font-medium ${hasKey ? "text-emerald-600" : "text-slate-400"}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${hasKey ? "bg-emerald-500" : "bg-slate-300"}`} />
+                    {hasKey ? (keys.find((k) => k.provider === p.id)?.authType === "api-key" ? "Chave salva" : "Conta conectada") : "Não conectado"}
                   </span>
-                )}
-              </button>
+                </button>
+                <button type="button" onClick={() => openConnection(p.id)} className="mt-3 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50">
+                  {hasKey ? "Gerenciar" : "Conectar"}
+                </button>
+              </div>
             );
           })}
         </div>
@@ -481,37 +415,30 @@ export default function AISettings({
       {/* Painel do provedor */}
       <section className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-5 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
-          <div>
-            <SectionTitle number="2" title="Conecte e configure" description="Use sua conta ou uma chave de API como alternativa." />
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-3">
+            <ProviderLogo provider={selectedProvider} />
+            <div>
               <h3 className="text-base font-bold text-slate-900">{currentConfig?.name}</h3>
-              <span
-                className={`text-xs px-2.5 py-0.5 rounded-full border font-medium ${currentConfig?.badgeColor}`}
-              >
-                {currentConfig?.tagline}
-              </span>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {savedKey ? (savedKey.authType === "api-key" ? "Chave conectada" : "Conta conectada") : "Ainda não conectado"}
+                {activeModel ? ` · ${activeModel}` : ""}
+              </p>
             </div>
-            <p className="mt-1 text-xs text-slate-500">{currentConfig?.description}</p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => commit({ activeProvider: selectedProvider })}
-            disabled={settings.activeProvider === selectedProvider}
-            className={
-              settings.activeProvider === selectedProvider
-                ? "btn btn-sm bg-emerald-600 text-white disabled:opacity-100 shrink-0"
-                : "btn-secondary btn-sm shrink-0"
-            }
-          >
-            {settings.activeProvider === selectedProvider ? (
-              <>
-                <Icon name="check" size={13} /> Provedor principal
-              </>
-            ) : (
-              "Definir como principal"
-            )}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => openConnection(selectedProvider)} className="btn-secondary btn-sm">
+              {savedKey ? "Gerenciar conexão" : "Conectar"}
+            </button>
+            <button
+              type="button"
+              onClick={() => commit({ activeProvider: selectedProvider })}
+              disabled={settings.activeProvider === selectedProvider}
+              className={settings.activeProvider === selectedProvider ? "btn btn-sm bg-emerald-600 text-white disabled:opacity-100" : "btn-secondary btn-sm"}
+            >
+              {settings.activeProvider === selectedProvider ? <><Icon name="check" size={13} /> Principal</> : "Usar como principal"}
+            </button>
+          </div>
         </div>
 
         {oauthNotice && (
@@ -524,228 +451,11 @@ export default function AISettings({
           </Alert>
         )}
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700"><Icon name="ai" size={14} /></span>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Conectar com sua conta</p>
-              <p className="text-[11px] text-slate-500">Opção recomendada quando disponível</p>
-            </div>
+        <div>
+          <div className="mb-3">
+            <h3 className="text-sm font-bold text-slate-900">Modelos</h3>
+            <p className="text-xs text-slate-500">Mostramos somente os modelos liberados para sua conexão.</p>
           </div>
-          {supportsAgentLogin ? (
-            <>
-              <p className="text-xs text-slate-600">
-                {!agentRuntimeAvailable
-                  ? "Esta aplicação está em um ambiente serverless. A conexão de conta por CLI precisa rodar no mesmo computador do ERP e permanecer ativa entre as requisições."
-                  : selectedProvider === "openai"
-                  ? "Entre com sua conta ChatGPT pelo navegador. O ERP usa o Codex App Server e um código de dispositivo, portanto funciona também quando o sistema está em uma VPS e não depende de callback em localhost."
-                  : "Use a conta já autorizada pelo Claude Code. O executável Claude Code precisa estar instalado no mesmo servidor do ERP; o fluxo abaixo encaminha a autorização do navegador sem expor os tokens ao navegador do ERP."}
-              </p>
-              {!agentRuntimeAvailable && (
-                <Alert tone="neutral" size="sm">
-                  No Vercel, use uma chave de API abaixo. Para conectar a assinatura do ChatGPT ou do Claude Code, execute o ERP localmente ou em uma VPS com o respectivo CLI instalado.
-                </Alert>
-              )}
-              <div className="flex flex-wrap items-center gap-2">
-                <button type="button" onClick={connectAgent}
-                  disabled={!agentRuntimeAvailable || connecting || keyBusy || !canStore || agentLogin?.status === "waiting"}
-                  className="btn-primary btn-sm">
-                  {!agentRuntimeAvailable
-                    ? "Indisponível no Vercel"
-                    : connecting
-                      ? "Iniciando…"
-                      : `${savedKey?.authType === (selectedProvider === "openai" ? "codex" : "claude-code") ? "Reconectar" : "Conectar"} com ${selectedProvider === "openai" ? "ChatGPT" : "Claude Code"}`}
-                </button>
-                {savedKey && <p className="text-xs text-slate-500">Uma nova autorização substitui a credencial atual deste provedor.</p>}
-              </div>
-              {agentLogin?.status === "waiting" && selectedProvider === "openai" && (
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
-                  <p>Abra o login da OpenAI e informe este código:</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <code className="rounded bg-white px-3 py-1.5 text-base font-bold tracking-widest">{agentLogin.userCode}</code>
-                    {agentLogin.verificationUrl && <a className="font-semibold underline" href={agentLogin.verificationUrl} target="_blank" rel="noreferrer">Abrir login da OpenAI</a>}
-                  </div>
-                  <p className="mt-2 text-blue-700">Aguardando você concluir no navegador…</p>
-                </div>
-              )}
-              {agentLogin?.status === "waiting" && selectedProvider === "anthropic" && (
-                <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
-                  {agentLogin.verificationUrl && <a className="font-semibold underline" href={agentLogin.verificationUrl} target="_blank" rel="noreferrer">Abrir autorização do Claude</a>}
-                  {agentLogin.output && <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded bg-white p-2 font-mono text-[11px]">{agentLogin.output}</pre>}
-                  <div className="flex gap-2">
-                    <input className="input text-xs" value={agentCode} onChange={(event) => setAgentCode(event.target.value)} placeholder="Cole o código aqui, se o Claude Code solicitar" />
-                    <button type="button" className="btn-secondary btn-sm" disabled={!agentCode.trim() || connecting} onClick={submitClaudeCode}>Enviar</button>
-                  </div>
-                </div>
-              )}
-              {agentLogin?.status === "connected" && <Alert tone="success" size="sm">Conta conectada. Agora carregue os modelos e escolha qual usar.</Alert>}
-              {agentLogin?.status === "failed" && agentLogin.error && <p className="text-xs text-red-700">{agentLogin.error}</p>}
-              {!canStore && <p className="text-xs text-amber-700">O servidor precisa ter SESSION_SECRET ou AI_ENCRYPTION_KEY para proteger credenciais individuais.</p>}
-            </>
-          ) : supportsOAuth ? (
-            <>
-              <p className="text-xs text-slate-600">
-                {selectedProvider === "openrouter"
-                  ? "Autorize o ERP no OpenRouter sem copiar uma chave. Você poderá usar os modelos disponíveis lá, inclusive GPT, conforme o saldo e as permissões da sua conta OpenRouter. Isso não utiliza a assinatura ChatGPT."
-                  : "Autorize o acesso ao Gemini pela sua conta Google. O uso consome a cota do projeto Google Cloud configurado pelo administrador, não a assinatura do aplicativo Gemini. A permissão Google Cloud solicitada é ampla: use uma conta com acesso restrito ao projeto de IA."}
-              </p>
-              <button type="button" onClick={connectOAuth}
-                disabled={connecting || keyBusy || !canStore || !oauthAvailable[selectedProvider as "openrouter" | "gemini"]}
-                className="btn-primary btn-sm">
-                {connecting ? "Redirecionando…" : `${savedKey?.authType === "oauth" ? "Reconectar" : "Conectar"} ${selectedProvider === "gemini" ? "com Google" : "com OpenRouter"}`}
-              </button>
-              {savedKey && <p className="text-xs text-slate-500">Ao autorizar, a conexão acima substituirá a credencial atual deste provedor.</p>}
-              {!oauthAvailable[selectedProvider as "openrouter" | "gemini"] && (
-                <p className="text-xs text-amber-700">
-                  {isAdmin ? (selectedProvider === "gemini"
-                    ? "Configure APP_URL, GOOGLE_AI_OAUTH_CLIENT_ID, GOOGLE_AI_OAUTH_CLIENT_SECRET e GOOGLE_AI_PROJECT_ID no servidor. Consulte docs/AI-OAUTH.md."
-                    : "Configure APP_URL e um segredo de criptografia no servidor para habilitar o OAuth.")
-                    : "O administrador precisa habilitar esta conexão no servidor."}
-                </p>
-              )}
-              {savedKey?.authType === "oauth" && <p className="text-xs text-slate-500">Remover desconecta apenas do ERP. Revogue também a autorização na conta Google ou a chave delegada no OpenRouter.</p>}
-            </>
-          ) : (
-            <p className="text-xs text-slate-600">
-              {!currentConfig.requiresApiKey
-                  ? "Este servidor pode funcionar localmente sem chave ou OAuth. Configure o endereço do serviço."
-                  : "OAuth de conta não está disponível nesta integração. Use a chave de API do provedor. Login no painel e assinatura do chat não equivalem a acesso à API."}
-            </p>
-          )}
-        </div>
-
-        {/* Chave e URL base */}
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-4">
-            <p className="text-sm font-semibold text-slate-900">Chave de API e endereço</p>
-            <p className="text-[11px] text-slate-500">Alternativa para integrações técnicas ou endpoints próprios</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {currentConfig?.requiresApiKey && (
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label htmlFor="ai-key" className="label text-xs mb-0">
-                  Chave de API ({currentConfig.keyEnvVar})
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowKey(!showKey)}
-                  className="text-xs text-slate-500 underline hover:text-slate-800"
-                >
-                  {showKey ? "Ocultar" : "Mostrar"}
-                </button>
-              </div>
-              {/* type="text" + máscara por CSS, de propósito: com type="password"
-                  o navegador trata o campo como login e preenche sozinho com a
-                  senha salva do site — o gerenciador de senhas não sabe que aqui
-                  se espera uma chave de API. Os data-* desligam 1Password,
-                  LastPass e Dashlane. */}
-              <input
-                id="ai-key"
-                type="text"
-                name="drr-ai-provider-key"
-                autoComplete="off"
-                spellCheck={false}
-                data-1p-ignore
-                data-lpignore="true"
-                data-bwignore
-                data-form-type="other"
-                value={currentKey}
-                onChange={(e) => setKeyDraft(e.target.value)}
-                disabled={keyBusy || !canStore}
-                placeholder={
-                  savedKey
-                    ? "Cole uma chave nova para substituir a atual"
-                    : `Cole sua ${currentConfig.keyEnvVar}`
-                }
-                className={`input text-xs ${showKey ? "font-mono" : "input-secret"}`}
-              />
-
-              {/* Salvar é um clique explícito, não um debounce. A chave sai do
-                  navegador para o servidor uma única vez, no momento em que a
-                  pessoa manda — não a cada tecla digitada. */}
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => commitKey(currentKey)}
-                  disabled={!currentKey.trim() || keyBusy || !canStore}
-                  className="btn-primary btn-sm"
-                >
-                  {keyBusy ? "Salvando..." : savedKey ? "Substituir chave" : "Salvar chave"}
-                </button>
-
-                {savedKey && (
-                  <>
-                    <span className="font-mono text-xs text-slate-500">
-                      {savedKey.authType === "oauth" ? "OAuth conectado" : savedKey.authType === "codex" ? "ChatGPT via Codex" : savedKey.authType === "claude-code" ? "Conta via Claude Code" : `salva: ••••${savedKey.hint}`}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={dropKey}
-                      disabled={keyBusy}
-                      className="text-xs text-red-600 hover:underline"
-                    >
-                      {savedKey.authType && savedKey.authType !== "api-key" ? "Desconectar" : "Remover"}
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {savedKey?.broken && (
-                <p className="mt-2 text-xs text-amber-600">
-                  A chave está guardada mas o servidor não consegue mais lê-la —
-                  o segredo de criptografia mudou. Cadastre a chave de novo.
-                </p>
-              )}
-              {keyError && <p className="mt-2 text-xs text-red-600">{keyError}</p>}
-              {!canStore && (
-                <p className="mt-2 text-xs text-amber-600">
-                  O servidor não tem <code className="font-mono">SESSION_SECRET</code> nem{" "}
-                  <code className="font-mono">AI_ENCRYPTION_KEY</code>. Sem um segredo para
-                  cifrar, o cadastro fica bloqueado.
-                </p>
-              )}
-              {currentKey && !/^(sk-|gsk_|xai-|csk-|AIza|co-|or-|[A-Za-z0-9_-]{24,})/.test(currentKey.trim()) && (
-                <p className="mt-1 text-xs text-amber-600">
-                  Isto não parece uma chave de API. Se o navegador preencheu o campo
-                  com uma senha salva, clique em Remover.
-                </p>
-              )}
-              <p className="mt-1 text-xs text-slate-500">
-                Esta chave é individual e fica disponível somente para a sua conta do ERP.
-              </p>
-            </div>
-          )}
-
-          <div>
-            <label htmlFor="ai-url" className="label text-xs mb-1">
-              URL base da API (endpoint customizado)
-            </label>
-            <input
-              id="ai-url"
-              type="text"
-              spellCheck={false}
-              value={usesManagedAuth ? currentConfig.defaultBaseUrl || "" : currentUrl}
-              disabled={usesManagedAuth}
-              onChange={(e) => {
-                const v = e.target.value;
-                setUrlDraft(v);
-                scheduleCommit(() => commitUrl(v));
-              }}
-              onBlur={(e) => commitUrl(e.target.value)}
-              placeholder={currentConfig?.defaultBaseUrl || "https://api.openai.com"}
-              className="input text-xs font-mono"
-            />
-            <p className="mt-1 text-xs text-slate-500">
-              Deixe em branco para usar o endereço oficial do provedor. Padrão:{" "}
-              <code className="font-mono">{currentConfig?.defaultBaseUrl || "padrão do serviço"}</code>
-            </p>
-          </div>
-          </div>
-        </div>
-
-        <div className="border-t border-slate-200 pt-5">
-          <SectionTitle number="3" title="Escolha o modelo" description="Carregue apenas os modelos liberados para a conexão acima." />
         {/* Ações */}
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <button
@@ -885,18 +595,188 @@ export default function AISettings({
         </div>
         </div>
       </section>
+
+      {connectionOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={(event) => { if (event.target === event.currentTarget) setConnectionOpen(false); }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ai-connect-title"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5">
+              <div className="flex items-center gap-3">
+                <ProviderLogo provider={selectedProvider} />
+                <div>
+                  <h3 id="ai-connect-title" className="text-base font-bold text-slate-900">Conectar {currentConfig.name}</h3>
+                  <p className="text-xs text-slate-500">A credencial será somente da sua conta.</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setConnectionOpen(false)} aria-label="Fechar" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+                <Icon name="close" size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-4 sm:p-5">
+              {connectionMethod === "menu" && (
+                <div className="space-y-2">
+                  <p className="mb-3 text-sm text-slate-600">Escolha uma forma de conexão:</p>
+                  <button type="button" onClick={() => setConnectionMethod("account")} className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 text-left transition hover:border-slate-400 hover:bg-slate-50">
+                    <span>
+                      <span className="block text-sm font-bold text-slate-900">
+                        {selectedProvider === "openai" ? "ChatGPT Pro/Plus" : selectedProvider === "gemini" ? "Conta Google" : "Conta OpenRouter"}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-slate-500">Conectar pelo navegador</span>
+                    </span>
+                    <Icon name="chevronRight" size={18} />
+                  </button>
+                  <button type="button" onClick={() => setConnectionMethod("api")} className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 text-left transition hover:border-slate-400 hover:bg-slate-50">
+                    <span>
+                      <span className="block text-sm font-bold text-slate-900">Chave de API</span>
+                      <span className="mt-0.5 block text-xs text-slate-500">Colar uma chave individual</span>
+                    </span>
+                    <Icon name="chevronRight" size={18} />
+                  </button>
+                </div>
+              )}
+
+              {connectionMethod === "account" && (
+                <div className="space-y-4">
+                  <button type="button" onClick={() => setConnectionMethod("menu")} className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-900">
+                    <Icon name="chevronLeft" size={14} /> Voltar
+                  </button>
+                  <div className="rounded-xl bg-slate-50 p-4">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {selectedProvider === "openai" ? "Entrar com ChatGPT" : selectedProvider === "gemini" ? "Entrar com Google" : "Entrar com OpenRouter"}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                      {selectedProvider === "openai"
+                        ? "O navegador abrirá a página oficial da OpenAI. Informe o código exibido aqui; não é necessário instalar o Codex no servidor."
+                        : selectedProvider === "gemini"
+                          ? "O Google solicitará acesso ao projeto de IA configurado para esta integração."
+                          : "O OpenRouter criará uma credencial delegada para esta conta."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={selectedProvider === "openai" ? connectOpenAI : connectOAuth}
+                    disabled={connecting || keyBusy || !canStore || (selectedProvider === "openai" ? !oauthAvailable.openai || deviceLogin?.status === "waiting" : !oauthAvailable[selectedProvider as "gemini" | "openrouter"])}
+                    className="btn-primary w-full justify-center"
+                  >
+                    {connecting ? "Abrindo…" : savedKey?.authType === "oauth" ? "Reconectar conta" : "Continuar no navegador"}
+                  </button>
+
+                  {deviceLogin?.status === "waiting" && selectedProvider === "openai" && (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
+                      <p className="text-xs text-blue-700">Código de dispositivo</p>
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                        <code className="rounded-lg bg-white px-3 py-2 text-lg font-bold tracking-widest">{deviceLogin.userCode}</code>
+                        {deviceLogin.verificationUrl && <a className="text-xs font-semibold underline" href={deviceLogin.verificationUrl} target="_blank" rel="noreferrer">Abrir OpenAI</a>}
+                      </div>
+                      <p className="mt-2 text-xs text-blue-700">Aguardando a confirmação…</p>
+                    </div>
+                  )}
+                  {deviceLogin?.status === "connected" && selectedProvider === "openai" && <Alert tone="success" size="sm">Conta conectada. Feche esta janela e carregue os modelos.</Alert>}
+                  {deviceLogin?.status === "failed" && selectedProvider === "openai" && deviceLogin.error && <Alert tone="danger" size="sm">{deviceLogin.error}</Alert>}
+                  {!canStore && <Alert tone="neutral" size="sm">O armazenamento seguro de credenciais precisa ser habilitado pelo administrador.</Alert>}
+                </div>
+              )}
+
+              {connectionMethod === "api" && (
+                <div className="space-y-4">
+                  {(selectedProvider === "openai" || supportsOAuth) && (
+                    <button type="button" onClick={() => setConnectionMethod("menu")} className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-900">
+                      <Icon name="chevronLeft" size={14} /> Voltar
+                    </button>
+                  )}
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <label htmlFor="ai-key-modal" className="label mb-0 text-xs">Chave de API ({currentConfig.keyEnvVar})</label>
+                      <button type="button" onClick={() => setShowKey(!showKey)} className="text-xs text-slate-500 hover:text-slate-900">{showKey ? "Ocultar" : "Mostrar"}</button>
+                    </div>
+                    <input
+                      id="ai-key-modal"
+                      type="text"
+                      name="drr-ai-provider-key-modal"
+                      autoComplete="off"
+                      spellCheck={false}
+                      data-1p-ignore
+                      data-lpignore="true"
+                      data-bwignore
+                      data-form-type="other"
+                      value={currentKey}
+                      onChange={(event) => setKeyDraft(event.target.value)}
+                      disabled={keyBusy || !canStore}
+                      placeholder={savedKey ? "Cole uma chave nova para substituir" : `Cole sua ${currentConfig.keyEnvVar}`}
+                      className={`input text-xs ${showKey ? "font-mono" : "input-secret"}`}
+                    />
+                    <p className="mt-1.5 text-xs text-slate-500">A chave é cifrada e vinculada somente ao seu usuário.</p>
+                  </div>
+
+                  <details className="rounded-xl border border-slate-200 px-3 py-2.5">
+                    <summary className="cursor-pointer text-xs font-semibold text-slate-600">Configuração avançada</summary>
+                    <div className="mt-3">
+                      <label htmlFor="ai-url-modal" className="label mb-1 text-xs">URL base da API</label>
+                      <input id="ai-url-modal" type="text" spellCheck={false} value={currentUrl} onChange={(event) => setUrlDraft(event.target.value)} onBlur={(event) => commitUrl(event.target.value)} placeholder={currentConfig.defaultBaseUrl || "https://api.openai.com"} className="input text-xs font-mono" />
+                      <p className="mt-1 text-xs text-slate-500">Deixe vazio para usar o endereço oficial.</p>
+                    </div>
+                  </details>
+
+                  {keyError && <Alert tone="danger" size="sm">{keyError}</Alert>}
+                  {!canStore && <Alert tone="neutral" size="sm">O armazenamento seguro de credenciais precisa ser habilitado pelo administrador.</Alert>}
+                  <button type="button" onClick={() => commitKey(currentKey)} disabled={!currentKey.trim() || keyBusy || !canStore} className="btn-primary w-full justify-center">
+                    {keyBusy ? "Salvando…" : savedKey ? "Substituir chave" : "Salvar chave"}
+                  </button>
+                </div>
+              )}
+
+              {connectionMethod === "server" && (
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="ai-server-url" className="label mb-1 text-xs">Endereço do Ollama</label>
+                    <input id="ai-server-url" type="text" spellCheck={false} value={currentUrl} onChange={(event) => setUrlDraft(event.target.value)} placeholder={currentConfig.defaultBaseUrl} className="input text-xs font-mono" />
+                    <p className="mt-1.5 text-xs text-slate-500">Use o endereço do Ollama acessível pelo servidor do ERP.</p>
+                  </div>
+                  <button type="button" onClick={() => { commitUrl(currentUrl); setConnectionOpen(false); }} className="btn-primary w-full justify-center">Salvar endereço</button>
+                </div>
+              )}
+
+              {savedKey && (
+                <div className="flex items-center justify-between border-t border-slate-100 pt-4 text-xs">
+                  <span className="inline-flex items-center gap-1.5 text-emerald-600"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Conexão atual ativa</span>
+                  <button type="button" onClick={dropKey} disabled={keyBusy} className="font-semibold text-red-600 hover:underline">{savedKey.authType === "api-key" ? "Remover chave" : "Desconectar"}</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function SectionTitle({ number, title, description }: { number: string; title: string; description: string }) {
+function ProviderLogo({ provider }: { provider: AIProviderId }) {
+  const styles: Record<AIProviderId, { bg: string; text: string; mark: string }> = {
+    openai: { bg: "bg-slate-900", text: "text-white", mark: "✣" },
+    anthropic: { bg: "bg-[#D97757]", text: "text-white", mark: "A" },
+    gemini: { bg: "bg-gradient-to-br from-blue-500 via-violet-500 to-fuchsia-500", text: "text-white", mark: "✦" },
+    deepseek: { bg: "bg-blue-600", text: "text-white", mark: "D" },
+    groq: { bg: "bg-orange-500", text: "text-white", mark: "G" },
+    mistral: { bg: "bg-amber-500", text: "text-slate-950", mark: "M" },
+    xai: { bg: "bg-black", text: "text-white", mark: "X" },
+    cohere: { bg: "bg-emerald-600", text: "text-white", mark: "C" },
+    openrouter: { bg: "bg-violet-600", text: "text-white", mark: "↗" },
+    ollama: { bg: "bg-slate-800", text: "text-white", mark: "O" },
+    custom: { bg: "bg-pink-600", text: "text-white", mark: "<>" },
+  };
+  const style = styles[provider];
   return (
-    <div className="mb-3 flex items-start gap-3">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">{number}</span>
-      <div>
-        <h3 className="text-sm font-bold text-slate-900">{title}</h3>
-        <p className="text-xs text-slate-500">{description}</p>
-      </div>
-    </div>
+    <span aria-hidden="true" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-black shadow-sm ${style.bg} ${style.text}`}>
+      {style.mark}
+    </span>
   );
 }

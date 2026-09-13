@@ -44,6 +44,35 @@ test("OAuth é resolvido por usuário e ignora URL do navegador", async (t) => {
   assert.equal(value.baseUrl, "https://openrouter.ai/api/v1");
 });
 
+test("conta ChatGPT fica vinculada somente ao usuário e usa o backend Codex", async (t) => {
+  let row: any;
+  const credential = {
+    provider: "openai" as const,
+    accessToken: "chatgpt-access-token",
+    refreshToken: "chatgpt-refresh-token",
+    expiresAt: Date.now() + 3600_000,
+    accountId: "account_123",
+  };
+  t.mock.method(prisma.aICredential, "upsert", async (query: any) => {
+    assert.deepEqual(query.where.userId_provider, { userId: 31, provider: "openai" });
+    row = { ...query.create, updatedAt: new Date() };
+    return row;
+  });
+  t.mock.method(prisma.aICredential, "findUnique", async (query: any) => {
+    assert.deepEqual(query.where.userId_provider, { userId: 31, provider: "openai" });
+    return row;
+  });
+  await saveOAuthCredential(31, credential);
+  assert.equal(row.userId, 31);
+  assert.equal(row.baseUrl, "https://chatgpt.com/backend-api/codex");
+  assert.ok(!row.keyCipher.includes("chatgpt-access-token"));
+  const resolved = await resolveProviderAuth(31, "openai");
+  assert.equal(resolved.authType, "oauth");
+  assert.equal(resolved.apiKey, "chatgpt-access-token");
+  assert.equal(resolved.accountId, "account_123");
+  assert.equal(resolved.baseUrl, "https://chatgpt.com/backend-api/codex");
+});
+
 test("chave de API é salva e consultada somente para o usuário da sessão", async (t) => {
   let row: any;
   t.mock.method(prisma.aICredential, "upsert", async (query: any) => {

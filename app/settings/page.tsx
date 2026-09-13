@@ -22,14 +22,13 @@ import AISettings from "./AISettings";
 import SettingsTabs from "./SettingsTabs";
 import { getServerAISettings } from "@/lib/ai/server-settings";
 import { listCredentials, canStoreSecrets } from "@/lib/ai/credentials";
-import { isOAuthProvider, oauthAvailability } from "@/lib/ai/oauth";
-import { agentRuntimeCapability } from "@/lib/ai/agent-capability";
+import { isRedirectOAuthProvider, oauthAvailability } from "@/lib/ai/oauth";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const query = await searchParams;
-  const oauthProvider = isOAuthProvider(query.provider) ? query.provider : undefined;
+  const oauthProvider = isRedirectOAuthProvider(query.provider) ? query.provider : undefined;
   const oauthResult = typeof query.oauth === "string" && ["success", "error", "cancelled"].includes(query.oauth) ? query.oauth : undefined;
   const [store, user, aiSettings] = await Promise.all([
     cookies(),
@@ -81,7 +80,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         tabs={[
           {
             id: "ia",
-            label: "Inteligência Artificial",
+            label: "IA",
             icon: "ai",
             hint: "Escolha o provedor e o modelo usados pelo DeskHelper AI e pelo assistente de propostas.",
             content: (
@@ -90,9 +89,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                   initialSettings={aiSettings}
                   savedKeys={savedKeys}
                   canStore={canStoreSecrets()}
-                  isAdmin={admin}
                   oauthAvailable={oauthAvailability()}
-                  agentRuntimeAvailable={agentRuntimeCapability().available}
                   oauthProvider={oauthResult ? oauthProvider : undefined}
                   oauthResult={oauthResult}
                 />

@@ -1,6 +1,6 @@
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { startOAuth, validateOAuth, pkceChallenge, oauthAvailability, oauthOrigin, isOAuthProvider, encodeOAuthCredential, decodeOAuthCredential, exchangeOAuthCode, refreshGoogleCredential, GOOGLE_AI_SCOPE } from "../lib/ai/oauth.ts";
+import { startOAuth, validateOAuth, pkceChallenge, oauthAvailability, oauthOrigin, isOAuthProvider, isRedirectOAuthProvider, encodeOAuthCredential, decodeOAuthCredential, exchangeOAuthCode, refreshGoogleCredential, GOOGLE_AI_SCOPE } from "../lib/ai/oauth.ts";
 import { encryptSecret } from "../lib/ai/crypto.ts";
 import { geminiAuthHeaders } from "../lib/ai/request-auth.ts";
 import { executeAICompletion, streamAICompletion, resolveCall } from "../lib/ai/client.ts";
@@ -71,7 +71,7 @@ test("retorno rejeita cookie ausente, adulterado, de outro propósito ou expirad
 
 test("configuração ausente desabilita Google sem quebrar OpenRouter", () => {
   delete process.env.GOOGLE_AI_OAUTH_CLIENT_SECRET;
-  assert.deepEqual(oauthAvailability(), { openrouter: true, gemini: false });
+  assert.deepEqual(oauthAvailability(), { openai: true, openrouter: true, gemini: false });
   assert.throws(() => startOAuth("gemini", 42, "session-test"));
 });
 
@@ -80,7 +80,8 @@ test("origem exige HTTPS em produção e não aceita caminho, credenciais ou que
     process.env.APP_URL = value;
     assert.throws(() => oauthOrigin());
   }
-  assert.equal(isOAuthProvider("openai"), false);
+  assert.equal(isOAuthProvider("openai"), true);
+  assert.equal(isRedirectOAuthProvider("openai"), false);
   assert.equal(isOAuthProvider("__proto__"), false);
 });
 
@@ -90,6 +91,9 @@ test("envelope OAuth não confunde chaves antigas e valida tokens", () => {
   assert.deepEqual(decodeOAuthCredential(encodeOAuthCredential(credential)), credential);
   assert.throws(() => decodeOAuthCredential("drr-ai-oauth-v1:{}"));
   assert.throws(() => decodeOAuthCredential(encodeOAuthCredential({ ...credential, accessToken: "bad\r\ntoken" })));
+  const openai = { provider: "openai" as const, accessToken: "access", refreshToken: "refresh", expiresAt: Date.now() + 1000, accountId: "account_123" };
+  assert.deepEqual(decodeOAuthCredential(encodeOAuthCredential(openai)), openai);
+  assert.throws(() => decodeOAuthCredential(encodeOAuthCredential({ ...openai, accountId: undefined })));
 });
 
 test("troca OpenRouter usa POST fixo no servidor e valida a chave retornada", async (t) => {

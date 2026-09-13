@@ -15,36 +15,35 @@ de ambiente continuam opcionais apenas como fallback administrativo.
 | --- | --- |
 | OpenRouter | OAuth PKCE ou chave manual. O OAuth gera uma chave delegada sem copiar/colar. |
 | Google Gemini | OAuth com renovação automática ou chave manual. Exige Google Cloud. |
-| OpenAI / GPT | Conta ChatGPT pelo Codex (navegador + código de dispositivo) ou chave da API. |
-| Anthropic / Claude | Conta pelo Claude Code instalado no servidor ou chave da API. |
+| OpenAI / GPT | Conta ChatGPT Pro/Plus pelo navegador (código de dispositivo) ou chave individual da API. |
+| Anthropic / Claude | Chave individual da API. A conexão por conta Claude Code não é oferecida. |
 | DeepSeek, Groq, Mistral, xAI, Cohere | Chave da API; OAuth de conta não implementado. |
 | Ollama, servidor próprio | Acesso ao servidor local/compatível, sem OAuth. |
 
 Não há um fluxo OAuth universal. OAuth de conectores (Gmail, Drive etc.) não
-substitui a autenticação da API do modelo. O login ChatGPT usa o
-[Codex App Server](https://developers.openai.com/codex/app-server/) com
-autenticação e diretório isolados por usuário. O navegador recebe somente o
-endereço e o código de dispositivo; os tokens ficam no servidor.
+substitui a autenticação da API do modelo. No login ChatGPT, o navegador recebe
+somente o endereço, o código e o andamento; access token e refresh token são
+trocados no servidor e cifrados na linha `AICredential` do usuário.
 
-## Codex e Claude Code no servidor
+## OpenAI com conta ChatGPT
 
-Esta opção funciona tanto com o ERP executado localmente quanto em um servidor
-Node persistente, como uma VPS. Uma implantação serverless comum não mantém o
-processo de login nem o diretório de credenciais.
+Em **Configurações → IA → OpenAI**, escolha **ChatGPT Pro/Plus** e clique em
+**Conectar ChatGPT**. O ERP abre `auth.openai.com/codex/device`, exibe o código
+de dispositivo e acompanha a conclusão. Se o navegador bloquear a nova aba,
+use o link exibido abaixo do código.
 
-No Vercel, o ERP detecta essa limitação e desabilita os botões de Codex e
-Claude Code. Use uma chave de API, o OAuth do OpenRouter ou execute o ERP num
-ambiente persistente. Definir somente `AI_AGENT_DATA_DIR` no Vercel não resolve:
-o CLI também precisa continuar em execução para receber a conclusão do login.
+O fluxo funciona em Vercel, VPS ou execução local: não instala `codex`, não abre
+callback em `localhost` e não grava em `/var/task/.data`. Cada login é vinculado
+ao `userId` e ao cookie de sessão que o iniciou. Conectar outra pessoa substitui
+somente a credencial OpenAI dessa pessoa.
 
-1. Instale `codex` e, se quiser Claude, `claude` para o usuário do serviço.
-2. Defina `AI_AGENT_DATA_DIR` para um volume persistente e privado.
-3. Se os binários não estiverem no `PATH`, defina `CODEX_BIN` e `CLAUDE_BIN`.
-4. Em **Configurações → IA**, escolha OpenAI ou Anthropic e clique em conectar.
+Na conta ChatGPT, o login por código de dispositivo precisa estar permitido nas
+configurações de segurança. Depois de conectar, carregue os modelos: a lista é
+lida do catálogo Codex liberado para aquela assinatura. As chamadas usam o
+endpoint Responses do Codex, e não o endpoint de API key.
 
-Os CLIs filhos recebem um ambiente limpo: segredos do ERP, como banco de dados
-e sessão, não são herdados. As respostas rodam sem ferramentas, em diretório
-isolado. Desconectar também encerra a sessão do CLI daquele usuário.
+Referências: [autenticação do Codex App Server](https://developers.openai.com/codex/app-server/#authentication) e
+[implementação oficial do fluxo de dispositivo](https://github.com/openai/codex/blob/main/codex-rs/login/src/device_code_auth.rs).
 
 ## Configuração comum
 
@@ -108,10 +107,10 @@ Referências: [Gemini OAuth](https://ai.google.dev/gemini-api/docs/oauth) e
 
 ## Segurança e operação
 
-- Início por POST autenticado com validação de origem; retorno confere provedor,
-  usuário, sessão, estado e prazo de dez minutos.
-- PKCE S256; estado temporário cifrado em cookie HttpOnly, SameSite=Lax e Secure
-  em produção. Códigos de autorização são trocados somente no servidor.
+- Início por POST autenticado com validação de origem. O fluxo OpenAI confere
+  usuário, sessão e prazo de quinze minutos a cada consulta.
+- O estado temporário fica cifrado em cookie HttpOnly, SameSite=Lax e Secure em
+  produção. Códigos de autorização são trocados somente no servidor.
 - Autorizar substitui apenas a credencial daquele usuário/provedor.
 - Sem tabela nova: chaves antigas continuam válidas; envelopes OAuth versionados
   ficam cifrados em `AICredential.keyCipher`.
@@ -132,3 +131,5 @@ Referências: [Gemini OAuth](https://ai.google.dev/gemini-api/docs/oauth) e
 - Retorno expirado/inválido: inicie de novo na mesma sessão; não compartilhe links.
 - Erro 403 Gemini: confira API, consentimento, IAM e projeto de cota.
 - Falha de renovação: reconecte; não cole refresh tokens no campo de chave.
+- OpenAI não inicia o código: habilite o login por código de dispositivo nas
+  configurações de segurança da conta ChatGPT e tente novamente.

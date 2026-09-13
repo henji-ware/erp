@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { SESSION_COOKIE } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { saveOAuthCredential } from "@/lib/ai/credentials";
-import { exchangeOAuthCode, isOAuthProvider, oauthCookieName, oauthOrigin, OAUTH_TTL_SECONDS, startOAuth, validateOAuth } from "@/lib/ai/oauth";
+import { exchangeOAuthCode, isRedirectOAuthProvider, oauthCookieName, oauthOrigin, OAUTH_TTL_SECONDS, startOAuth, validateOAuth } from "@/lib/ai/oauth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === "produc
 
 export async function POST(req: NextRequest, context: Context) {
   const { provider } = await context.params;
-  if (!isOAuthProvider(provider)) return NextResponse.json({ error: "Este provedor não oferece OAuth web nesta integração." }, { status: 400, headers: privateHeaders });
+  if (!isRedirectOAuthProvider(provider)) return NextResponse.json({ error: "Este provedor usa outro fluxo de conexão." }, { status: 400, headers: privateHeaders });
   try {
     if (req.headers.get("origin") !== oauthOrigin()) return NextResponse.json({ error: "Origem não autorizada." }, { status: 403, headers: privateHeaders });
     const auth = await requireUser();
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest, context: Context) {
 
 export async function GET(req: NextRequest, context: Context) {
   const { provider } = await context.params;
-  if (!isOAuthProvider(provider)) return NextResponse.json({ error: "Provedor não suportado." }, { status: 400, headers: privateHeaders });
+  if (!isRedirectOAuthProvider(provider)) return NextResponse.json({ error: "Provedor não suportado." }, { status: 400, headers: privateHeaders });
   // Destino relativo fixo: nunca confia em Host, next, redirect_uri ou returnTo.
   const response = new NextResponse(null, { status: 303, headers: { ...privateHeaders, Location: `/settings?oauth=error&provider=${provider}#ia` } });
   response.cookies.set(oauthCookieName(provider), "", { ...cookieOptions, maxAge: 0 });

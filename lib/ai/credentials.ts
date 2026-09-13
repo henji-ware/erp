@@ -18,6 +18,7 @@ import { AI_PROVIDERS, isAIProviderId } from "./providers";
 import type { AIAuthType, AIProviderId } from "./types";
 import { canStoreSecrets, decryptSecret, encryptSecret, secretHint } from "./crypto";
 import { decodeOAuthCredential, encodeOAuthCredential, refreshGoogleCredential, type OAuthCredential } from "./oauth";
+import { OPENAI_CODEX_BASE_URL, refreshOpenAICredential } from "./openai-device-oauth";
 
 /** O que pode ser mostrado na tela. Note que NÃO existe campo com a chave. */
 export interface CredentialView {
@@ -81,7 +82,7 @@ export async function saveOAuthCredential(userId: number, credential: OAuthCrede
   const data = {
     keyCipher: encryptSecret(encodeOAuthCredential(credential)),
     keyHint: secretHint(credential.accessToken),
-    baseUrl: AI_PROVIDERS[provider].defaultBaseUrl || null,
+    baseUrl: provider === "openai" ? OPENAI_CODEX_BASE_URL : AI_PROVIDERS[provider].defaultBaseUrl || null,
   };
   await prisma.aICredential.upsert({
     where: { userId_provider: { userId, provider } },
@@ -94,6 +95,7 @@ export interface ProviderAuth {
   baseUrl?: string;
   authType?: AIAuthType;
   quotaProject?: string;
+  accountId?: string;
   agentUserId?: number;
 }
 
@@ -132,8 +134,10 @@ export async function resolveProviderAuth(userId: number, provider: AIProviderId
   let credential = plaintext ? decodeOAuthCredential(plaintext) : null;
   if (!credential) return { apiKey: plaintext || envApiKey(provider), baseUrl: draftUrl?.trim() || row?.baseUrl || undefined, authType: "api-key" };
   if (credential.provider !== provider) throw new Error("Credencial inválida. Reconecte sua conta.");
-  if (credential.provider === "gemini" && (credential.expiresAt || 0) <= Date.now() + 60_000) {
-    credential = await refreshGoogleCredential(credential);
+  if ((credential.provider === "gemini" || credential.provider === "openai") && (credential.expiresAt || 0) <= Date.now() + 60_000) {
+    credential = credential.provider === "gemini"
+      ? await refreshGoogleCredential(credential)
+      : await refreshOpenAICredential(credential);
     // Compare-and-swap: refresh nunca recria uma conexão removida nem sobrescreve uma chave nova.
     const updated = await prisma.aICredential.updateMany({
       where: { userId, provider, keyCipher: row!.keyCipher },
@@ -141,7 +145,13 @@ export async function resolveProviderAuth(userId: number, provider: AIProviderId
     });
     if (!updated.count) throw new Error("A conexão mudou durante a renovação. Tente novamente.");
   }
-  return { apiKey: credential.accessToken, baseUrl: AI_PROVIDERS[provider].defaultBaseUrl, authType: "oauth", quotaProject: credential.quotaProject };
+  return {
+    apiKey: credential.accessToken,
+    baseUrl: credential.provider === "openai" ? OPENAI_CODEX_BASE_URL : AI_PROVIDERS[provider].defaultBaseUrl,
+    authType: "oauth",
+    quotaProject: credential.quotaProject,
+    accountId: credential.accountId,
+  };
 }
 
 /** Guarda (ou substitui) a chave de um provedor. Devolve só a dica. */
