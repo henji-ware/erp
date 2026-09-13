@@ -39,7 +39,7 @@ export async function saveApiKey(
     return {
       ok: false,
       error:
-        "O servidor não tem segredo de criptografia configurado (AI_ENCRYPTION_KEY). Sem ele a chave só pode ser guardada em claro, o que não fazemos.",
+        "O servidor não tem segredo de criptografia configurado (SESSION_SECRET ou AI_ENCRYPTION_KEY). Sem ele a chave só pode ser guardada em claro, o que não fazemos.",
     };
   }
 

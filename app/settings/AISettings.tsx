@@ -15,6 +15,7 @@ export default function AISettings({
   canStore = true,
   isAdmin = false,
   oauthAvailable = { openrouter: false, gemini: false },
+  agentRuntimeAvailable = true,
   oauthProvider,
   oauthResult,
 }: {
@@ -25,11 +26,13 @@ export default function AISettings({
    * está salva, e nada além disso chega ao navegador.
    */
   savedKeys?: CredentialView[];
-  /** O servidor tem segredo de criptografia configurado? */
+  /** O servidor tem um segredo de sessão/criptografia para proteger credenciais? */
   canStore?: boolean;
   /** Só administrador mexe no .env do servidor; para os demais isso é ruído. */
   isAdmin?: boolean;
   oauthAvailable?: { openrouter: boolean; gemini: boolean };
+  /** Codex/Claude Code exigem um processo persistente; Vercel não oferece isso. */
+  agentRuntimeAvailable?: boolean;
   oauthProvider?: "openrouter" | "gemini";
   oauthResult?: string;
 }) {
@@ -158,6 +161,7 @@ export default function AISettings({
   };
 
   const connectAgent = async () => {
+    if (!agentRuntimeAvailable) return;
     setConnecting(true);
     setKeyError("");
     setAgentLogin(null);
@@ -172,7 +176,11 @@ export default function AISettings({
       if (!response.ok || !data.ok) throw new Error(data.error || "Não foi possível iniciar a conexão.");
       if (typeof data.verificationUrl === "string") window.open(data.verificationUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
-      setKeyError(error instanceof Error ? error.message : "Não foi possível iniciar a conexão.");
+      setAgentLogin({
+        available: false,
+        status: "failed",
+        error: error instanceof Error ? error.message : "Não foi possível iniciar a conexão.",
+      });
     } finally {
       setConnecting(false);
     }
@@ -194,7 +202,11 @@ export default function AISettings({
       if (!response.ok || !data.ok) throw new Error(data.error || "Não foi possível enviar o código.");
       setAgentCode("");
     } catch (error) {
-      setKeyError(error instanceof Error ? error.message : "Não foi possível enviar o código.");
+      setAgentLogin((current) => ({
+        available: current?.available ?? false,
+        status: "failed",
+        error: error instanceof Error ? error.message : "Não foi possível enviar o código.",
+      }));
     } finally {
       setConnecting(false);
     }
@@ -280,6 +292,7 @@ export default function AISettings({
     setSelectedProvider(id);
     setTestResult(null);
     setShowKey(false);
+    setKeyError("");
     setAgentLogin(null);
     setAgentCode("");
   };
@@ -408,16 +421,10 @@ export default function AISettings({
           antigo (localStorage) e virou mentira quando a chave passou a ser
           cifrada no banco — aviso de segurança errado é pior que nenhum. */}
       <Alert tone="neutral" size="sm">
-        Chaves e tokens são guardados <strong>cifrados no servidor</strong>, ligados à sua
-        conta do ERP. Os segredos salvos não voltam para o navegador.
-        Você pode conectar uma conta nos provedores compatíveis ou cadastrar uma chave manualmente.
-        {isAdmin && (
-          <>
-            {" "}
-            Se a empresa tiver uma chave única no <code className="font-mono">.env</code> do
-            servidor, ela é usada por quem não cadastrar a própria.
-          </>
-        )}
+        Cada pessoa configura sua própria credencial. Chaves e tokens são guardados
+        <strong> cifrados no servidor</strong> e ligados somente à sua conta do ERP; eles não
+        voltam para o navegador. Nenhuma chave geral da OpenAI ou Anthropic precisa ser
+        configurada no servidor.
       </Alert>
 
       {/* Grade de provedores */}
@@ -528,15 +535,26 @@ export default function AISettings({
           {supportsAgentLogin ? (
             <>
               <p className="text-xs text-slate-600">
-                {selectedProvider === "openai"
+                {!agentRuntimeAvailable
+                  ? "Esta aplicação está em um ambiente serverless. A conexão de conta por CLI precisa rodar no mesmo computador do ERP e permanecer ativa entre as requisições."
+                  : selectedProvider === "openai"
                   ? "Entre com sua conta ChatGPT pelo navegador. O ERP usa o Codex App Server e um código de dispositivo, portanto funciona também quando o sistema está em uma VPS e não depende de callback em localhost."
                   : "Use a conta já autorizada pelo Claude Code. O executável Claude Code precisa estar instalado no mesmo servidor do ERP; o fluxo abaixo encaminha a autorização do navegador sem expor os tokens ao navegador do ERP."}
               </p>
+              {!agentRuntimeAvailable && (
+                <Alert tone="neutral" size="sm">
+                  No Vercel, use uma chave de API abaixo. Para conectar a assinatura do ChatGPT ou do Claude Code, execute o ERP localmente ou em uma VPS com o respectivo CLI instalado.
+                </Alert>
+              )}
               <div className="flex flex-wrap items-center gap-2">
                 <button type="button" onClick={connectAgent}
-                  disabled={connecting || keyBusy || !canStore || agentLogin?.status === "waiting"}
+                  disabled={!agentRuntimeAvailable || connecting || keyBusy || !canStore || agentLogin?.status === "waiting"}
                   className="btn-primary btn-sm">
-                  {connecting ? "Iniciando…" : `${savedKey?.authType === (selectedProvider === "openai" ? "codex" : "claude-code") ? "Reconectar" : "Conectar"} com ${selectedProvider === "openai" ? "ChatGPT" : "Claude Code"}`}
+                  {!agentRuntimeAvailable
+                    ? "Indisponível no Vercel"
+                    : connecting
+                      ? "Iniciando…"
+                      : `${savedKey?.authType === (selectedProvider === "openai" ? "codex" : "claude-code") ? "Reconectar" : "Conectar"} com ${selectedProvider === "openai" ? "ChatGPT" : "Claude Code"}`}
                 </button>
                 {savedKey && <p className="text-xs text-slate-500">Uma nova autorização substitui a credencial atual deste provedor.</p>}
               </div>
@@ -562,7 +580,7 @@ export default function AISettings({
               )}
               {agentLogin?.status === "connected" && <Alert tone="success" size="sm">Conta conectada. Agora carregue os modelos e escolha qual usar.</Alert>}
               {agentLogin?.status === "failed" && agentLogin.error && <p className="text-xs text-red-700">{agentLogin.error}</p>}
-              {!canStore && <p className="text-xs text-amber-700">O administrador precisa configurar AI_ENCRYPTION_KEY antes de conectar contas.</p>}
+              {!canStore && <p className="text-xs text-amber-700">O servidor precisa ter SESSION_SECRET ou AI_ENCRYPTION_KEY para proteger credenciais individuais.</p>}
             </>
           ) : supportsOAuth ? (
             <>
@@ -585,7 +603,7 @@ export default function AISettings({
                     : "O administrador precisa habilitar esta conexão no servidor."}
                 </p>
               )}
-              {savedKey?.authType === "oauth" && <p className="text-xs text-slate-500">Remover desconecta apenas do ERP. Revogue também a autorização na conta Google ou a chave delegada no OpenRouter. Sem credencial pessoal, a chave da empresa poderá ser usada.</p>}
+              {savedKey?.authType === "oauth" && <p className="text-xs text-slate-500">Remover desconecta apenas do ERP. Revogue também a autorização na conta Google ou a chave delegada no OpenRouter.</p>}
             </>
           ) : (
             <p className="text-xs text-slate-600">
@@ -682,9 +700,9 @@ export default function AISettings({
               {keyError && <p className="mt-2 text-xs text-red-600">{keyError}</p>}
               {!canStore && (
                 <p className="mt-2 text-xs text-amber-600">
-                  O servidor não tem <code className="font-mono">AI_ENCRYPTION_KEY</code>{" "}
-                  configurada. Sem ela a chave só poderia ser guardada em claro,
-                  então o cadastro fica bloqueado.
+                  O servidor não tem <code className="font-mono">SESSION_SECRET</code> nem{" "}
+                  <code className="font-mono">AI_ENCRYPTION_KEY</code>. Sem um segredo para
+                  cifrar, o cadastro fica bloqueado.
                 </p>
               )}
               {currentKey && !/^(sk-|gsk_|xai-|csk-|AIza|co-|or-|[A-Za-z0-9_-]{24,})/.test(currentKey.trim()) && (
@@ -694,9 +712,7 @@ export default function AISettings({
                 </p>
               )}
               <p className="mt-1 text-xs text-slate-500">
-                {isAdmin
-                  ? "Já definida no .env do servidor? Deixe em branco e ela será usada."
-                  : "Deixe em branco se a empresa já fornece uma chave configurada no servidor."}
+                Esta chave é individual e fica disponível somente para a sua conta do ERP.
               </p>
             </div>
           )}

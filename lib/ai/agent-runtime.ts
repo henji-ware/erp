@@ -5,6 +5,7 @@ import path from "node:path";
 import readline from "node:readline";
 import type { AICompletionResult, AIMessage, AIProviderId } from "./types";
 import { deleteCredential, saveAgentCredential } from "./credentials";
+import { agentRuntimeCapability, requireAgentRuntime } from "./agent-capability";
 
 type AgentProvider = "openai" | "anthropic";
 type LoginStatus = "starting" | "waiting" | "connected" | "failed";
@@ -188,6 +189,7 @@ class CodexRpc {
 }
 
 async function codexClient(userId: number) {
+  requireAgentRuntime();
   const rpc = new CodexRpc(await userDir(userId, "openai"));
   await rpc.start();
   return rpc;
@@ -259,6 +261,7 @@ async function runCommand(binary: string, args: string[], opts: { cwd: string; e
 }
 
 async function claudeIsAuthenticated(userId: number): Promise<boolean> {
+  requireAgentRuntime();
   const dir = await userDir(userId, "anthropic");
   const result = await runCommand(command("anthropic"), ["auth", "status", "--json"], {
     cwd: dir,
@@ -268,6 +271,7 @@ async function claudeIsAuthenticated(userId: number): Promise<boolean> {
 }
 
 async function startClaudeLogin(userId: number): Promise<AgentLoginView> {
+  requireAgentRuntime();
   const key = stateKey(userId, "anthropic");
   const existing = logins.get(key);
   if (existing && Date.now() - existing.createdAt < LOGIN_TTL_MS && existing.status !== "failed") return publicState(existing);
@@ -315,10 +319,12 @@ async function startClaudeLogin(userId: number): Promise<AgentLoginView> {
 }
 
 export async function startAgentLogin(userId: number, provider: AgentProvider): Promise<AgentLoginView> {
+  requireAgentRuntime();
   return provider === "openai" ? startCodexLogin(userId) : startClaudeLogin(userId);
 }
 
 export function submitAgentLogin(userId: number, provider: AgentProvider, value: string): AgentLoginView {
+  requireAgentRuntime();
   const state = logins.get(stateKey(userId, provider));
   if (!state || state.status !== "waiting") throw new Error("Não há autorização aguardando confirmação.");
   if (provider !== "anthropic" || !state.process?.stdin.writable) throw new Error("Este login não aceita entrada manual.");
@@ -329,6 +335,10 @@ export function submitAgentLogin(userId: number, provider: AgentProvider, value:
 }
 
 export async function readAgentLogin(userId: number, provider: AgentProvider): Promise<AgentLoginView> {
+  const capability = agentRuntimeCapability();
+  if (!capability.available) {
+    return { provider, available: false, status: "failed", error: capability.reason };
+  }
   const state = logins.get(stateKey(userId, provider));
   if (state) return publicState(state);
   try {
@@ -353,6 +363,10 @@ export async function disconnectAgent(userId: number, provider: AgentProvider): 
   const key = stateKey(userId, provider);
   logins.get(key)?.close?.();
   logins.delete(key);
+  if (!agentRuntimeCapability().available) {
+    await deleteCredential(userId, provider);
+    return;
+  }
   const dir = await userDir(userId, provider);
   try {
     if (provider === "openai") {
@@ -370,6 +384,7 @@ export async function disconnectAgent(userId: number, provider: AgentProvider): 
 }
 
 export async function listAgentModels(userId: number, provider: AgentProvider) {
+  requireAgentRuntime();
   if (provider === "openai") {
     const rpc = await codexClient(userId);
     try {
@@ -400,6 +415,7 @@ export async function runAgentCompletion(options: {
   systemPrompt?: string;
   signal?: AbortSignal;
 }): Promise<AICompletionResult> {
+  requireAgentRuntime();
   const started = Date.now();
   if (options.provider === "openai") {
     const rpc = await codexClient(options.userId);

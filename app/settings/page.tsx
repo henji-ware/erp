@@ -23,6 +23,7 @@ import SettingsTabs from "./SettingsTabs";
 import { getServerAISettings } from "@/lib/ai/server-settings";
 import { listCredentials, canStoreSecrets } from "@/lib/ai/credentials";
 import { isOAuthProvider, oauthAvailability } from "@/lib/ai/oauth";
+import { agentRuntimeCapability } from "@/lib/ai/agent-capability";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                   canStore={canStoreSecrets()}
                   isAdmin={admin}
                   oauthAvailable={oauthAvailability()}
+                  agentRuntimeAvailable={agentRuntimeCapability().available}
                   oauthProvider={oauthResult ? oauthProvider : undefined}
                   oauthResult={oauthResult}
                 />

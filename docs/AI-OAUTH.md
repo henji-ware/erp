@@ -4,6 +4,11 @@ Em **Configurações → IA**, conecte uma conta compatível,
 carregue modelos e escolha o provedor principal. OAuth autoriza o uso de IA;
 não é login no ERP e não muda as permissões do usuário.
 
+As credenciais são individuais: cada pessoa cadastra a própria chave ou OAuth,
+e o ERP sempre associa o segredo ao `userId` da sessão. Não é necessário
+configurar uma chave OpenAI ou Anthropic compartilhada no servidor. As chaves
+de ambiente continuam opcionais apenas como fallback administrativo.
+
 ## Disponibilidade nesta versão
 
 | Provedor | Autenticação implementada no ERP |
@@ -26,6 +31,11 @@ endereço e o código de dispositivo; os tokens ficam no servidor.
 Esta opção funciona tanto com o ERP executado localmente quanto em um servidor
 Node persistente, como uma VPS. Uma implantação serverless comum não mantém o
 processo de login nem o diretório de credenciais.
+
+No Vercel, o ERP detecta essa limitação e desabilita os botões de Codex e
+Claude Code. Use uma chave de API, o OAuth do OpenRouter ou execute o ERP num
+ambiente persistente. Definir somente `AI_AGENT_DATA_DIR` no Vercel não resolve:
+o CLI também precisa continuar em execução para receber a conclusão do login.
 
 1. Instale `codex` e, se quiser Claude, `claude` para o usuário do serviço.
 2. Defina `AI_AGENT_DATA_DIR` para um volume persistente e privado.

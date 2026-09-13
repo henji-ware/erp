@@ -7,7 +7,7 @@ import { encryptSecret, decryptSecret } from "../lib/ai/crypto.ts";
 const unexpected = async (..._args: any[]): Promise<any> => { throw new Error("Consulta não simulada"); };
 const prisma = { aICredential: { upsert: unexpected, findMany: unexpected, findUnique: unexpected, updateMany: unexpected, deleteMany: unexpected } };
 (globalThis as any).prisma = prisma;
-const { resolveProviderAuth, saveOAuthCredential, saveAgentCredential, listCredentials, deleteCredential } = await import("../lib/ai/credentials.ts");
+const { resolveProviderAuth, saveCredential, saveOAuthCredential, saveAgentCredential, listCredentials, deleteCredential } = await import("../lib/ai/credentials.ts");
 
 const originalEnv = { ...process.env };
 beforeEach(() => {
@@ -42,6 +42,24 @@ test("OAuth é resolvido por usuário e ignora URL do navegador", async (t) => {
   assert.equal(value.apiKey, "delegated-token");
   assert.equal(value.authType, "oauth");
   assert.equal(value.baseUrl, "https://openrouter.ai/api/v1");
+});
+
+test("chave de API é salva e consultada somente para o usuário da sessão", async (t) => {
+  let row: any;
+  t.mock.method(prisma.aICredential, "upsert", async (query: any) => {
+    assert.deepEqual(query.where.userId_provider, { userId: 23, provider: "openai" });
+    row = query.create;
+    return row;
+  });
+  t.mock.method(prisma.aICredential, "findUnique", async (query: any) => {
+    assert.deepEqual(query.where.userId_provider, { userId: 23, provider: "openai" });
+    return row;
+  });
+
+  await saveCredential(23, "openai", "personal-openai-key");
+  assert.equal(row.userId, 23);
+  assert.ok(!row.keyCipher.includes("personal-openai-key"));
+  assert.equal((await resolveProviderAuth(23, "openai")).apiKey, "personal-openai-key");
 });
 
 test("conexão Codex usa marcador cifrado e nunca vira chave de API", async (t) => {
