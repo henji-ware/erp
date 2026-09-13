@@ -54,10 +54,13 @@ APP_URL="https://erp.example.com"
 AI_ENCRYPTION_KEY="gere-um-segredo-longo-e-aleatorio"
 ```
 
-`APP_URL` deve ser a origem exata acessada pelo navegador, sem caminho, query
+Para Google e OpenRouter, `APP_URL` deve ser a origem exata acessada pelo navegador, sem caminho, query
 ou fragmento. HTTPS é obrigatório em produção. Em desenvolvimento é aceito
-`http://localhost:3000` ou outra porta configurada. Sem origem válida ou segredo
-de criptografia, o botão fica desabilitado. Não use `NEXT_PUBLIC_` para segredos.
+`http://localhost:3000` ou outra porta configurada. OpenAI usa código de dispositivo
+e não depende de `APP_URL`. Todos exigem um segredo de criptografia (também pode
+ser o `SESSION_SECRET` já existente), sem compartilhar contas ou chaves de IA
+entre usuários. Sem esse segredo, o botão fica desabilitado com uma explicação.
+Não use `NEXT_PUBLIC_` para segredos.
 Não altere uma chave mestre existente: isso invalida as credenciais cifradas.
 
 ## OpenRouter

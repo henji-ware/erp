@@ -49,7 +49,8 @@ export function oauthAvailability(): Record<OAuthProvider, boolean> {
   try { oauthOrigin(); base = canStoreSecrets(); } catch { /* origem ausente */ }
   let google = false;
   try { googleConfig(); google = base; } catch { /* configuração opcional */ }
-  return { openai: base, openrouter: base, gemini: google };
+  // O fluxo por dispositivo não possui callback para APP_URL.
+  return { openai: canStoreSecrets(), openrouter: base, gemini: google };
 }
 
 export function oauthCookieName(provider: OAuthProvider): string {

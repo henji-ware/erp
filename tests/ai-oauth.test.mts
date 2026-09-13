@@ -22,6 +22,15 @@ function pending(provider: "openrouter" | "gemini" = "openrouter") {
   return { flow, url, state, pending: validateOAuth(flow.cookie, provider, 42, "session-test", state) };
 }
 
+test("OpenAI device auth remains available without a callback origin in production", () => {
+  process.env.NODE_ENV = "production";
+  delete process.env.APP_URL;
+  assert.deepEqual(oauthAvailability(), { openai: true, openrouter: false, gemini: false });
+  delete process.env.AI_ENCRYPTION_KEY;
+  delete process.env.SESSION_SECRET;
+  assert.equal(oauthAvailability().openai, false);
+});
+
 test("PKCE S256 corresponde ao vetor do RFC 7636", () => {
   assert.equal(pkceChallenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"), "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
 });

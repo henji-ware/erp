@@ -114,10 +114,15 @@ export default function AISettings({
 
   useEffect(() => {
     if (!deviceLogin || deviceLogin.status !== "waiting" || selectedProvider !== "openai") return;
+    let inFlight = false;
+    let cancelled = false;
     const timer = window.setInterval(async () => {
+      if (inFlight || cancelled) return;
+      inFlight = true;
       try {
         const response = await fetch("/api/ai/openai-device", { cache: "no-store" });
         const data = await response.json();
+        if (cancelled) return;
         if (!response.ok) throw new Error(data.error || "Não foi possível acompanhar a conexão.");
         setDeviceLogin((current) => ({ ...current, ...data }));
         if (data.status === "connected") {
@@ -133,11 +138,14 @@ export default function AISettings({
           window.clearInterval(timer);
         }
       } catch (error) {
+        if (cancelled) return;
         setDeviceLogin((current) => current ? { ...current, status: "failed", error: error instanceof Error ? error.message : "Falha ao acompanhar a conexão." } : current);
         window.clearInterval(timer);
+      } finally {
+        inFlight = false;
       }
     }, Math.max(3000, (deviceLogin.intervalSeconds || 5) * 1000));
-    return () => window.clearInterval(timer);
+    return () => { cancelled = true; window.clearInterval(timer); };
   }, [deviceLogin?.status, deviceLogin?.intervalSeconds, selectedProvider]);
 
   const connectOAuth = async () => {
@@ -683,6 +691,7 @@ export default function AISettings({
                   {deviceLogin?.status === "connected" && selectedProvider === "openai" && <Alert tone="success" size="sm">Conta conectada. Feche esta janela e carregue os modelos.</Alert>}
                   {deviceLogin?.status === "failed" && selectedProvider === "openai" && deviceLogin.error && <Alert tone="danger" size="sm">{deviceLogin.error}</Alert>}
                   {!canStore && <Alert tone="neutral" size="sm">O armazenamento seguro de credenciais precisa ser habilitado pelo administrador.</Alert>}
+                  {canStore && !oauthAvailable[selectedProvider as "openai" | "gemini" | "openrouter"] && <Alert tone="neutral" size="sm">O login por conta está indisponível nesta instalação. Você pode voltar e conectar com sua chave de API.</Alert>}
                 </div>
               )}
 
@@ -760,23 +769,22 @@ export default function AISettings({
 }
 
 function ProviderLogo({ provider }: { provider: AIProviderId }) {
-  const styles: Record<AIProviderId, { bg: string; text: string; mark: string }> = {
-    openai: { bg: "bg-slate-900", text: "text-white", mark: "✣" },
-    anthropic: { bg: "bg-[#D97757]", text: "text-white", mark: "A" },
-    gemini: { bg: "bg-gradient-to-br from-blue-500 via-violet-500 to-fuchsia-500", text: "text-white", mark: "✦" },
-    deepseek: { bg: "bg-blue-600", text: "text-white", mark: "D" },
-    groq: { bg: "bg-orange-500", text: "text-white", mark: "G" },
-    mistral: { bg: "bg-amber-500", text: "text-slate-950", mark: "M" },
-    xai: { bg: "bg-black", text: "text-white", mark: "X" },
-    cohere: { bg: "bg-emerald-600", text: "text-white", mark: "C" },
-    openrouter: { bg: "bg-violet-600", text: "text-white", mark: "↗" },
-    ollama: { bg: "bg-slate-800", text: "text-white", mark: "O" },
-    custom: { bg: "bg-pink-600", text: "text-white", mark: "<>" },
+  const logos: Record<AIProviderId, string | null> = {
+    openai: "openai", anthropic: "claude-color", gemini: "gemini-color",
+    deepseek: "deepseek-color", groq: "groq", mistral: "mistral-color",
+    xai: "grok", cohere: "cohere-color", openrouter: "openrouter",
+    ollama: "ollama", custom: null,
   };
-  const style = styles[provider];
+  const logo = logos[provider];
   return (
-    <span aria-hidden="true" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-black shadow-sm ${style.bg} ${style.text}`}>
-      {style.mark}
+    <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ffffff] p-2 shadow-sm ring-1 ring-black/10">
+      {logo ? (
+        // Local SVG brand assets; no third-party image requests.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={`/ai-logos/${logo}.svg`} alt="" width={28} height={28} className="h-7 w-7 object-contain" />
+      ) : (
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#475569" strokeWidth="1.8"><path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18" /></svg>
+      )}
     </span>
   );
 }

@@ -8,7 +8,7 @@ import {
   pollOpenAIDeviceOAuth,
   startOpenAIDeviceOAuth,
 } from "@/lib/ai/openai-device-oauth";
-import { oauthOrigin } from "@/lib/ai/oauth";
+import { isDeviceRequestOriginAllowed } from "@/lib/ai/device-origin";
 import { SESSION_COOKIE } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -19,7 +19,7 @@ const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === "produc
 
 export async function POST(req: NextRequest) {
   try {
-    if (req.headers.get("origin") !== oauthOrigin()) {
+    if (!isDeviceRequestOriginAllowed(req.headers, req.url)) {
       return NextResponse.json({ ok: false, error: "Origem não autorizada." }, { status: 403, headers: privateHeaders });
     }
     const auth = await requireUser();
