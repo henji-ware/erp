@@ -80,7 +80,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         tabs={[
           {
             id: "ia",
-            label: "IA",
+            label: "Inteligência Artificial",
             icon: "ai",
             hint: "Escolha o provedor e o modelo usados pelo DeskHelper AI e pelo assistente de propostas.",
             content: (
